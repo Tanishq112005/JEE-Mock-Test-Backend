@@ -1,17 +1,13 @@
 import jwt from "jsonwebtoken"
 import { jwtConfig } from "../config/jwt"
+import { jwtPayload } from "../types/jwt.types";
 
 
 
-interface payload {
-    id : string
-    name : string ,
-    email : string 
-}
 
 
 // give the json web token 
-function generateAccessToken(payload : payload){
+function generateAccessToken(payload : jwtPayload){
     const options: jwt.SignOptions = {
         expiresIn: jwtConfig.expiry_time,
         algorithm: jwtConfig.algorithm

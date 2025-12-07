@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+ 
+  redis:
+    image: redis:alpine       
+    container_name: redis_db
+    restart: always
+    ports:
+      - "8000:6379"            
+    command: redis-server --save 20 1 --loglevel warning
+    volumes:
+      - ./redis-data:/data
+
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: redis_gui
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    ports:
+      - "8001:8081"            
+    depends_on:
+      - redis 
+
+  rabbitmq:
+    image: rabbitmq:4-management
+    container_name: rabbitmq
+    restart: always
+    ports:
+      - "5672:5672"    
+      - "15672:15672"   
+    volumes:
+      - ./rabbitmq-data:/var/lib/rabbitmq

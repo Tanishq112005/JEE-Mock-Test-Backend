@@ -4,18 +4,30 @@
   "description": "JEE Mock Test Platform",
   "license": "ISC",
   "author": "",
-  "type": "commonjs",
+  "type": "module",
   "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "npx ts-node src/server.ts"
   },
   "dependencies": {
+    "@prisma/adapter-pg": "^7.1.0",
+    "@prisma/client": "^7.1.0",
+    "@prisma/extension-read-replicas": "^0.5.0",
+    "@types/amqplib": "^0.10.8",
     "@types/dotenv": "^6.1.1",
+    "@types/ioredis": "^4.28.10",
     "@types/jsonwebtoken": "^9.0.10",
+    "@types/nodemailer": "^7.0.4",
+    "amqplib": "^0.10.9",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
-    "jsonwebtoken": "^9.0.2"
+    "format": "^0.2.2",
+    "googleapis": "^167.0.0",
+    "ioredis": "^5.8.2",
+    "jsonwebtoken": "^9.0.2",
+    "nodemailer": "^7.0.11",
+    "prisma": "^7.0.1"
   },
   "devDependencies": {
     "@types/express": "^5.0.5",
