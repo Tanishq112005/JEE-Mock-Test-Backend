@@ -1,42 +1,42 @@
-import { RABBITMQ_CONNECTION } from "../../config/env";
 import { email_data } from "../../types/email.worker.types";
 import ApiError from "../../utils/ApiError";
-
-
+import { rabbitMQClient } from "../connection/rabbitmq-connection"; 
 
 export class EmailProducer {
-  private exchange = "main_exchange";
+  private exchange = "main_exchange"; 
+  private routingKey = "email.send";  
   private rabbitMQConnection: any;
 
   constructor(rabbitMQConnection: any) {
     this.rabbitMQConnection = rabbitMQConnection;
   }
 
-  async sendOtp(data:email_data) {
+  async sendOtp(data: email_data) {
     try {
       const channel = await this.rabbitMQConnection.getChannel();
 
-      
+     
       await channel.assertExchange(this.exchange, "direct", { durable: true });
 
-      
-      channel.publish(
+     
+      const sent = channel.publish(
         this.exchange,
-        "email.send",
-        Buffer.from(JSON.stringify(data))
+        this.routingKey,
+        Buffer.from(JSON.stringify(data)),
+        { persistent: true } 
       );
 
-      console.log(`📩 OTP event sent for ${data.email_to}`);
+      if (sent) {
+        console.log(`OTP sent to Exchange '${this.exchange}' with key '${this.routingKey}'`);
+      } else {
+        console.error("Message was rejected by the Exchange (Buffer full?)");
+      }
+
     } catch (err: any) {
+      console.error("Producer Error:", err);
       throw new ApiError("Error sending OTP message", err);
     }
   }
 }
 
-
-
-export const emailProducer = new EmailProducer(RABBITMQ_CONNECTION);
-
-
-
-
+export const emailProducer = new EmailProducer(rabbitMQClient);

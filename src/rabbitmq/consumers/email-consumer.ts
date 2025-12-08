@@ -1,73 +1,46 @@
 import { emailSender } from "../../worker/email";
-import { RabbitMQConnection } from "../connection/rabbitmq-connection";
 
 export class EmailConsumer {
-  private rabbitMQ: RabbitMQConnection;
+  private rabbitMQ: any;
 
-  constructor(rabbitMQ: RabbitMQConnection) {
+  constructor(rabbitMQ: any) {
     this.rabbitMQ = rabbitMQ;
   }
 
   async start() {
     try {
       const channel = await this.rabbitMQ.getChannel();
+      const exchangeName = "main_exchange";
+      await channel.assertExchange(exchangeName, "direct", { durable: true });
 
-      
-      await channel.assertQueue("email_queue", { durable: true });
-
-      
+      const queueName = "email_queue";
+      await channel.assertQueue(queueName, { durable: true });
       await channel.assertQueue("email_queue_dead", { durable: true });
+
+    
+      const routingKey = "email.send";
+      await channel.bindQueue(queueName, exchangeName, routingKey);
 
       console.log("📩 Email Consumer started... Waiting for messages...");
 
-      channel.consume("email_queue", async (msg: any) => {
+      channel.consume(queueName, async (msg: any) => {
         if (!msg) return;
 
         try {
           let data = JSON.parse(msg.content.toString());
-
-        
           data.retryCount = data.retryCount || 0;
 
-          console.log(`📨 Email job received (retry #${data.retryCount}):`, data);
+          console.log(`📨 Email job received via Exchange (retry #${data.retryCount}):`, data);
 
-          
           await emailSender.send(data);
 
-          
           channel.ack(msg);
           console.log("✅ Email sent and acknowledged");
 
         } catch (err) {
-          let data = JSON.parse(msg.content.toString());
-          data.retryCount = data.retryCount || 0;
-
-          console.error("❌ Email processing failed:", err);
-
-          if (data.retryCount < 3) {
-            
-            data.retryCount++;
-
-            console.log(`🔁 Retrying email... Attempt #${data.retryCount}`);
-
-            channel.sendToQueue(
-              "email_queue",
-              Buffer.from(JSON.stringify(data)),
-              { persistent: true }
-            );
-          } else {
-            console.log("💀 Moving email to dead letter queue");
-
-            
-            channel.sendToQueue(
-              "email_queue_dead",
-              msg.content,
-              { persistent: true }
-            );
-          }
-
-        
-          channel.ack(msg);
+       
+          console.error("❌ Processing failed", err);
+          channel.nack(msg, false, false);
         }
       });
 
@@ -77,5 +50,3 @@ export class EmailConsumer {
     }
   }
 }
-
-

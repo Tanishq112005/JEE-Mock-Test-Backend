@@ -1,35 +1,42 @@
-import amqp from "amqplib";
+
+import * as client from "amqplib"; 
+import { Connection, Channel } from "amqplib";
+import { RABBITMQ_CONNECTION } from "../../config/env";
 import ApiError from "../../utils/ApiError";
-
-
-export class RabbitMQConnection {
+class RabbitMQClient {
   private connection: any = null;
   private channel: any = null;
-  private url: string;
+  private connected: boolean = false;
 
-  constructor(url: string = "amqp://localhost") {
-    this.url = url;
-  }
+  async connect() {
+    if (this.connected && this.channel) return;
 
-  private async connect(): Promise<void> {
-    if (!this.connection) {
-      try {
-        this.connection = await amqp.connect(this.url);
-        console.log("🐇 Connected to RabbitMQ");
-      } catch (err: any) {
-        throw new ApiError("Failed to connect to RabbitMQ", err);
-      }
+    try {
+      console.log("Connecting to RabbitMQ...");
+     
+      const connection_string : any = RABBITMQ_CONNECTION ; 
+      this.connection = await client.connect(connection_string);
+      
+    
+      this.channel = await this.connection.createChannel();
+      
+      this.connected = true;
+      console.log("RabbitMQ Connected Successfully");
+      
+    } catch (error : any) {
+      console.error("RabbitMQ Connection Failed:", error);
+      throw new ApiError("Failed to connect to RabbitMQ", error);
     }
   }
 
-  async getChannel(): Promise<any> {
-    if (this.channel) return this.channel;
-
-    await this.connect();
-    this.channel = await this.connection!.createChannel();
-    return this.channel;
+  
+  async getChannel(): Promise<Channel> {
+    if (!this.channel) {
+      await this.connect();
+    }
+    return this.channel as Channel;
   }
 }
 
 
-export const connection = new RabbitMQConnection() ; 
+export const rabbitMQClient = new RabbitMQClient();

@@ -1,37 +1,26 @@
-import { PrismaClient } from "../prisma/generated/prisma/client";
-import { readReplicas } from '@prisma/extension-read-replicas';
-import { PrismaPg } from '@prisma/adapter-pg';
-import { Pool } from 'pg'; 
-import { DATABASE_URL, DATABASE_REPICA_URL } from "../config/env"; 
+import { PrismaPg } from '@prisma/adapter-pg'
+import { PrismaClient } from '../prisma/generated/prisma/client'
+import { DATABASE_URL } from "./env";
 
-const pool = new Pool({ connectionString: DATABASE_URL });
-const adapter = new PrismaPg(pool);
 
-const createExtendedClient = () => {
-  
-  return new PrismaClient({ adapter }).$extends( 
-      readReplicas({         
-       url: DATABASE_URL as string,
-         replicas: [ DATABASE_REPICA_URL as string ],
-      } as any)
-  ) ;
-};
-
-type ExtendedPrismaClient = ReturnType<typeof createExtendedClient>;
 
 class Database {
-   private db: ExtendedPrismaClient | null; 
+  private db : PrismaClient | null = null ; 
+  constructor(){
+     this.db = null ; 
+  }
 
-   constructor() {
-      this.db = null;
-   }
+   getClinet(){
+    if(this.db != null){
+      return this.db ; 
+    }
+    const connectionString = DATABASE_URL
+    const adapter = new PrismaPg({ connectionString })
+    this.db = new PrismaClient({ adapter })
 
-   public getClient(): ExtendedPrismaClient {
-      if (this.db) return this.db;
-
-      this.db = createExtendedClient();
-      return this.db;
-   }
+    return this.db ; 
+  }
 }
 
-export const database = new Database().getClient();
+
+export const database : any = new Database().getClinet() ; 

@@ -1,5 +1,5 @@
 import { database } from "../config/database";
-import { PrismaClient } from "../prisma/generated/prisma/client";
+
 import {
   userDetails,
   userSignInputDetails
@@ -7,9 +7,9 @@ import {
 import ApiError from "../utils/ApiError";
 
 class User {
-  private db: PrismaClient;
-  constructor(db: any) {
-    this.db = db;
+  private db: any ;
+  constructor(database : any) {
+    this.db = database;
   }
 
   // checking wheather the user is already present or not in the db
@@ -22,11 +22,10 @@ class User {
         },
       });
 
-      if (!allInformation) {
-        throw new ApiError("User is not found in the db");
-      }
+      
       return allInformation;
     } catch (err: any) {
+      console.log(err) ; 
       throw new ApiError(
         "Error is comming in checking the user , present in the db or not",
         err
@@ -93,6 +92,4 @@ class User {
    
 }
 
-export const user = new User({
-  db: database,
-});
+export const user = new User(database);

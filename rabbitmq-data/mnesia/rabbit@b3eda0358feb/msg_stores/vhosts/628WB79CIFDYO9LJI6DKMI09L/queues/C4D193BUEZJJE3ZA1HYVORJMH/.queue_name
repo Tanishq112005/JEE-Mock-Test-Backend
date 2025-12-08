@@ -1,0 +1,3 @@
+VHOST: /
+QUEUE: email_queue_dead
+INDEX: v2

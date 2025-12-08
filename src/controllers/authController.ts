@@ -54,8 +54,17 @@ export class AuthController {
        }
        
         const checkingUserPresent = await user.checkingUserPresent(email) ;
+          if(checkingUserPresent && checkingUserPresent.is_verified){
+            return res.status(200).json(
+               new ApiResponse(
+                  "user is already exists" 
+               )
+            )
+         }
+         if(!checkingUserPresent){
         const creatingUser = await user.creatingUser(signinPayload) ; 
-        
+         }
+         
         const otp = random6digitnumber() ; 
         const redis_key = await this.getReddisKey(email) ; 
         const  otp_expire_time = Number(OTP_EXPIRE_TIME) || 300 ; 
@@ -102,8 +111,9 @@ export class AuthController {
         if(storedOtp == otp){
          await this.redis.del(key);
          await user.changingIsVerifiedStatus(email) ; 
-         const informationOfUser: userDetails = await user.checkingUserPresent(email) ; 
+         const informationOfUser: any = await user.checkingUserPresent(email) ; 
          
+       
          const payload: jwtPayload = {
             id: informationOfUser.id , 
             name: informationOfUser.name ,
