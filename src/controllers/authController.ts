@@ -182,8 +182,9 @@ export class AuthController {
    }
 
    async forgotPasswordChange(req : any , res : any){
-      const {userId ,  password} = req.body ; 
+      const {password} = req.body ; 
       try {
+         const userId = req.user ; 
          const hashedPassword : string = await hashPassword(password) ; 
          await user.updatePassword(userId , hashedPassword) ; 
          return res.status(200).json(
@@ -194,7 +195,7 @@ export class AuthController {
       }
       catch(err : any){
          return res.status(404).json(
-            new ApiError("Error in chaning the password")  
+            new ApiError("Error in chaning the password" , err )  
          )
       }
    }

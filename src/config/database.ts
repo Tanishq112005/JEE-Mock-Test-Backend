@@ -15,15 +15,9 @@ class Database {
       return this.instance;
     }
 
-    
     const pool = new Pool({ connectionString: DATABASE_URL })
-    
-   
     const adapter = new PrismaPg(pool)
-    
-
     this.instance = new PrismaClient({ adapter })
-
     return this.instance;
   }
 }
