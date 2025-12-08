@@ -13,6 +13,7 @@ export const {
     EMAIL_ID,
     GOOGLE_AUTH_PASSWORD,
     RABBITMQ_CONNECTION,
-    OTP_EXPIRE_TIME
+    OTP_EXPIRE_TIME,
+    SALT_ROUND
 } = process.env ; 
 

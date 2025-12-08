@@ -11,6 +11,7 @@ import ApiResponse from "../utils/ApiResponse";
 import { random6digitnumber } from "../utils/generateOtp";
 import { generateAccessToken} from "../utils/jwtToken";
 import { Redis } from "ioredis";
+import { comparePasswords, hashPassword } from "../utils/password";
 
 
 
@@ -47,10 +48,11 @@ export class AuthController {
        const {name , email , password} = req.body   ; 
 
       try {
+       const hashedPassword : string = await hashPassword(password) ;   
        const signinPayload: userSignInputDetails = {
          name: name , 
          email: email , 
-         password: password
+         password: hashedPassword
        }
        
         const checkingUserPresent = await user.checkingUserPresent(email) ;
@@ -62,6 +64,7 @@ export class AuthController {
             )
          }
          if(!checkingUserPresent){
+         
         const creatingUser = await user.creatingUser(signinPayload) ; 
          }
          
@@ -181,7 +184,8 @@ export class AuthController {
    async forgotPasswordChange(req : any , res : any){
       const {userId ,  password} = req.body ; 
       try {
-         await user.updatePassword(userId , password) ; 
+         const hashedPassword : string = await hashPassword(password) ; 
+         await user.updatePassword(userId , hashedPassword) ; 
          return res.status(200).json(
             new ApiResponse(
                "Password is changed successfully , you can login again"
@@ -200,7 +204,7 @@ export class AuthController {
    async verifyUser(req : any , res : any){
       const {email , password} = req.body ; 
       try {
-         const userdetails : userDetails | null = await user.userDetails(email , password) ; 
+         const userdetails : userDetails | null = await user.userDetails(email ) ; 
          if(!userdetails){
             return res.status(200).json(
                new ApiError(
@@ -209,6 +213,15 @@ export class AuthController {
             )
          }
          
+        const valid = comparePasswords(password , userdetails.password) ; 
+        if(!valid){
+         return res.status(200).json(
+            new ApiError(
+               "Invalid Password" 
+            )
+         )
+        }
+
         const userId : string = userdetails.id 
         
         const jwtPayload : jwtPayload = {

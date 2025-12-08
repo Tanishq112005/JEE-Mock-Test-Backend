@@ -4,6 +4,7 @@ import {
   userDetails,
   userSignInputDetails
 } from "../types/user.types";
+import { comparePasswords } from "../utils/password";
 
 
 type ExtendedPrismaClient = typeof database;
@@ -108,17 +109,17 @@ class User {
 
 
    // for finding the user in the table 
-   async userDetails(email : string , password : string){
+   async userDetails(email : string ){
     try {
       const userDetails = await this.db.user.findUnique(
         {
           where : {
-            email : email , 
-            password : password 
+            email : email 
           }
         }
       )
-
+      
+    
       return userDetails ; 
     }
     catch(err : any){
