@@ -10,10 +10,9 @@ export const {
     DATABASE_REPICA_URL,
     REDIS_HOST,
     REDIS_PORT,
-    OTP_EXPIRE_TIME,
     EMAIL_ID,
     GOOGLE_AUTH_PASSWORD,
     RABBITMQ_CONNECTION,
-    OTP_EXPIRY_TIME
+    OTP_EXPIRE_TIME
 } = process.env ; 
 

@@ -12,69 +12,89 @@ import { random6digitnumber } from "../utils/generateOtp";
 import { generateAccessToken } from "../utils/jwtToken";
 import { Redis } from "ioredis";
 
+
+
 export class AuthController {
-   private db: PrismaClient | null ;
-   private redis : any; 
-   constructor(db : any){
-        this.db = db 
+
+   private db: PrismaClient | any; 
+   private redis: Redis; 
+
+
+   constructor(dbClient: PrismaClient | any){ 
+        this.db = dbClient;
+        
+        const redisPort = REDIS_PORT ? parseInt(REDIS_PORT, 10) : undefined;
+
         this.redis = new Redis({
-         port :  REDIS_PORT ? parseInt(REDIS_PORT, 10) : undefined ,  
-         host : REDIS_HOST
-        })
+         port: redisPort,  
+         host: REDIS_HOST
+        });
+
+      
+        this.redis.on('error', (err) => {
+            console.error('🚨 IORedis Connection Error:', err);
+        });
    }
    
-   // creating the redis key 
-   async getReddisKey(email : string) {
+ 
+   async getReddisKey(email: string) {
       return `OTP:${email}`
    }
 
 
-   // creating the user 
-   async createUser(req : any , res : any){
+  
+   async createUser(req: any , res: any){
        const {name , email , password} = req.body   ; 
 
       try {
-       const signinPayload : userSignInputDetails = {
-         name : name , 
-         email : email , 
-         password : password
+       const signinPayload: userSignInputDetails = {
+         name: name , 
+         email: email , 
+         password: password
        }
+       
         const checkingUserPresent = await user.checkingUserPresent(email) ;
         const creatingUser = await user.creatingUser(signinPayload) ; 
+        
         const otp = random6digitnumber() ; 
-        const redis_key = this.getReddisKey(email) ; 
-
-        const paylod : email_data = {
-         email_to : email ,
-         subject : "Reset Password" ,
-         content : `Your Password Changing OTP is ${otp} and it will expiry after 10 minutes` 
+        const redis_key = await this.getReddisKey(email) ; 
+        const  otp_expire_time = Number(OTP_EXPIRE_TIME) || 300 ; 
+        const paylod: email_data = {
+         email_to: email ,
+         subject: "Verify Account OTP" , 
+         content: `Your verification OTP is ${otp} and it will expire after ${otp_expire_time / 60} minutes` 
       }
+        
         await emailProducer.sendOtp(paylod) ; 
-        await this.redis.set(redis_key, otp, 'EX', OTP_EXPIRE_TIME);
+    
+        await this.redis.set(redis_key, otp, 'EX', otp_expire_time);
          
         return res.status(200).json(
          new ApiResponse(
             "OTP is Sent Successfully"
          )
         )
-   }catch(err : any){
-         return new ApiError(
-            "Error in creation or sending the otp" , 
-            err 
-         )
+   }catch(err: any){
+         return res.status(500).json(
+             new ApiError(
+                "Error in user creation or sending the OTP",
+                err
+            )
+        )
       }
    }
    
-   async verifyOtp(req : any , res : any){
+   async verifyOtp(req: any , res: any){
       const {email , otp} = req.body ; 
 
       try {
-        const key = this.getReddisKey(email) ; 
+        const key = await this.getReddisKey(email) ; 
         const storedOtp = await this.redis.get(key) ; 
+        
         if(!storedOtp){
-         return res.status(200).json(
+         return res.status(400).json(
             new ApiResponse(
-               "Otp is expired" 
+               "OTP is expired or invalid" 
             )
          )
         }
@@ -82,33 +102,36 @@ export class AuthController {
         if(storedOtp == otp){
          await this.redis.del(key);
          await user.changingIsVerifiedStatus(email) ; 
-         const informationOfUser : userDetails = await user.checkingUserPresent(email) ; 
-         const payload : jwtPayload = {
-            id : informationOfUser.id , 
-            name : informationOfUser.name ,
-            email : informationOfUser.email 
+         const informationOfUser: userDetails = await user.checkingUserPresent(email) ; 
+         
+         const payload: jwtPayload = {
+            id: informationOfUser.id , 
+            name: informationOfUser.name ,
+            email: informationOfUser.email 
          }
-         const token : string = generateAccessToken(payload) ; 
+         
+         const token: string = generateAccessToken(payload) ; 
          await user.updateAccessToken(email , token) ;
+         
          return res.status(200).json(
             new ApiResponse(
-               "access token is created successfully" , 
-               token
+               "Access token created successfully and user verified" , 
+               { token: token } 
             )
          ) 
         }
 
-        return res.status(404).json(
+        return res.status(401).json( 
          new ApiError(
-            "Your Otp is worng" 
+            "Your OTP is incorrect" 
          )
         )
 
       }
-      catch(err : any){
+      catch(err: any){
           return res.status(500).json(
             new ApiError(
-               "Error in verifying the otp" ,
+               "Error in verifying the OTP" ,
                err
             )
           )
@@ -119,9 +142,7 @@ export class AuthController {
 
 
 
-export const authController = new AuthController({
-   db : database 
-}) 
+export const authController = new AuthController(database) 
 
 
 
