@@ -4,11 +4,12 @@ import {
   userDetails,
   userSignInputDetails
 } from "../types/user.types";
-import ApiError from "../utils/ApiError";
 
+
+type ExtendedPrismaClient = typeof database;
 class User {
-  private db: any ;
-  constructor(database : any) {
+  private db: ExtendedPrismaClient ;
+  constructor(database : ExtendedPrismaClient) {
     this.db = database;
   }
 
@@ -26,10 +27,7 @@ class User {
       return allInformation;
     } catch (err: any) {
       console.log(err) ; 
-      throw new ApiError(
-        "Error is comming in checking the user , present in the db or not",
-        err
-      );
+      throw err ;
     }
   }
 
@@ -47,7 +45,7 @@ class User {
         },
       });
     } catch (err: any) {
-      throw new ApiError("Error in creating the user", err);
+      throw err;
     }
   }
 
@@ -64,7 +62,7 @@ class User {
         },
       });
     } catch (err: any) {
-      throw new ApiError("Error in changing the is_verified status", err);
+      throw err;
     }
   }
    
@@ -83,13 +81,50 @@ class User {
     }
 
     catch(err : any){
-      throw new ApiError(
-        "Error in inserting the access_token" , 
-        err 
-      )
+      throw err ; 
     }
    }
    
+
+   // updating the password in the table using the userid 
+   async updatePassword(user_id : string , password : string){
+    try {
+      await this.db.user.update({
+        where : {
+          id : user_id 
+        }
+        , 
+        data : {
+          password : password
+        }
+      })
+
+    }
+    catch(err : any){
+      throw err ; 
+    }
+   }
+
+
+
+   // for finding the user in the table 
+   async userDetails(email : string , password : string){
+    try {
+      const userDetails = await this.db.user.findUnique(
+        {
+          where : {
+            email : email , 
+            password : password 
+          }
+        }
+      )
+
+      return userDetails ; 
+    }
+    catch(err : any){
+      throw err ; 
+    }
+   }
 }
 
 export const user = new User(database);

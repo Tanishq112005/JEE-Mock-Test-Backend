@@ -19,7 +19,7 @@ function generateAccessToken(payload : jwtPayload){
 
 
 // verify json web token 
-function verifyAccessToken(token: string) {
+function verifyAccessToken(token: string)  {
     try {
         const decoded = jwt.verify(token, jwtConfig.secret_key);
         return decoded;

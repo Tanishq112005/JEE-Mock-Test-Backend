@@ -21,7 +21,6 @@
     "@types/ioredis": "^4.28.10",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/nodemailer": "^7.0.4",
-    "@types/pg": "^8.15.6",
     "amqplib": "^0.10.9",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
@@ -36,6 +35,7 @@
   "devDependencies": {
     "@types/express": "^5.0.5",
     "@types/node": "^24.10.1",
+    "@types/pg": "^8.15.6",
     "concurrently": "^9.2.1"
   }
 }

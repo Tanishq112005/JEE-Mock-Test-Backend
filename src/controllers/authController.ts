@@ -9,7 +9,7 @@ import { userDetails, userSignInputDetails } from "../types/user.types";
 import ApiError from "../utils/ApiError";
 import ApiResponse from "../utils/ApiResponse";
 import { random6digitnumber } from "../utils/generateOtp";
-import { generateAccessToken } from "../utils/jwtToken";
+import { generateAccessToken} from "../utils/jwtToken";
 import { Redis } from "ioredis";
 
 
@@ -32,7 +32,7 @@ export class AuthController {
 
       
         this.redis.on('error', (err) => {
-            console.error('🚨 IORedis Connection Error:', err);
+            console.error('IORedis Connection Error:', err);
         });
    }
    
@@ -70,7 +70,7 @@ export class AuthController {
         const  otp_expire_time = Number(OTP_EXPIRE_TIME) || 300 ; 
         const paylod: email_data = {
          email_to: email ,
-         subject: "Verify Account OTP" , 
+         subject: "Verify Account" , 
          content: `Your verification OTP is ${otp} and it will expire after ${otp_expire_time / 60} minutes` 
       }
         
@@ -115,9 +115,7 @@ export class AuthController {
          
        
          const payload: jwtPayload = {
-            id: informationOfUser.id , 
-            name: informationOfUser.name ,
-            email: informationOfUser.email 
+            id: informationOfUser.id 
          }
          
          const token: string = generateAccessToken(payload) ; 
@@ -126,7 +124,7 @@ export class AuthController {
          return res.status(200).json(
             new ApiResponse(
                "Access token created successfully and user verified" , 
-               { token: token } 
+               { accessToken: token } 
             )
          ) 
         }
@@ -147,6 +145,95 @@ export class AuthController {
           )
       }
    }
+   
+
+   async forgotPasswordVerification(req : any , res : any){
+       const {email} = req.body ; 
+      try {
+         const userDetails : any = await user.checkingUserPresent(email) ; 
+         if(userDetails){
+           
+         
+            const otp  = random6digitnumber() ; 
+            const redis_key = await this.getReddisKey(email) ; 
+            const  otp_expire_time = Number(OTP_EXPIRE_TIME) || 300 ; 
+            const payload : email_data = {
+               email_to : email , 
+               subject : "Forgot Password OTP" ,
+               content : `OTP To Reset Password is ${otp} , it will expiry after ${otp_expire_time/60}`
+            }
+
+            await emailProducer.sendOtp(payload) ; 
+            await this.redis.set(redis_key, otp, 'EX', otp_expire_time);
+         }  
+         
+         return res.status(200).json(
+            new ApiResponse("If an account exists, a code has been sent to your email.")  
+         )
+      }
+      catch(err : any){
+          return res.status(404).json(
+            new ApiError("Error in sending the otp for the forgotPassword" , err)  
+          )
+      }
+   }
+
+   async forgotPasswordChange(req : any , res : any){
+      const {userId ,  password} = req.body ; 
+      try {
+         await user.updatePassword(userId , password) ; 
+         return res.status(200).json(
+            new ApiResponse(
+               "Password is changed successfully , you can login again"
+            )
+         ) 
+      }
+      catch(err : any){
+         return res.status(404).json(
+            new ApiError("Error in chaning the password")  
+         )
+      }
+   }
+
+   
+
+   async verifyUser(req : any , res : any){
+      const {email , password} = req.body ; 
+      try {
+         const userdetails : userDetails | null = await user.userDetails(email , password) ; 
+         if(!userdetails){
+            return res.status(200).json(
+               new ApiError(
+                  "No Such user is found out"
+               )
+            )
+         }
+         
+        const userId : string = userdetails.id 
+        
+        const jwtPayload : jwtPayload = {
+         id : userId 
+        }
+         
+        const accessToken : string = generateAccessToken(jwtPayload) ; 
+
+        return res.status(200).json(
+         new ApiResponse(
+            "User is found , and successfully login" ,
+            { accessToken: accessToken } 
+         )
+        )
+      }
+      catch(err : any){
+         return res.status(404).json(
+            new ApiError(
+               "Error in verifying the user" , 
+               err 
+            )
+         )
+      }
+   }
+
 
 }
 
@@ -158,3 +245,6 @@ export const authController = new AuthController(database)
 
 authController.createUser = authController.createUser.bind(authController) ; 
 authController.verifyOtp = authController.verifyOtp.bind(authController) ;
+authController.forgotPasswordChange = authController.forgotPasswordChange.bind(authController) ; 
+authController.forgotPasswordVerification = authController.forgotPasswordVerification.bind(authController) ; 
+authController.verifyUser = authController.verifyUser.bind(authController) ; 
