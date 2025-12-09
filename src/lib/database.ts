@@ -1,7 +1,7 @@
 import { Pool } from 'pg'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { PrismaClient } from '../prisma/generated/prisma/client'
-import { DATABASE_URL } from "./env";
+import { DATABASE_URL } from "../config/env";
 
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient }

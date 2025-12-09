@@ -1,4 +1,4 @@
-import { database } from "../config/database";
+import { database } from "../lib/database";
 import { OTP_EXPIRE_TIME, REDIS_HOST, REDIS_PORT } from "../config/env";
 import { PrismaClient } from "../prisma/generated/prisma/client";
 import { emailProducer } from "../rabbitmq/producers/email-producer";
