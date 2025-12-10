@@ -1,14 +1,13 @@
-import Redis from "ioredis";
 import ApiError from "../utils/ApiError";
 import { redisClient, redisConfig } from "../lib/redis";
 
 export class RateLimiter {
-    private redis: Redis;
+    private redis: any;
     private maxAttempts: number;
     private windowSize: number;
     private keyPrefix: string;
 
-    constructor(redis: Redis, max_attempts: number, window_size: number, keyPrefix: string) {
+    constructor(redis: any, max_attempts: number, window_size: number, keyPrefix: string) {
         this.redis = redisClient;
         this.maxAttempts = max_attempts;
         this.windowSize = window_size;

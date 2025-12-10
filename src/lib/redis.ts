@@ -1,35 +1,42 @@
-import { REDIS_HOST, REDIS_PORT } from "../config/env";
-import Redis from "ioredis";
+import { REDIS_HOST, REDIS_PASSWORD, REDIS_PORT, REDIS_USERNAME } from "../config/env";
+import { createClient, RedisClientType } from "redis";
 
 class RedisConfig {
-    public client: Redis;
+  public client: RedisClientType;
 
-    constructor() {
-        // FIX: Ensure it is a string ('as string') or handle fallback safely
-        const redisPort = REDIS_PORT ? parseInt(REDIS_PORT as string, 10) : 6379;
+  constructor() {
+    const port = parseInt(REDIS_PORT as string, 10) || 6379;
 
-        this.client = new Redis({
-            port: redisPort,
-            host: REDIS_HOST || 'localhost',
-            retryStrategy: (times) => Math.min(times * 50, 2000),
-        });
+    this.client = createClient({
+      username: REDIS_USERNAME,
+      password: REDIS_PASSWORD,
+      socket: {
+        host: REDIS_HOST,
+        port: port
+      }
+    });
 
-        this.client.on('error', (err) => {
-            console.error('Redis Connection Error:', err);
-        });
+    this.client.on("error", (err: any) => console.log("Redis Client Error:", err));
+    this.client.on("connect", () => console.log("Redis Connected Successfully"));
 
-        this.client.on('connect', () => {
-            console.log('Redis Connected Successfully');
-        });
+    this.connect();
+  }
+
+  private async connect() {
+    try {
+        await this.client.connect();
+    } catch (error) {
+        console.error("Failed to connect to Redis:", error);
     }
+  }
 
-    getRedisEmailKey(email: string) {
-        return `OTP:${email}`;
-    }
+  getRedisEmailKey(email: string) {
+    return `OTP:${email}`;
+  }
 
-    getRedisLimitKey(keyPrefix: string, identifier: string) {
-        return `rate_limit:${keyPrefix}:${identifier}`;
-    }
+  getRedisLimitKey(keyPrefix: string, identifier: string) {
+    return `rate_limit:${keyPrefix}:${identifier}`;
+  }
 }
 
 export const redisConfig = new RedisConfig();

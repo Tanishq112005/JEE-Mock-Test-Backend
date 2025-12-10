@@ -1,25 +1,30 @@
-import dotenv from "dotenv" ;
-dotenv.config() ; 
+import dotenv from "dotenv";
+import path from "path";
+
+dotenv.config({ path: path.resolve(__dirname, "../../.env") });
+
 
 export const {
     PORT,
-    JWT_SECRET_ACCESS_TOKEN , 
+    JWT_SECRET_ACCESS_TOKEN,
     JWT_TEMP_EXPIRES_IN_ACCESS_TOKEN,
     JWT_ALGORITHM_ACCESS_TOKEN,
-    JWT_SECRET_REFERSH_TOKEN , 
+    JWT_SECRET_REFERSH_TOKEN,
     JWT_TEMP_EXPIRES_IN_REFERSH_TOKEN,
     JWT_ALGORITHM_REFERSH_TOKEN,
-    DATABASE_URL ,
+    DATABASE_URL,
     DATABASE_REPICA_URL,
     REDIS_HOST,
     REDIS_PORT,
     EMAIL_ID,
     GOOGLE_AUTH_PASSWORD,
     RABBITMQ_CONNECTION,
+    RABBITMQ_PASSWORD,
+    RABBITMQ_PORT,
     OTP_EXPIRE_TIME,
-    SALT_ROUND,
-    MAX_ATTEMENTS, 
-    WINDOW_SIZE
-
-} = process.env ; 
-
+    SALT_ROUND, 
+    MAX_ATTEMENTS,
+    WINDOW_SIZE,
+    REDIS_PASSWORD,
+    REDIS_USERNAME
+} = process.env;

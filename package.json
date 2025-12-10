@@ -14,7 +14,10 @@
     "build": "tsc",
     "prod:server": "env-cmd -f .env.prod node dist/server.js",
     "prod:worker": "env-cmd -f .env.prod node dist/worker/worker.js",
-    "start:prod": "concurrently \"npm run prod:server\" \"npm run prod:worker\""
+    "start:prod": "concurrently \"npm run prod:server\" \"npm run prod:worker\"",
+    "server": "npx ts-node src/server.ts",
+    "worker": "npx ts-node src/worker/worker.ts",
+    "start": "concurrently \"npm run server\" \"npm run worker\""
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.1.0",
@@ -36,7 +39,8 @@
     "jsonwebtoken": "^9.0.2",
     "nodemailer": "^7.0.11",
     "pg": "^8.16.3",
-    "prisma": "^7.0.1"
+    "prisma": "^7.0.1",
+    "redis": "^5.10.0"
   },
   "devDependencies": {
     "@types/bcrypt": "^6.0.0",
