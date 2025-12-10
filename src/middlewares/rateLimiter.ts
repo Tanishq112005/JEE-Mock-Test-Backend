@@ -22,26 +22,25 @@ export class RateLimiter {
                 return next(new ApiError("Missing identifier for rate limiting", 400));
             }
 
-            const key = redisConfig.getRedisLimitKey(this.keyPrefix , identifier) ; 
+            const key = redisConfig.getRedisLimitKey(this.keyPrefix, identifier);
             const currentTime = Date.now();
             const windowStart = currentTime - (this.windowSize * 1000);
 
             const multi = this.redis.multi();
 
-            multi.zremrangebyscore(key, 0, windowStart);
+            multi.zRemRangeByScore(key, 0, windowStart);
 
-            multi.zcard(key);
+            multi.zCard(key);
 
-            multi.zadd(key, currentTime, currentTime.toString());
+            multi.zAdd(key, { score: currentTime, value: currentTime.toString() });
 
             multi.expire(key, this.windowSize + 1);
 
             const results = await multi.exec();
 
-            const zCardResult = results ? results[1] : undefined;
-            const requestCount = zCardResult ? (zCardResult[1] as number) : 0;
+            const requestCount = results ? (results[1] as number) : 0;
 
-            if (requestCount >= this.maxAttempts) {
+            if (requestCount > this.maxAttempts) {
                 return res.status(429).json(
                     new ApiError(
                         `Too many requests. Please try again in ${this.windowSize} seconds.`,

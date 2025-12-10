@@ -8,16 +8,8 @@
   "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev:server": "env-cmd -f .env.dev npx ts-node src/server.ts",
-    "dev:worker": "env-cmd -f .env.dev npx ts-node src/worker/worker.ts",
-    "start:dev": "concurrently \"npm run dev:server\" \"npm run dev:worker\"",
     "build": "tsc",
-    "prod:server": "env-cmd -f .env.prod node dist/server.js",
-    "prod:worker": "env-cmd -f .env.prod node dist/worker/worker.js",
-    "start:prod": "concurrently \"npm run prod:server\" \"npm run prod:worker\"",
-    "server": "npx ts-node src/server.ts",
-    "worker": "npx ts-node src/worker/worker.ts",
-    "start": "concurrently \"npm run server\" \"npm run worker\""
+    "start": "npx ts-node src/server.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.1.0",
