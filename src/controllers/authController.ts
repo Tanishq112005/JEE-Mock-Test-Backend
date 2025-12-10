@@ -12,36 +12,23 @@ import { random6digitnumber } from "../utils/generateOtp";
 import { generateAccessToken} from "../utils/jwtToken";
 import { Redis } from "ioredis";
 import { comparePasswords, hashPassword } from "../utils/password";
+import { redis } from "../lib/redis";
 
 
 
 export class AuthController {
 
    private db: PrismaClient | any; 
-   private redis: Redis; 
+   private redis : Redis | any ;  
 
 
    constructor(dbClient: PrismaClient | any){ 
         this.db = dbClient;
-        
-        const redisPort = REDIS_PORT ? parseInt(REDIS_PORT, 10) : undefined;
-
-        this.redis = new Redis({
-         port: redisPort,  
-         host: REDIS_HOST
-        });
-
-      
-        this.redis.on('error', (err) => {
-            console.error('IORedis Connection Error:', err);
-        });
+        this.redis =  redis.connect() ; 
    }
    
  
-   async getReddisKey(email: string) {
-      return `OTP:${email}`
-   }
-
+   
 
   
    async createUser(req: any , res: any){
@@ -69,7 +56,7 @@ export class AuthController {
          }
          
         const otp = random6digitnumber() ; 
-        const redis_key = await this.getReddisKey(email) ; 
+        const redis_key =  redis.getReddisEmailKey(email) ; 
         const  otp_expire_time = Number(OTP_EXPIRE_TIME) || 300 ; 
         const paylod: email_data = {
          email_to: email ,
@@ -100,7 +87,7 @@ export class AuthController {
       const {email , otp} = req.body ; 
 
       try {
-        const key = await this.getReddisKey(email) ; 
+        const key =  redis.getReddisEmailKey(email) ; 
         const storedOtp = await this.redis.get(key) ; 
         
         if(!storedOtp){
@@ -158,7 +145,7 @@ export class AuthController {
            
          
             const otp  = random6digitnumber() ; 
-            const redis_key = await this.getReddisKey(email) ; 
+            const redis_key =  redis.getReddisEmailKey(email) ; 
             const  otp_expire_time = Number(OTP_EXPIRE_TIME) || 300 ; 
             const payload : email_data = {
                email_to : email , 
