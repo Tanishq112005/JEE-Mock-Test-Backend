@@ -22,7 +22,6 @@
   "dependencies": {
     "@prisma/adapter-pg": "^7.1.0",
     "@prisma/client": "^7.1.0",
-    "@prisma/extension-read-replicas": "^0.5.0",
     "@types/amqplib": "^0.10.8",
     "@types/dotenv": "^6.1.1",
     "@types/ioredis": "^4.28.10",
@@ -31,7 +30,6 @@
     "amqplib": "^0.10.9",
     "bcrypt": "^6.0.0",
     "dotenv": "^17.2.3",
-    "env-cmd": "^11.0.0",
     "express": "^5.1.0",
     "format": "^0.2.2",
     "googleapis": "^167.0.0",
