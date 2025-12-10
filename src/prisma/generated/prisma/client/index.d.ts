@@ -1073,7 +1073,7 @@ export namespace Prisma {
     name: string | null
     email: string | null
     password: string | null
-    access_token: string | null
+    refersh_token: string | null
     created_at: Date | null
     is_verified: boolean | null
   }
@@ -1083,7 +1083,7 @@ export namespace Prisma {
     name: string | null
     email: string | null
     password: string | null
-    access_token: string | null
+    refersh_token: string | null
     created_at: Date | null
     is_verified: boolean | null
   }
@@ -1093,7 +1093,7 @@ export namespace Prisma {
     name: number
     email: number
     password: number
-    access_token: number
+    refersh_token: number
     created_at: number
     is_verified: number
     _all: number
@@ -1105,7 +1105,7 @@ export namespace Prisma {
     name?: true
     email?: true
     password?: true
-    access_token?: true
+    refersh_token?: true
     created_at?: true
     is_verified?: true
   }
@@ -1115,7 +1115,7 @@ export namespace Prisma {
     name?: true
     email?: true
     password?: true
-    access_token?: true
+    refersh_token?: true
     created_at?: true
     is_verified?: true
   }
@@ -1125,7 +1125,7 @@ export namespace Prisma {
     name?: true
     email?: true
     password?: true
-    access_token?: true
+    refersh_token?: true
     created_at?: true
     is_verified?: true
     _all?: true
@@ -1208,7 +1208,7 @@ export namespace Prisma {
     name: string
     email: string
     password: string
-    access_token: string | null
+    refersh_token: string | null
     created_at: Date
     is_verified: boolean
     _count: UserCountAggregateOutputType | null
@@ -1235,7 +1235,7 @@ export namespace Prisma {
     name?: boolean
     email?: boolean
     password?: boolean
-    access_token?: boolean
+    refersh_token?: boolean
     created_at?: boolean
     is_verified?: boolean
     student_profile?: boolean | user$student_profileArgs<ExtArgs>
@@ -1246,7 +1246,7 @@ export namespace Prisma {
     name?: boolean
     email?: boolean
     password?: boolean
-    access_token?: boolean
+    refersh_token?: boolean
     created_at?: boolean
     is_verified?: boolean
   }, ExtArgs["result"]["user"]>
@@ -1256,7 +1256,7 @@ export namespace Prisma {
     name?: boolean
     email?: boolean
     password?: boolean
-    access_token?: boolean
+    refersh_token?: boolean
     created_at?: boolean
     is_verified?: boolean
   }, ExtArgs["result"]["user"]>
@@ -1266,12 +1266,12 @@ export namespace Prisma {
     name?: boolean
     email?: boolean
     password?: boolean
-    access_token?: boolean
+    refersh_token?: boolean
     created_at?: boolean
     is_verified?: boolean
   }
 
-  export type userOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "email" | "password" | "access_token" | "created_at" | "is_verified", ExtArgs["result"]["user"]>
+  export type userOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "email" | "password" | "refersh_token" | "created_at" | "is_verified", ExtArgs["result"]["user"]>
   export type userInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     student_profile?: boolean | user$student_profileArgs<ExtArgs>
   }
@@ -1288,7 +1288,7 @@ export namespace Prisma {
       name: string
       email: string
       password: string
-      access_token: string | null
+      refersh_token: string | null
       created_at: Date
       is_verified: boolean
     }, ExtArgs["result"]["user"]>
@@ -1719,7 +1719,7 @@ export namespace Prisma {
     readonly name: FieldRef<"user", 'String'>
     readonly email: FieldRef<"user", 'String'>
     readonly password: FieldRef<"user", 'String'>
-    readonly access_token: FieldRef<"user", 'String'>
+    readonly refersh_token: FieldRef<"user", 'String'>
     readonly created_at: FieldRef<"user", 'DateTime'>
     readonly is_verified: FieldRef<"user", 'Boolean'>
   }
@@ -4283,7 +4283,7 @@ export namespace Prisma {
     name: 'name',
     email: 'email',
     password: 'password',
-    access_token: 'access_token',
+    refersh_token: 'refersh_token',
     created_at: 'created_at',
     is_verified: 'is_verified'
   };
@@ -4460,7 +4460,7 @@ export namespace Prisma {
     name?: StringFilter<"user"> | string
     email?: StringFilter<"user"> | string
     password?: StringFilter<"user"> | string
-    access_token?: StringNullableFilter<"user"> | string | null
+    refersh_token?: StringNullableFilter<"user"> | string | null
     created_at?: DateTimeFilter<"user"> | Date | string
     is_verified?: BoolFilter<"user"> | boolean
     student_profile?: XOR<Student_profileNullableScalarRelationFilter, student_profileWhereInput> | null
@@ -4471,7 +4471,7 @@ export namespace Prisma {
     name?: SortOrder
     email?: SortOrder
     password?: SortOrder
-    access_token?: SortOrderInput | SortOrder
+    refersh_token?: SortOrderInput | SortOrder
     created_at?: SortOrder
     is_verified?: SortOrder
     student_profile?: student_profileOrderByWithRelationInput
@@ -4481,7 +4481,7 @@ export namespace Prisma {
     id?: string
     email?: string
     password?: string
-    access_token?: string
+    refersh_token?: string
     AND?: userWhereInput | userWhereInput[]
     OR?: userWhereInput[]
     NOT?: userWhereInput | userWhereInput[]
@@ -4489,14 +4489,14 @@ export namespace Prisma {
     created_at?: DateTimeFilter<"user"> | Date | string
     is_verified?: BoolFilter<"user"> | boolean
     student_profile?: XOR<Student_profileNullableScalarRelationFilter, student_profileWhereInput> | null
-  }, "id" | "email" | "password" | "access_token">
+  }, "id" | "email" | "password" | "refersh_token">
 
   export type userOrderByWithAggregationInput = {
     id?: SortOrder
     name?: SortOrder
     email?: SortOrder
     password?: SortOrder
-    access_token?: SortOrderInput | SortOrder
+    refersh_token?: SortOrderInput | SortOrder
     created_at?: SortOrder
     is_verified?: SortOrder
     _count?: userCountOrderByAggregateInput
@@ -4512,7 +4512,7 @@ export namespace Prisma {
     name?: StringWithAggregatesFilter<"user"> | string
     email?: StringWithAggregatesFilter<"user"> | string
     password?: StringWithAggregatesFilter<"user"> | string
-    access_token?: StringNullableWithAggregatesFilter<"user"> | string | null
+    refersh_token?: StringNullableWithAggregatesFilter<"user"> | string | null
     created_at?: DateTimeWithAggregatesFilter<"user"> | Date | string
     is_verified?: BoolWithAggregatesFilter<"user"> | boolean
   }
@@ -4641,7 +4641,7 @@ export namespace Prisma {
     name: string
     email: string
     password: string
-    access_token?: string | null
+    refersh_token?: string | null
     created_at?: Date | string
     is_verified: boolean
     student_profile?: student_profileCreateNestedOneWithoutUserInput
@@ -4652,7 +4652,7 @@ export namespace Prisma {
     name: string
     email: string
     password: string
-    access_token?: string | null
+    refersh_token?: string | null
     created_at?: Date | string
     is_verified: boolean
     student_profile?: student_profileUncheckedCreateNestedOneWithoutUserInput
@@ -4663,7 +4663,7 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     email?: StringFieldUpdateOperationsInput | string
     password?: StringFieldUpdateOperationsInput | string
-    access_token?: NullableStringFieldUpdateOperationsInput | string | null
+    refersh_token?: NullableStringFieldUpdateOperationsInput | string | null
     created_at?: DateTimeFieldUpdateOperationsInput | Date | string
     is_verified?: BoolFieldUpdateOperationsInput | boolean
     student_profile?: student_profileUpdateOneWithoutUserNestedInput
@@ -4674,7 +4674,7 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     email?: StringFieldUpdateOperationsInput | string
     password?: StringFieldUpdateOperationsInput | string
-    access_token?: NullableStringFieldUpdateOperationsInput | string | null
+    refersh_token?: NullableStringFieldUpdateOperationsInput | string | null
     created_at?: DateTimeFieldUpdateOperationsInput | Date | string
     is_verified?: BoolFieldUpdateOperationsInput | boolean
     student_profile?: student_profileUncheckedUpdateOneWithoutUserNestedInput
@@ -4685,7 +4685,7 @@ export namespace Prisma {
     name: string
     email: string
     password: string
-    access_token?: string | null
+    refersh_token?: string | null
     created_at?: Date | string
     is_verified: boolean
   }
@@ -4695,7 +4695,7 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     email?: StringFieldUpdateOperationsInput | string
     password?: StringFieldUpdateOperationsInput | string
-    access_token?: NullableStringFieldUpdateOperationsInput | string | null
+    refersh_token?: NullableStringFieldUpdateOperationsInput | string | null
     created_at?: DateTimeFieldUpdateOperationsInput | Date | string
     is_verified?: BoolFieldUpdateOperationsInput | boolean
   }
@@ -4705,7 +4705,7 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     email?: StringFieldUpdateOperationsInput | string
     password?: StringFieldUpdateOperationsInput | string
-    access_token?: NullableStringFieldUpdateOperationsInput | string | null
+    refersh_token?: NullableStringFieldUpdateOperationsInput | string | null
     created_at?: DateTimeFieldUpdateOperationsInput | Date | string
     is_verified?: BoolFieldUpdateOperationsInput | boolean
   }
@@ -4896,7 +4896,7 @@ export namespace Prisma {
     name?: SortOrder
     email?: SortOrder
     password?: SortOrder
-    access_token?: SortOrder
+    refersh_token?: SortOrder
     created_at?: SortOrder
     is_verified?: SortOrder
   }
@@ -4906,7 +4906,7 @@ export namespace Prisma {
     name?: SortOrder
     email?: SortOrder
     password?: SortOrder
-    access_token?: SortOrder
+    refersh_token?: SortOrder
     created_at?: SortOrder
     is_verified?: SortOrder
   }
@@ -4916,7 +4916,7 @@ export namespace Prisma {
     name?: SortOrder
     email?: SortOrder
     password?: SortOrder
-    access_token?: SortOrder
+    refersh_token?: SortOrder
     created_at?: SortOrder
     is_verified?: SortOrder
   }
@@ -5508,7 +5508,7 @@ export namespace Prisma {
     name: string
     email: string
     password: string
-    access_token?: string | null
+    refersh_token?: string | null
     created_at?: Date | string
     is_verified: boolean
   }
@@ -5518,7 +5518,7 @@ export namespace Prisma {
     name: string
     email: string
     password: string
-    access_token?: string | null
+    refersh_token?: string | null
     created_at?: Date | string
     is_verified: boolean
   }
@@ -5544,7 +5544,7 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     email?: StringFieldUpdateOperationsInput | string
     password?: StringFieldUpdateOperationsInput | string
-    access_token?: NullableStringFieldUpdateOperationsInput | string | null
+    refersh_token?: NullableStringFieldUpdateOperationsInput | string | null
     created_at?: DateTimeFieldUpdateOperationsInput | Date | string
     is_verified?: BoolFieldUpdateOperationsInput | boolean
   }
@@ -5554,7 +5554,7 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     email?: StringFieldUpdateOperationsInput | string
     password?: StringFieldUpdateOperationsInput | string
-    access_token?: NullableStringFieldUpdateOperationsInput | string | null
+    refersh_token?: NullableStringFieldUpdateOperationsInput | string | null
     created_at?: DateTimeFieldUpdateOperationsInput | Date | string
     is_verified?: BoolFieldUpdateOperationsInput | boolean
   }

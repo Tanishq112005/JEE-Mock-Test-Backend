@@ -2,39 +2,35 @@ import { REDIS_HOST, REDIS_PORT } from "../config/env";
 import Redis from "ioredis";
 
 class RedisConfig {
-    
-    private redis : Redis | null = null  ; 
-    constructor(){}
+    public client: Redis;
 
-     connect(){
-        if(this.redis){
-            return this.redis ;
-        }
-       const redisPort = REDIS_PORT ? parseInt(REDIS_PORT, 10) : undefined;
+    constructor() {
+        // FIX: Ensure it is a string ('as string') or handle fallback safely
+        const redisPort = REDIS_PORT ? parseInt(REDIS_PORT as string, 10) : 6379;
 
-        this.redis = new Redis({
-         port: redisPort,  
-         host: REDIS_HOST
+        this.client = new Redis({
+            port: redisPort,
+            host: REDIS_HOST || 'localhost',
+            retryStrategy: (times) => Math.min(times * 50, 2000),
         });
 
-      
-        this.redis.on('error', (err) => {
-            console.error('IORedis Connection Error:', err);
+        this.client.on('error', (err) => {
+            console.error('Redis Connection Error:', err);
         });
 
-         return this.redis ; 
+        this.client.on('connect', () => {
+            console.log('Redis Connected Successfully');
+        });
     }
 
-
-     getReddisEmailKey(email : string){
-         return `OTP:${email}` ; 
+    getRedisEmailKey(email: string) {
+        return `OTP:${email}`;
     }
 
-    getReddisLimitKey(keyPrefix : string , identifier : string){
+    getRedisLimitKey(keyPrefix: string, identifier: string) {
         return `rate_limit:${keyPrefix}:${identifier}`;
     }
 }
 
-
-export const redis = new RedisConfig() ; 
- 
+export const redisConfig = new RedisConfig();
+export const redisClient = redisConfig.client;

@@ -125,7 +125,7 @@ exports.Prisma.UserScalarFieldEnum = {
   name: 'name',
   email: 'email',
   password: 'password',
-  access_token: 'access_token',
+  refersh_token: 'refersh_token',
   created_at: 'created_at',
   is_verified: 'is_verified'
 };

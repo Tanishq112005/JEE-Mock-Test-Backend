@@ -4,6 +4,7 @@ import {
   userDetails,
   userSignInputDetails
 } from "../types/user.types";
+import ApiError from "../utils/ApiError";
 import { comparePasswords } from "../utils/password";
 
 
@@ -69,14 +70,14 @@ class User {
    
 
   // updating the access token in the table 
-   async updateAccessToken(email : string , access_token : string){
+   async updateRefershToken(email : string , refersh_token : string){
     try {
       await this.db.user.update({
         where : {
           email : email
         } ,
         data : {
-          access_token : access_token
+          refersh_token : refersh_token
         }
       })
     }
@@ -122,6 +123,31 @@ class User {
     
       return userDetails ; 
     }
+    catch(err : any){
+      throw err ; 
+    }
+   }
+
+
+   // for finding the user through the id 
+   async userDetailsThroughId(id : string){
+    try {
+      const userDetails = await this.db.user.findUnique(
+        {
+          where : {
+            id : id 
+          }
+        }
+      )
+      
+
+      if(!userDetails){
+         throw new ApiError("No such type of the user exxists in the table") ;
+      }
+      return userDetails ; 
+
+
+     }
     catch(err : any){
       throw err ; 
     }

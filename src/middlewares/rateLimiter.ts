@@ -1,6 +1,6 @@
 import Redis from "ioredis";
 import ApiError from "../utils/ApiError";
-import { redis } from "../lib/redis";
+import { redisClient, redisConfig } from "../lib/redis";
 
 export class RateLimiter {
     private redis: Redis;
@@ -9,7 +9,7 @@ export class RateLimiter {
     private keyPrefix: string;
 
     constructor(redis: Redis, max_attempts: number, window_size: number, keyPrefix: string) {
-        this.redis = redis;
+        this.redis = redisClient;
         this.maxAttempts = max_attempts;
         this.windowSize = window_size;
         this.keyPrefix = keyPrefix;
@@ -23,7 +23,7 @@ export class RateLimiter {
                 return next(new ApiError("Missing identifier for rate limiting", 400));
             }
 
-            const key = redis.getReddisLimitKey(this.keyPrefix , identifier) ; 
+            const key = redisConfig.getRedisLimitKey(this.keyPrefix , identifier) ; 
             const currentTime = Date.now();
             const windowStart = currentTime - (this.windowSize * 1000);
 

@@ -32,7 +32,7 @@ model user {
   name            String
   email           String           @unique
   password        String           @unique
-  access_token    String?          @unique
+  refersh_token   String?          @unique
   created_at      DateTime         @default(now())
   is_verified     Boolean
   student_profile student_profile?
