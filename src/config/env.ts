@@ -14,6 +14,9 @@ export const {
     GOOGLE_AUTH_PASSWORD,
     RABBITMQ_CONNECTION,
     OTP_EXPIRE_TIME,
-    SALT_ROUND
+    SALT_ROUND,
+    MAX_ATTEMENTS, 
+    WINDOW_SIZE
+
 } = process.env ; 
 

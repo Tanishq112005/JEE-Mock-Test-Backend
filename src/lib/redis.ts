@@ -6,7 +6,7 @@ class RedisConfig {
     private redis : Redis | null = null  ; 
     constructor(){}
 
-    async connect(){
+     connect(){
         if(this.redis){
             return this.redis ;
         }
@@ -30,8 +30,11 @@ class RedisConfig {
          return `OTP:${email}` ; 
     }
 
-    
+    getReddisLimitKey(keyPrefix : string , identifier : string){
+        return `rate_limit:${keyPrefix}:${identifier}`;
+    }
 }
 
 
 export const redis = new RedisConfig() ; 
+ 
