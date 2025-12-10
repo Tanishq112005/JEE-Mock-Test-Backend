@@ -1,4 +1,23 @@
+# --- Dependencies ---
 node_modules/
-.env
+npm-debug.log
+
+# --- Build Output ---
 dist/
-rabbitmq-data/ 
+
+# --- Environment Variables (CRITICAL: Never push these!) ---
+.env
+.env.dev
+.env.prod
+.env.*
+
+# --- Local Database Data (From your screenshot) ---
+redis-data/
+rabbitmq-data/
+dump.rdb
+
+# --- OS & IDE Files ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

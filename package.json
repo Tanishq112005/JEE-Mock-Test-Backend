@@ -8,9 +8,13 @@
   "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start:server": "npx ts-node src/server.ts",
-    "start:worker": "npx ts-node src/worker/worker.ts",
-    "start": "concurrently \"npm run start:server\" \"npm run start:worker\""
+    "dev:server": "env-cmd -f .env.dev npx ts-node src/server.ts",
+    "dev:worker": "env-cmd -f .env.dev npx ts-node src/worker/worker.ts",
+    "start:dev": "concurrently \"npm run dev:server\" \"npm run dev:worker\"",
+    "build": "tsc",
+    "prod:server": "env-cmd -f .env.prod node dist/server.js",
+    "prod:worker": "env-cmd -f .env.prod node dist/worker/worker.js",
+    "start:prod": "concurrently \"npm run prod:server\" \"npm run prod:worker\""
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.1.0",
@@ -24,6 +28,7 @@
     "amqplib": "^0.10.9",
     "bcrypt": "^6.0.0",
     "dotenv": "^17.2.3",
+    "env-cmd": "^11.0.0",
     "express": "^5.1.0",
     "format": "^0.2.2",
     "googleapis": "^167.0.0",

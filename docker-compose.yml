@@ -31,3 +31,28 @@ services:
       - "15672:15672"   
     volumes:
       - ./rabbitmq-data:/var/lib/rabbitmq
+
+
+  app_dev:
+    image: drillendeavour/jee-backend:dev 
+    container_name: development
+    restart: always 
+    env_file:
+      - .env.dev  
+    ports: 
+      - "3000:3000" 
+    
+    
+
+  
+  #app_prod:
+   # build:
+    #  context: .
+     # target: prod 
+   # container_name: production
+    #restart: always
+   # env_file:
+    #  - .env.prod
+   # ports : 
+    #  - "3001:3001" 
+    

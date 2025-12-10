@@ -10,7 +10,6 @@ import ApiError from "../utils/ApiError";
 import ApiResponse from "../utils/ApiResponse";
 import { random6digitnumber } from "../utils/generateOtp";
 import { generateAccessToken, generateRefershToken, verifiyingRefeshToken} from "../utils/jwtToken";
-import { Redis } from "ioredis";
 import { comparePasswords, hashPassword } from "../utils/password";
 import { redisConfig, redisClient } from "../lib/redis";
 
