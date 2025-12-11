@@ -2,8 +2,7 @@
 node_modules/
 npm-debug.log
 
-# --- Build Output ---
-dist/
+
 
 # --- Environment Variables (CRITICAL: Never push these!) ---
 .env
