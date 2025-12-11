@@ -89,24 +89,36 @@ class User {
    
 
    // updating the password in the table using the userid 
+   // src/repositories/user.db.ts
+
    async updatePassword(user_id : string , password : string){
     try {
-      await this.db.user.update({
-        where : {
-          id : user_id 
-        }
-        , 
-        data : {
-          password : password
-        }
+      console.log(`🔍 REPO: Attempting to update User ID: ${user_id}`);
+      
+      // 1. Check if user exists BEFORE updating (Debugging step)
+      const exists = await this.db.user.findUnique({ where: { id: user_id }});
+      if (!exists) {
+          console.error(`❌ REPO ERROR: User ID ${user_id} does not exist in DB!`);
+          throw new Error(`User ID ${user_id} not found`);
+      }
+
+      console.log(`👤 User Found: ${exists.email}. Updating password...`);
+
+      // 2. Perform Update
+      const updated = await this.db.user.update({
+        where : { id : user_id }, 
+        data : { password : password }
       })
+      
+      console.log("✅ REPO SUCCESS: Password hash updated in DB.");
+      return updated;
 
     }
     catch(err : any){
+      console.error("❌ REPO CRASH: Prisma failed to update:", err.message);
       throw err ; 
     }
    }
-
 
 
    // for finding the user in the table 

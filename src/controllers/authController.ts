@@ -1,6 +1,6 @@
 import { database } from "../lib/database";
 import { OTP_EXPIRE_TIME } from "../config/env";
-import { PrismaClient } from "../prisma/generated/prisma/client";
+import { PrismaClient } from "@prisma/client";
 import { emailProducer } from "../rabbitmq/producers/email-producer";
 import { user } from "../repositories/user.db";
 import { email_data } from "../types/email.worker.types";
@@ -176,6 +176,7 @@ export class AuthController {
       const {password} = req.body ; 
       try {
          const userId = req.user ; 
+         console.log("👉 User ID being updated:", userId); // Check your logs!
          const hashedPassword : string = await hashPassword(password) ; 
          await user.updatePassword(userId , hashedPassword) ; 
          return res.status(200).json(
