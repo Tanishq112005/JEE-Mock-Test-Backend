@@ -5,13 +5,12 @@ import {
   userSignInputDetails
 } from "../types/user.types";
 import ApiError from "../utils/ApiError";
-import { comparePasswords } from "../utils/password";
 
 
-type ExtendedPrismaClient = typeof database;
+
 class User {
-  private db: ExtendedPrismaClient ;
-  constructor(database : ExtendedPrismaClient) {
+  private db: any ;
+  constructor(database : any) {
     this.db = database;
   }
 

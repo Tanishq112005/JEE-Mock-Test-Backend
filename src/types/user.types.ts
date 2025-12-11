@@ -1,4 +1,4 @@
-import { user as PrismaUser } from "../prisma/generated/prisma/client";
+import { PrismaClient } from "@prisma/client";
 
 export interface userSignInputDetails {
     name : string , 
@@ -7,4 +7,4 @@ export interface userSignInputDetails {
 }
 
 
-export type userDetails = PrismaUser ;
+export type userDetails = any ;
