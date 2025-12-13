@@ -66,7 +66,7 @@ class AuthController {
             const key = redis_1.redisConfig.getRedisEmailKey(email);
             const storedOtp = await this.redis.get(key);
             if (!storedOtp || storedOtp !== String(otp)) {
-                return res.status(400).json(new ApiError_1.default("OTP is expired or invalid"));
+                return res.status(404).json(new ApiError_1.default("OTP is expired or invalid"));
             }
             await this.redis.del(key);
             await user_db_1.user.changingIsVerifiedStatus(email);
@@ -178,11 +178,11 @@ class AuthController {
         try {
             const userdetails = await user_db_1.user.userDetails(email);
             if (!userdetails) {
-                return res.status(200).json(new ApiError_1.default("No Such user is found out"));
+                return res.status(404).json(new ApiError_1.default("No Such user is found out"));
             }
             const valid = await (0, password_1.comparePasswords)(password, userdetails.password);
             if (!valid) {
-                return res.status(200).json(new ApiError_1.default("Invalid Password"));
+                return res.status(404).json(new ApiError_1.default("Invalid Password"));
             }
             const userId = userdetails.id;
             const jwtPayload = {
@@ -211,7 +211,7 @@ class AuthController {
         }
         catch (err) {
             return res
-                .status(404)
+                .status(500)
                 .json(new ApiError_1.default("Error in verifying the user", err));
         }
     };
@@ -219,7 +219,7 @@ class AuthController {
         const incomingRefreshToken = req.cookies.refreshToken || req.body.refreshToken;
         if (!incomingRefreshToken) {
             return res
-                .status(401)
+                .status(500)
                 .json(new ApiError_1.default("Unauthorized. Please login again."));
         }
         try {

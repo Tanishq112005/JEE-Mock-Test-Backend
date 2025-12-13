@@ -79,7 +79,7 @@ export class AuthController {
       const storedOtp = await this.redis.get(key);
 
       if (!storedOtp || storedOtp !== String(otp)) {
-        return res.status(400).json(new ApiError("OTP is expired or invalid"));
+        return res.status(404).json(new ApiError("OTP is expired or invalid"));
       }
 
       await this.redis.del(key);
@@ -228,12 +228,12 @@ export class AuthController {
     try {
       const userdetails: userDetails | null = await user.userDetails(email);
       if (!userdetails) {
-        return res.status(200).json(new ApiError("No Such user is found out"));
+        return res.status(404).json(new ApiError("No Such user is found out"));
       }
 
       const valid = await comparePasswords(password, userdetails.password);
       if (!valid) {
-        return res.status(200).json(new ApiError("Invalid Password"));
+        return res.status(404).json(new ApiError("Invalid Password"));
       }
 
       const userId: string = userdetails.id;
@@ -267,7 +267,7 @@ export class AuthController {
         );
     } catch (err: any) {
       return res
-        .status(404)
+        .status(500)
         .json(new ApiError("Error in verifying the user", err));
     }
   };
@@ -278,7 +278,7 @@ export class AuthController {
 
     if (!incomingRefreshToken) {
       return res
-        .status(401)
+        .status(500)
         .json(new ApiError("Unauthorized. Please login again."));
     }
 
