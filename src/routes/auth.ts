@@ -34,7 +34,7 @@ const otpVerifyLimiter = new RateLimiter(
 const loginLimiter = new RateLimiter(
     redisClient, 
     5, 
-    10 * 60,
+    60,
     'login'
 );
 

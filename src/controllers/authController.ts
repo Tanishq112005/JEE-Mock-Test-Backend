@@ -221,9 +221,9 @@ public forgotPasswordChange = async (req : any , res : any) => {
                )
             )
          }
-        const bcryptEnterPassword = await  hashPassword(password) ; 
-        const valid = comparePasswords(password , userdetails.password) ; 
-        if(bcryptEnterPassword != userdetails.password){
+      
+        const valid = await comparePasswords(password , userdetails.password) ; 
+        if(!valid){
          
          return res.status(200).json(
             new ApiError(
