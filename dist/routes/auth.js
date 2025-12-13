@@ -15,9 +15,10 @@ const signUpLimiter = new rateLimiter_1.RateLimiter(redis_1.redisClient, maxAtte
 const otpVerifyLimiter = new rateLimiter_1.RateLimiter(redis_1.redisClient, maxAttempts, windowSize, 'otp_verify');
 const loginLimiter = new rateLimiter_1.RateLimiter(redis_1.redisClient, 5, 60, 'login');
 router.post("/signup", signUpLimiter.limit, authController_1.authController.createUser);
-router.post("/verifyOTP", otpVerifyLimiter.limit, authController_1.authController.verifyOtp);
+router.post("/verifySignUpOTP", otpVerifyLimiter.limit, authController_1.authController.verifySignupOtp);
 router.post("/login", loginLimiter.limit, authController_1.authController.login);
 router.post("/passwordEmailVerification", otpGenLimiter.limit, authController_1.authController.forgotPasswordVerification);
 router.post("/passwordChange", auth_1.authMiddleware, authController_1.authController.forgotPasswordChange);
 router.get("/refershToken", authController_1.authController.refershToken);
+router.post("/verifyPasswordOTP", otpVerifyLimiter.limit, authController_1.authController.verifyForgotPasswordOtp);
 exports.authRoutes = router;

@@ -41,7 +41,7 @@ const loginLimiter = new RateLimiter(
 
 router.post("/signup", signUpLimiter.limit , authController.createUser);
 
-router.post("/verifyOTP", otpVerifyLimiter.limit, authController.verifyOtp);
+router.post("/verifySignUpOTP", otpVerifyLimiter.limit, authController.verifySignupOtp);
 
 router.post("/login", loginLimiter.limit, authController.login);
 
@@ -50,4 +50,9 @@ router.post("/passwordEmailVerification", otpGenLimiter.limit, authController.fo
 router.post("/passwordChange", authMiddleware, authController.forgotPasswordChange);
 
 router.get("/refershToken" , authController.refershToken) ; 
+
+router.post("/verifyPasswordOTP" , otpVerifyLimiter.limit  , authController.verifyForgotPasswordOtp);
+
+
+
 export const authRoutes = router;
