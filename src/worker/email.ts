@@ -10,18 +10,20 @@ class EmailSender {
 
   constructor() {}
 
- private createHost() {
-  this.transporter = createTransport({
-    host: "smtp.gmail.com",
-    port: 465,       
-    secure: true,    
-    auth: {
-      user: EMAIL_ID,
-      pass: GOOGLE_AUTH_PASSWORD,
-    },     
-  
-  });
-}
+  private createHost() {
+    this.transporter = createTransport({
+      host: "smtp.gmail.com",
+      port: 587,
+      secure: false, 
+      auth: {
+        user: EMAIL_ID,
+        pass: GOOGLE_AUTH_PASSWORD,
+      },     
+      tls: {
+        rejectUnauthorized: false
+      }
+    });
+  }
 
 
   
