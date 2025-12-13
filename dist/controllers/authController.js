@@ -32,7 +32,7 @@ class AuthController {
             };
             const checkingUserPresent = await user_db_1.user.checkingUserPresent(email);
             if (checkingUserPresent && checkingUserPresent.is_verified) {
-                return res.status(200).json(new ApiResponse_1.default("user is already exists"));
+                return res.status(409).json(new ApiError_1.default("user is already exists"));
             }
             if (!checkingUserPresent) {
                 const creatingUser = await user_db_1.user.creatingUser(signinPayload);

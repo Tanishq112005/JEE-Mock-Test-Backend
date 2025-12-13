@@ -43,8 +43,8 @@ export class AuthController {
        
         const checkingUserPresent = await user.checkingUserPresent(email) ;
           if(checkingUserPresent && checkingUserPresent.is_verified){
-            return res.status(200).json(
-               new ApiResponse(
+            return res.status(409).json(
+               new ApiError(
                   "user is already exists" 
                )
             )
