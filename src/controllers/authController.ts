@@ -154,7 +154,7 @@ export class AuthController {
             const payload : email_data = {
                email_to : email , 
                subject : "Forgot Password OTP" ,
-               content : `OTP To Reset Password is ${otp} , it will expiry after ${otp_expire_time/60}`
+               content : `OTP To Reset Password is ${otp} , it will expiry after ${otp_expire_time/60} minutes`
             }
 
             await emailProducer.sendOtp(payload) ; 

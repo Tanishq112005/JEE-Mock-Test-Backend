@@ -26,5 +26,7 @@ export const {
     MAX_ATTEMENTS,
     WINDOW_SIZE,
     REDIS_PASSWORD,
-    REDIS_USERNAME
+    REDIS_USERNAME,
+    BREVO_KEY_1,
+    BREVO_KEY_2
 } = process.env;
