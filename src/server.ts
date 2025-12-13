@@ -3,6 +3,7 @@ import cors from "cors" ;
 import { PORT } from "./config/env";
 import { Request , Response } from "express";
 import ApiResponse from "./utils/ApiResponse";
+import cookieParser from 'cookie-parser';
 import { authRoutes } from "./routes/auth";
 import { EmailConsumer } from "./rabbitmq/consumers/email-consumer";
 import { rabbitMQClient } from "./rabbitmq/connection/rabbitmq-connection";
@@ -10,8 +11,18 @@ console.log(PORT) ;
 const port  = PORT || 3000; 
 const app = express() ; 
 app.use(express.json()) ;
-app.use(cors()) ; 
+app.use(cors({
+    origin: (origin, callback) => {
+        
+        if (!origin) return callback(null, true);
+        
+        callback(null, true); 
+    },
+    credentials: true,
+    optionsSuccessStatus: 200 
+}));
 
+app.use(cookieParser()) ; 
 
 // behaving the server as the worker also 
 

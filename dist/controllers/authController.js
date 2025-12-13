@@ -163,7 +163,7 @@ class AuthController {
             const decoded = await (0, jwtToken_1.verifiyingRefeshToken)(incomingRefreshToken);
             const userId = decoded.id;
             const userDetails = await user_db_1.user.userDetailsThroughId(userId);
-            if (!userDetails.refersh_token != incomingRefreshToken) {
+            if (userDetails.refersh_token != incomingRefreshToken) {
                 return res.status(401).json(new ApiError_1.default("Refersh Token is inncorrect"));
             }
             const newAccessToken = (0, jwtToken_1.generateAccessToken)({ id: userId });

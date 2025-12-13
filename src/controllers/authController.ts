@@ -275,7 +275,7 @@ export class AuthController {
             const userDetails = await user.userDetailsThroughId(userId) ; 
             
 
-            if(!userDetails.refersh_token != incomingRefreshToken){
+            if(userDetails.refersh_token != incomingRefreshToken){
                return res.status(401).json(
                   new ApiError(
                      "Refersh Token is inncorrect" 
