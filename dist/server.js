@@ -15,7 +15,15 @@ console.log(env_1.PORT);
 const port = env_1.PORT || 3000;
 const app = (0, express_1.default)();
 app.use(express_1.default.json());
-app.use((0, cors_1.default)());
+app.use((0, cors_1.default)({
+    origin: (origin, callback) => {
+        if (!origin)
+            return callback(null, true);
+        callback(null, true);
+    },
+    credentials: true,
+    optionsSuccessStatus: 200
+}));
 app.use((0, cookie_parser_1.default)());
 // behaving the server as the worker also 
 const startServer = async () => {
