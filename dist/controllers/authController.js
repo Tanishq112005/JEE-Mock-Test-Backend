@@ -105,17 +105,24 @@ class AuthController {
             return res.status(404).json(new ApiError_1.default("Error in sending the otp for the forgotPassword", err));
         }
     };
+    // authController.js
     forgotPasswordChange = async (req, res) => {
         const { password } = req.body;
         try {
             const userId = req.user;
-            console.log("👉 User ID being updated:", userId); // Check your logs!
+            const userDetails = await user_db_1.user.userDetailsThroughId(userId);
+            if (!userDetails) {
+                return res.status(404).json(new ApiError_1.default("User not found during password change."));
+            }
             const hashedPassword = await (0, password_1.hashPassword)(password);
             await user_db_1.user.updatePassword(userId, hashedPassword);
-            return res.status(200).json(new ApiResponse_1.default("Password is changed successfully , you can login again"));
+            const newDummyRefreshToken = (0, jwtToken_1.generateRefershToken)({ id: userId }, "1d");
+            await user_db_1.user.updateRefershToken(userDetails.email, newDummyRefreshToken);
+            res.clearCookie("refreshToken");
+            return res.status(200).json(new ApiResponse_1.default("Password is changed successfully. Please log in again."));
         }
         catch (err) {
-            return res.status(404).json(new ApiError_1.default("Error in chaning the password", err));
+            return res.status(404).json(new ApiError_1.default("Error in changing the password"));
         }
     };
     login = async (req, res) => {

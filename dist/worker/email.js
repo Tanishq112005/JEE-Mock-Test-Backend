@@ -13,15 +13,12 @@ class EmailSender {
     createHost() {
         this.transporter = (0, nodemailer_1.createTransport)({
             host: "smtp.gmail.com",
-            port: 587,
-            secure: false,
+            port: 465,
+            secure: true,
             auth: {
                 user: env_1.EMAIL_ID,
                 pass: env_1.GOOGLE_AUTH_PASSWORD,
             },
-            tls: {
-                rejectUnauthorized: false
-            }
         });
     }
     async send(data) {
