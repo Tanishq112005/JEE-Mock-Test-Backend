@@ -1,4 +1,5 @@
 import express from "express" ; 
+import cors from "cors" ; 
 import { PORT } from "./config/env";
 import { Request , Response } from "express";
 import ApiResponse from "./utils/ApiResponse";
@@ -9,7 +10,7 @@ console.log(PORT) ;
 const port  = PORT || 3000; 
 const app = express() ; 
 app.use(express.json()) ;
-
+app.use(cors()) ; 
 
 
 // behaving the server as the worker also 
