@@ -13,7 +13,7 @@ const windowSize = parseInt(env_1.WINDOW_SIZE || '60', 10);
 const otpGenLimiter = new rateLimiter_1.RateLimiter(redis_1.redisClient, maxAttempts, windowSize, 'otp_gen');
 const signUpLimiter = new rateLimiter_1.RateLimiter(redis_1.redisClient, maxAttempts, windowSize, 'sigUp');
 const otpVerifyLimiter = new rateLimiter_1.RateLimiter(redis_1.redisClient, maxAttempts, windowSize, 'otp_verify');
-const loginLimiter = new rateLimiter_1.RateLimiter(redis_1.redisClient, 5, 10 * 60, 'login');
+const loginLimiter = new rateLimiter_1.RateLimiter(redis_1.redisClient, 5, 60, 'login');
 router.post("/signup", signUpLimiter.limit, authController_1.authController.createUser);
 router.post("/verifyOTP", otpVerifyLimiter.limit, authController_1.authController.verifyOtp);
 router.post("/login", loginLimiter.limit, authController_1.authController.login);

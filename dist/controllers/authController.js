@@ -132,9 +132,8 @@ class AuthController {
             if (!userdetails) {
                 return res.status(200).json(new ApiError_1.default("No Such user is found out"));
             }
-            const bcryptEnterPassword = await (0, password_1.hashPassword)(password);
-            const valid = (0, password_1.comparePasswords)(password, userdetails.password);
-            if (bcryptEnterPassword != userdetails.password) {
+            const valid = await (0, password_1.comparePasswords)(password, userdetails.password);
+            if (!valid) {
                 return res.status(200).json(new ApiError_1.default("Invalid Password"));
             }
             const userId = userdetails.id;
