@@ -171,26 +171,42 @@ export class AuthController {
           )
       }
    }
+// authController.js
 
-   public forgotPasswordChange = async (req : any , res : any) => {
-      const {password} = req.body ; 
-      try {
-         const userId = req.user ; 
-         console.log("👉 User ID being updated:", userId); // Check your logs!
-         const hashedPassword : string = await hashPassword(password) ; 
-         await user.updatePassword(userId , hashedPassword) ; 
-         return res.status(200).json(
+public forgotPasswordChange = async (req : any , res : any) => {
+    const {password} = req.body ; 
+    try {
+        const userId = req.user ; 
+        
+        const userDetails = await user.userDetailsThroughId(userId);
+        if (!userDetails) {
+             return res.status(404).json(new ApiError("User not found during password change."));
+        }
+        
+        const hashedPassword : string = await hashPassword(password) ; 
+        await user.updatePassword(userId , hashedPassword) ; 
+        
+        
+        const newDummyRefreshToken = generateRefershToken({ id: userId } , "1d"); 
+
+        await user.updateRefershToken(userDetails.email, newDummyRefreshToken);
+
+        res.clearCookie("refreshToken");
+
+        return res.status(200).json(
             new ApiResponse(
-               "Password is changed successfully , you can login again"
+               "Password is changed successfully. Please log in again.", // IMPORTANT: Force re-login
             )
-         ) 
-      }
-      catch(err : any){
-         return res.status(404).json(
-            new ApiError("Error in chaning the password" , err )  
+        ) 
+    }
+    catch(err : any){
+        return res.status(404).json(
+         new ApiError(
+            "Error in changing the password" 
          )
-      }
-   }
+        )
+    }
+}
 
    
 
