@@ -58,6 +58,7 @@ export class AuthController {
 
       await emailProducer.sendOtp(paylod);
       if (!this.redis) {
+        console.log("reddis client is missing") ; 
         res.status(404).json(new ApiError("redis client is missing "));
       }
       console.log("4. Saving to Redis...");
@@ -273,12 +274,12 @@ export class AuthController {
   };
 
   public refershToken = async (req: any, res: any) => {
-    const incomingRefreshToken =
-      req.cookies.refreshToken || req.body.refreshToken;
+    
+    const incomingRefreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
 
     if (!incomingRefreshToken) {
       return res
-        .status(500)
+        .status(401)
         .json(new ApiError("Unauthorized. Please login again."));
     }
 
