@@ -1,6 +1,6 @@
 import jwt from "jsonwebtoken"
 
-import { jwtPayload } from "../types/jwt.types";
+import { jwtPayloadAccessToken , jwtPayloadRefershToken } from "../types/jwt.types";
 import { jwtConfigAccessToken, jwtConfigRefershToken } from "../config/jwt";
 
 
@@ -8,7 +8,7 @@ import { jwtConfigAccessToken, jwtConfigRefershToken } from "../config/jwt";
 
 
 // give the json web token 
-function generateAccessToken(payload : jwtPayload){
+function generateAccessToken(payload : jwtPayloadAccessToken){
     const options: jwt.SignOptions = {
         expiresIn: jwtConfigAccessToken.expiry_time,
         algorithm: jwtConfigAccessToken.algorithm
@@ -32,7 +32,7 @@ function verifyAccessToken(token: string)  {
 
 
 // generating the refersh token 
-export function generateRefershToken(payload : jwtPayload , expireTime : any){
+export function generateRefershToken(payload : jwtPayloadRefershToken , expireTime : any){
      const options: jwt.SignOptions = {
         expiresIn: expireTime , 
         algorithm: jwtConfigRefershToken.algorithm

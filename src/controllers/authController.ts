@@ -4,7 +4,7 @@ import { PrismaClient } from "@prisma/client";
 import { emailProducer } from "../rabbitmq/producers/email-producer";
 import { user } from "../repositories/user.db";
 import { email_data } from "../types/email.worker.types";
-import { jwtPayload } from "../types/jwt.types";
+import { jwtPayloadAccessToken, jwtPayloadRefershToken  } from "../types/jwt.types";
 import { userDetails, userSignInputDetails } from "../types/user.types";
 import ApiError from "../utils/ApiError";
 import ApiResponse from "../utils/ApiResponse";
@@ -25,7 +25,7 @@ export class AuthController {
     this.db = dbClient;
     this.redis = redisClient;
   }
-
+  
   public createUser = async (req: any, res: any) => {
     const { name, email, password } = req.body;
 
@@ -88,9 +88,11 @@ export class AuthController {
       await user.changingIsVerifiedStatus(email);
       const informationOfUser: any = await user.checkingUserPresent(email);
 
-      const payload: jwtPayload = { id: informationOfUser.id };
+      const payload: jwtPayloadAccessToken = { id: informationOfUser.id , email : informationOfUser.email , name : informationOfUser.name};
       const accessToken: string = generateAccessToken(payload);
-      const refreshToken = generateRefershToken(payload, "1d");
+      const refreshToken = generateRefershToken({
+        id : informationOfUser.id
+      }, "1d");
 
       await user.updateRefershToken(email, refreshToken);
 
@@ -100,7 +102,7 @@ export class AuthController {
         sameSite: "none" as const,
         maxAge: 30 * 24 * 60 * 60 * 1000,
       });
-
+    
       return res
         .status(200)
         .json(
@@ -138,7 +140,7 @@ export class AuthController {
         return res.status(404).json(new ApiError("User account not found"));
       }
 
-      const payload: jwtPayload = { id: userDetails.id };
+      const payload: jwtPayloadAccessToken = { id: userDetails.id , name : userDetails.name , email : userDetails.email };
       const accessToken: string = generateAccessToken(payload);
 
       return res
@@ -239,16 +241,21 @@ export class AuthController {
 
       const userId: string = userdetails.id;
 
-      const jwtPayload: jwtPayload = {
+      const jwtPayloadAccessToken: jwtPayloadAccessToken = {
         id: userId,
+        name : userdetails.name , 
+        email : userdetails.email
       };
-
-      const accessToken: string = generateAccessToken(jwtPayload);
+      
+      const jwtPayloadRefershToken : jwtPayloadRefershToken = {
+        id : userId 
+      }
+      const accessToken: string = generateAccessToken(jwtPayloadAccessToken);
       var refreshToken;
       if (remberMe) {
-        refreshToken = generateRefershToken(jwtPayload, "30d");
+        refreshToken = generateRefershToken(jwtPayloadRefershToken, "30d");
       } else {
-        refreshToken = generateRefershToken(jwtPayload, "1d");
+        refreshToken = generateRefershToken(jwtPayloadRefershToken, "1d");
       }
 
       await user.updateRefershToken(email, refreshToken);
@@ -296,7 +303,7 @@ export class AuthController {
           .json(new ApiError("Refersh Token is inncorrect"));
       }
 
-      const newAccessToken = generateAccessToken({ id: userId });
+      const newAccessToken = generateAccessToken({ id: userId  , name : userDetails.name , email : userDetails.email});
       const newRefreshToken = generateRefershToken({id : userId}, "30d");
 
       await user.updateRefershToken(userDetails.email, newRefreshToken);

@@ -72,9 +72,11 @@ class AuthController {
             await this.redis.del(key);
             await user_db_1.user.changingIsVerifiedStatus(email);
             const informationOfUser = await user_db_1.user.checkingUserPresent(email);
-            const payload = { id: informationOfUser.id };
+            const payload = { id: informationOfUser.id, email: informationOfUser.email, name: informationOfUser.name };
             const accessToken = (0, jwtToken_1.generateAccessToken)(payload);
-            const refreshToken = (0, jwtToken_1.generateRefershToken)(payload, "1d");
+            const refreshToken = (0, jwtToken_1.generateRefershToken)({
+                id: informationOfUser.id
+            }, "1d");
             await user_db_1.user.updateRefershToken(email, refreshToken);
             res.cookie("refreshToken", refreshToken, {
                 httpOnly: true,
@@ -110,7 +112,7 @@ class AuthController {
             if (!userDetails) {
                 return res.status(404).json(new ApiError_1.default("User account not found"));
             }
-            const payload = { id: userDetails.id };
+            const payload = { id: userDetails.id, name: userDetails.name, email: userDetails.email };
             const accessToken = (0, jwtToken_1.generateAccessToken)(payload);
             return res
                 .status(200)
@@ -186,16 +188,21 @@ class AuthController {
                 return res.status(404).json(new ApiError_1.default("Invalid Password"));
             }
             const userId = userdetails.id;
-            const jwtPayload = {
+            const jwtPayloadAccessToken = {
                 id: userId,
+                name: userdetails.name,
+                email: userdetails.email
             };
-            const accessToken = (0, jwtToken_1.generateAccessToken)(jwtPayload);
+            const jwtPayloadRefershToken = {
+                id: userId
+            };
+            const accessToken = (0, jwtToken_1.generateAccessToken)(jwtPayloadAccessToken);
             var refreshToken;
             if (remberMe) {
-                refreshToken = (0, jwtToken_1.generateRefershToken)(jwtPayload, "30d");
+                refreshToken = (0, jwtToken_1.generateRefershToken)(jwtPayloadRefershToken, "30d");
             }
             else {
-                refreshToken = (0, jwtToken_1.generateRefershToken)(jwtPayload, "1d");
+                refreshToken = (0, jwtToken_1.generateRefershToken)(jwtPayloadRefershToken, "1d");
             }
             await user_db_1.user.updateRefershToken(email, refreshToken);
             res.cookie("refreshToken", refreshToken, {
@@ -232,7 +239,7 @@ class AuthController {
                     .status(401)
                     .json(new ApiError_1.default("Refersh Token is inncorrect"));
             }
-            const newAccessToken = (0, jwtToken_1.generateAccessToken)({ id: userId });
+            const newAccessToken = (0, jwtToken_1.generateAccessToken)({ id: userId, name: userDetails.name, email: userDetails.email });
             const newRefreshToken = (0, jwtToken_1.generateRefershToken)({ id: userId }, "30d");
             await user_db_1.user.updateRefershToken(userDetails.email, newRefreshToken);
             res.cookie("refreshToken", newRefreshToken, {
