@@ -95,10 +95,10 @@ export class AuthController {
       await user.updateRefershToken(email, refreshToken);
 
       res.cookie("refreshToken", refreshToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
-        maxAge: 24 * 60 * 60 * 1000,
+       httpOnly: true,
+        secure: true, 
+        sameSite: "none" as const,
+        maxAge: 30 * 24 * 60 * 60 * 1000,
       });
 
       return res
@@ -303,8 +303,8 @@ export class AuthController {
 
       res.cookie("refreshToken", newRefreshToken, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
+        secure: true, 
+        sameSite: "none" as const,
         maxAge: 30 * 24 * 60 * 60 * 1000,
       });
 

@@ -78,9 +78,9 @@ class AuthController {
             await user_db_1.user.updateRefershToken(email, refreshToken);
             res.cookie("refreshToken", refreshToken, {
                 httpOnly: true,
-                secure: process.env.NODE_ENV === "production",
-                sameSite: "strict",
-                maxAge: 24 * 60 * 60 * 1000,
+                secure: true,
+                sameSite: "none",
+                maxAge: 30 * 24 * 60 * 60 * 1000,
             });
             return res
                 .status(200)
@@ -237,8 +237,8 @@ class AuthController {
             await user_db_1.user.updateRefershToken(userDetails.email, newRefreshToken);
             res.cookie("refreshToken", newRefreshToken, {
                 httpOnly: true,
-                secure: process.env.NODE_ENV === "production",
-                sameSite: "strict",
+                secure: true,
+                sameSite: "none",
                 maxAge: 30 * 24 * 60 * 60 * 1000,
             });
             return res
