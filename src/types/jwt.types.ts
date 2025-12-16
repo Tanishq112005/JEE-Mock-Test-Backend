@@ -1,7 +1,8 @@
 export interface jwtPayloadAccessToken {
     id : string,
     email : string , 
-    name : string
+    name : string ,
+    type : string 
 }
 
 

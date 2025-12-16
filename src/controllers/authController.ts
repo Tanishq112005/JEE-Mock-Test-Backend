@@ -27,7 +27,7 @@ export class AuthController {
   }
   
   public createUser = async (req: any, res: any) => {
-    const { name, email, password } = req.body;
+    const { name, email, password , type} = req.body;
 
     try {
       const hashedPassword: string = await hashPassword(password);
@@ -35,6 +35,7 @@ export class AuthController {
         name: name,
         email: email,
         password: hashedPassword,
+        type : type
       };
 
       const checkingUserPresent = await user.checkingUserPresent(email);
@@ -72,6 +73,10 @@ export class AuthController {
     }
   };
 
+
+
+
+
   public verifySignupOtp = async (req: any, res: any) => {
     const { email, otp } = req.body;
 
@@ -88,12 +93,21 @@ export class AuthController {
       await user.changingIsVerifiedStatus(email);
       const informationOfUser: any = await user.checkingUserPresent(email);
 
-      const payload: jwtPayloadAccessToken = { id: informationOfUser.id , email : informationOfUser.email , name : informationOfUser.name};
+      const payload: jwtPayloadAccessToken = { id: informationOfUser.id , email : informationOfUser.email , name : informationOfUser.name , type : informationOfUser.type};
       const accessToken: string = generateAccessToken(payload);
-     
+      
+       const  refreshToken = generateRefershToken({id : informationOfUser.id}, "1d"); ;
+       await user.updateRefershToken(email, refreshToken);
 
-    
-    
+      res.cookie("refreshToken", refreshToken, {
+        
+        httpOnly: true,
+        secure: true, 
+        sameSite: "none" as const,
+        maxAge: 30 * 24 * 60 * 60 * 1000,
+      }); 
+
+
       return res
         .status(200)
         .json(
@@ -107,6 +121,11 @@ export class AuthController {
         .json(new ApiError("Error in verifying signup OTP", err));
     }
   };
+
+
+
+
+
 
   public verifyForgotPasswordOtp = async (req: any, res: any) => {
     const { email, otp } = req.body;
@@ -131,7 +150,7 @@ export class AuthController {
         return res.status(404).json(new ApiError("User account not found"));
       }
 
-      const payload: jwtPayloadAccessToken = { id: userDetails.id , name : userDetails.name , email : userDetails.email };
+      const payload: jwtPayloadAccessToken = { id: userDetails.id , name : userDetails.name , email : userDetails.email  , type : userDetails.type };
       const accessToken: string = generateAccessToken(payload);
 
       return res
@@ -147,6 +166,11 @@ export class AuthController {
         .json(new ApiError("Error verifying forgot password OTP", err));
     }
   };
+
+
+
+
+
 
   public forgotPasswordVerification = async (req: any, res: any) => {
     const { email } = req.body;
@@ -184,6 +208,10 @@ export class AuthController {
     }
   };
 
+
+
+
+
   public forgotPasswordChange = async (req: any, res: any) => {
     const { password } = req.body;
     try {
@@ -203,7 +231,7 @@ export class AuthController {
 
       return res.status(200).json(
         new ApiResponse(
-          "Password is changed successfully. Please log in again." // IMPORTANT: Force re-login
+          "Password is changed successfully. Please log in again." 
         )
       );
     } catch (err: any) {
@@ -212,6 +240,11 @@ export class AuthController {
         .json(new ApiError("Error in changing the password"));
     }
   };
+
+
+
+
+
 
   public login = async (req: any, res: any) => {
     const { email, password, remberMe } = req.body;
@@ -231,7 +264,8 @@ export class AuthController {
       const jwtPayloadAccessToken: jwtPayloadAccessToken = {
         id: userId,
         name : userdetails.name , 
-        email : userdetails.email
+        email : userdetails.email , 
+        type : userdetails.type 
       };
       
       const jwtPayloadRefershToken : jwtPayloadRefershToken = {
@@ -268,6 +302,10 @@ export class AuthController {
     }
   };
 
+
+
+
+  
   public refershToken = async (req: any, res: any) => {
     
     const incomingRefreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
@@ -290,7 +328,7 @@ export class AuthController {
           .json(new ApiError("Refersh Token is inncorrect"));
       }
 
-      const newAccessToken = generateAccessToken({ id: userId  , name : userDetails.name , email : userDetails.email});
+      const newAccessToken = generateAccessToken({ id: userId  , name : userDetails.name , email : userDetails.email , type : userDetails.type});
      
 
     

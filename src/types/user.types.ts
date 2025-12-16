@@ -1,9 +1,10 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, UserType } from "@prisma/client";
 
 export interface userSignInputDetails {
     name : string , 
     email : string , 
-    password : string 
+    password : string ,
+    type? : UserType
 }
 
 

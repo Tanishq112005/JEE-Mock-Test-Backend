@@ -34,7 +34,7 @@ class User {
 
   // creating the user with not verified status , it means right now user is not verified
   async creatingUser(details : userSignInputDetails) {
-    const { name, email, password } = details;
+    const { name, email, password , type} = details;
 
     try {
       await this.db.user.create({
@@ -43,6 +43,7 @@ class User {
           email: email,
           password: password,
           is_verified: false,
+          type : type
         },
       });
     } catch (err: any) {

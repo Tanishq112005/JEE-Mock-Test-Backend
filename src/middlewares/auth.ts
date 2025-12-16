@@ -16,7 +16,7 @@ export const authMiddleware = (req : any, res : any, next : any) => {
     const decoded = verifyAccessToken(accessToken);
 
     req.user = decoded.id;
- 
+    req.type = decoded.type; 
 
     return next();
   } catch (err) {
@@ -25,3 +25,4 @@ export const authMiddleware = (req : any, res : any, next : any) => {
     );
   }
 };
+
