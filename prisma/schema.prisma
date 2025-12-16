@@ -69,7 +69,6 @@ model student_profile {
 model exam {
   id         String   @id @default(uuid())
   name       ExamName @unique
-  updated_at DateTime @updatedAt
   papers     papers[]
 }
 

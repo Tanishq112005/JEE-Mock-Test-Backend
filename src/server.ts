@@ -8,6 +8,7 @@ import { authRoutes } from "./routes/auth";
 import { EmailConsumer } from "./rabbitmq/consumers/email-consumer";
 import { rabbitMQClient } from "./rabbitmq/connection/rabbitmq-connection";
 import { subjectRoutes } from "./routes/subject";
+import { examRoutes } from "./routes/exam";
 console.log(PORT) ;
 const port  = PORT || 3000; 
 const app = express() ; 
@@ -53,7 +54,7 @@ startServer();
 
 app.use('/api/auth' , authRoutes);
 app.use('/api/subject' , subjectRoutes) ; 
-
+app.use('/api/exam' , examRoutes) ; 
 
 app.use("/health" , function(req : Request , res : Response){
     res.status(200).json(
