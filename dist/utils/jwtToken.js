@@ -42,6 +42,6 @@ async function verifiyingRefeshToken(token) {
         return decoded;
     }
     catch (err) {
-        return err.message;
+        return err;
     }
 }

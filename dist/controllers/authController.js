@@ -74,16 +74,6 @@ class AuthController {
             const informationOfUser = await user_db_1.user.checkingUserPresent(email);
             const payload = { id: informationOfUser.id, email: informationOfUser.email, name: informationOfUser.name };
             const accessToken = (0, jwtToken_1.generateAccessToken)(payload);
-            const refreshToken = (0, jwtToken_1.generateRefershToken)({
-                id: informationOfUser.id
-            }, "1d");
-            await user_db_1.user.updateRefershToken(email, refreshToken);
-            res.cookie("refreshToken", refreshToken, {
-                httpOnly: true,
-                secure: true,
-                sameSite: "none",
-                maxAge: 30 * 24 * 60 * 60 * 1000,
-            });
             return res
                 .status(200)
                 .json(new ApiResponse_1.default("Account verified and logged in successfully", {
@@ -164,9 +154,6 @@ class AuthController {
             }
             const hashedPassword = await (0, password_1.hashPassword)(password);
             await user_db_1.user.updatePassword(userId, hashedPassword);
-            const newDummyRefreshToken = (0, jwtToken_1.generateRefershToken)({ id: userId }, "1d");
-            await user_db_1.user.updateRefershToken(userDetails.email, newDummyRefreshToken);
-            res.clearCookie("refreshToken");
             return res.status(200).json(new ApiResponse_1.default("Password is changed successfully. Please log in again." // IMPORTANT: Force re-login
             ));
         }
@@ -240,14 +227,6 @@ class AuthController {
                     .json(new ApiError_1.default("Refersh Token is inncorrect"));
             }
             const newAccessToken = (0, jwtToken_1.generateAccessToken)({ id: userId, name: userDetails.name, email: userDetails.email });
-            const newRefreshToken = (0, jwtToken_1.generateRefershToken)({ id: userId }, "30d");
-            await user_db_1.user.updateRefershToken(userDetails.email, newRefreshToken);
-            res.cookie("refreshToken", newRefreshToken, {
-                httpOnly: true,
-                secure: true,
-                sameSite: "none",
-                maxAge: 30 * 24 * 60 * 60 * 1000,
-            });
             return res
                 .status(200)
                 .json(new ApiResponse_1.default("Access token refreshed", {

@@ -90,18 +90,9 @@ export class AuthController {
 
       const payload: jwtPayloadAccessToken = { id: informationOfUser.id , email : informationOfUser.email , name : informationOfUser.name};
       const accessToken: string = generateAccessToken(payload);
-      const refreshToken = generateRefershToken({
-        id : informationOfUser.id
-      }, "1d");
+     
 
-      await user.updateRefershToken(email, refreshToken);
-
-      res.cookie("refreshToken", refreshToken, {
-       httpOnly: true,
-        secure: true, 
-        sameSite: "none" as const,
-        maxAge: 30 * 24 * 60 * 60 * 1000,
-      });
+    
     
       return res
         .status(200)
@@ -208,11 +199,7 @@ export class AuthController {
       const hashedPassword: string = await hashPassword(password);
       await user.updatePassword(userId, hashedPassword);
 
-      const newDummyRefreshToken = generateRefershToken({ id: userId }, "1d");
 
-      await user.updateRefershToken(userDetails.email, newDummyRefreshToken);
-
-      res.clearCookie("refreshToken");
 
       return res.status(200).json(
         new ApiResponse(
@@ -304,16 +291,9 @@ export class AuthController {
       }
 
       const newAccessToken = generateAccessToken({ id: userId  , name : userDetails.name , email : userDetails.email});
-      const newRefreshToken = generateRefershToken({id : userId}, "30d");
+     
 
-      await user.updateRefershToken(userDetails.email, newRefreshToken);
-
-      res.cookie("refreshToken", newRefreshToken, {
-        httpOnly: true,
-        secure: true, 
-        sameSite: "none" as const,
-        maxAge: 30 * 24 * 60 * 60 * 1000,
-      });
+    
 
       return res
         .status(200)

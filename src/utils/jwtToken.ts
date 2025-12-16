@@ -50,7 +50,7 @@ export async function verifiyingRefeshToken(token : string){
         const decoded = jwt.verify(token, jwtConfigRefershToken.secret_key);
         return decoded;
     } catch (err: any) {
-        return err.message;
+        return err;
     }
 }
 
