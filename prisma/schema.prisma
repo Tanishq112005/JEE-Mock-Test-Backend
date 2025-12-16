@@ -6,7 +6,6 @@
 
 generator client {
   provider = "prisma-client-js"
-  
 }
 
 datasource db {
@@ -20,10 +19,24 @@ enum ExamName {
   JEE_ADVANCED
 }
 
+enum SubjectName {
+  Physics
+  Chemistry
+  Mathematics
+}
+
 enum Study_mode {
   online
   offline
   self
+}
+
+enum questionType {
+  SingleCorrect
+  MultiCorrect
+  MatchTheFollowing
+  Integer
+  Comprehension
 }
 
 // user model table 
@@ -32,7 +45,7 @@ model user {
   name            String
   email           String           @unique
   password        String           @unique
-  refersh_token    String?          @unique
+  refersh_token   String?          @unique
   created_at      DateTime         @default(now())
   is_verified     Boolean
   student_profile student_profile?
@@ -49,7 +62,7 @@ model student_profile {
   phone_country_code String?
   created_at         DateTime    @default(now())
   updated_at         DateTime    @updatedAt
-  user               user        @relation(fields: [user_id], references: [id])
+  user               user        @relation(fields: [user_id], references: [id] , onDelete: Cascade)
 }
 
 // exam model table 
@@ -57,4 +70,110 @@ model exam {
   id         String   @id @default(uuid())
   name       ExamName @unique
   updated_at DateTime @updatedAt
+  papers     papers[]
 }
+
+// subjects model table 
+model subjects {
+  id       String      @id @default(uuid())
+  name     SubjectName
+  chapters chapters[]
+}
+
+// chapters model table 
+model chapters {
+  id            String      @id @default(uuid())
+  name          String
+  subjectId     String
+  chapterNumber Int
+  class         Int
+  questions     questions[]
+  comprehension comprehension[]
+  subjects      subjects    @relation(fields: [subjectId], references: [id] , onDelete: Cascade)
+}
+
+// papers model table 
+model papers {
+  id                String      @id @default(uuid())
+  examId            String
+  year              Int
+  session           String
+  shift             String?
+  totalMarks        Int
+  totalDuration     Int
+  totalQuestions    Int
+  totalSingleChoice Int         @default(0)
+  totalMultiChoice  Int         @default(0)
+  totalInteger      Int         @default(0)
+  exam              exam        @relation(fields: [examId], references: [id] , onDelete: Cascade)
+  questions         questions[]
+  comprehensions    comprehension[]
+  @@unique([examId, year, session, shift])
+}
+
+// model comprehension table 
+model comprehension {
+  id String @id @default(uuid()) 
+  paperId String 
+  chapterId String 
+
+  papers papers @relation(fields: [paperId] , references: [id] , onDelete:  Cascade )  
+  chapter chapters @relation(fields: [chapterId] , references: [id] , onDelete: Cascade ) 
+  questions questions[]
+}
+// model questions table 
+model questions {
+  id             String       @id @default(uuid())
+  paperId        String
+  chapterId      String
+  comprehensionId String?
+  questionNumber Int          
+  english_text   String       
+  hindi_text     String?      
+  image          String[]
+  type           questionType
+  positiveMarks  Int          
+  negativeMarks  Int
+  correctAnswer  String[]     
+  options        options?     
+  solution       solution?    
+  papers         papers       @relation(fields: [paperId], references: [id] , onDelete: Cascade)
+  chapters       chapters     @relation(fields: [chapterId], references: [id] , onDelete: Cascade)
+  comprehension  comprehension? @relation(fields: [comprehensionId] , references: [id] , onDelete: Cascade)
+
+  @@unique([paperId, questionNumber]) 
+}
+
+// model options table 
+model options {
+  id           String    @id @default(uuid())
+  questionId   String    @unique 
+  
+  optionAtext  String?
+  optionAimage String?
+  
+  optionBtext  String?
+  optionBimage String?
+  
+  optionCtext  String?
+  optionCimage String?
+  
+  optionDtext  String?
+  optionDimage String?
+  
+  questions    questions @relation(fields: [questionId], references: [id] , onDelete: Cascade)
+}
+
+// model solution table
+model solution {
+  id           String    @id @default(uuid())
+  questionId   String    @unique
+  
+  text         String    
+  videoUrl     String?   
+  imageUrl     String?   
+  
+  question     questions @relation(fields: [questionId], references: [id] , onDelete: Cascade)
+}
+
+
