@@ -76,8 +76,9 @@ model exam {
 // subjects model table 
 model subjects {
   id       String      @id @default(uuid())
-  name     SubjectName
+  name     SubjectName @unique
   chapters chapters[]
+
 }
 
 // chapters model table 
