@@ -15,6 +15,7 @@ const authMiddleware = (req, res, next) => {
     try {
         const decoded = (0, jwtToken_1.verifyAccessToken)(accessToken);
         req.user = decoded.id;
+        req.type = decoded.type;
         return next();
     }
     catch (err) {

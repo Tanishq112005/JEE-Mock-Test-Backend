@@ -13,6 +13,7 @@ const email_consumer_1 = require("./rabbitmq/consumers/email-consumer");
 const rabbitmq_connection_1 = require("./rabbitmq/connection/rabbitmq-connection");
 const subject_1 = require("./routes/subject");
 const exam_1 = require("./routes/exam");
+const chapter_1 = require("./routes/chapter");
 console.log(env_1.PORT);
 const port = env_1.PORT || 3000;
 const app = (0, express_1.default)();
@@ -49,6 +50,7 @@ startServer();
 app.use('/api/auth', auth_1.authRoutes);
 app.use('/api/subject', subject_1.subjectRoutes);
 app.use('/api/exam', exam_1.examRoutes);
+app.use('/api/chapter', chapter_1.chapterRoutes);
 app.use("/health", function (req, res) {
     res.status(200).json(new ApiResponse_1.default("Server is running good", "ok"));
 });

@@ -22,13 +22,14 @@ class AuthController {
         this.redis = redis_1.redisClient;
     }
     createUser = async (req, res) => {
-        const { name, email, password } = req.body;
+        const { name, email, password, type } = req.body;
         try {
             const hashedPassword = await (0, password_1.hashPassword)(password);
             const signinPayload = {
                 name: name,
                 email: email,
                 password: hashedPassword,
+                type: type
             };
             const checkingUserPresent = await user_db_1.user.checkingUserPresent(email);
             if (checkingUserPresent && checkingUserPresent.is_verified) {
@@ -72,8 +73,17 @@ class AuthController {
             await this.redis.del(key);
             await user_db_1.user.changingIsVerifiedStatus(email);
             const informationOfUser = await user_db_1.user.checkingUserPresent(email);
-            const payload = { id: informationOfUser.id, email: informationOfUser.email, name: informationOfUser.name };
+            const payload = { id: informationOfUser.id, email: informationOfUser.email, name: informationOfUser.name, type: informationOfUser.type };
             const accessToken = (0, jwtToken_1.generateAccessToken)(payload);
+            const refreshToken = (0, jwtToken_1.generateRefershToken)({ id: informationOfUser.id }, "1d");
+            ;
+            await user_db_1.user.updateRefershToken(email, refreshToken);
+            res.cookie("refreshToken", refreshToken, {
+                httpOnly: true,
+                secure: true,
+                sameSite: "none",
+                maxAge: 30 * 24 * 60 * 60 * 1000,
+            });
             return res
                 .status(200)
                 .json(new ApiResponse_1.default("Account verified and logged in successfully", {
@@ -102,7 +112,7 @@ class AuthController {
             if (!userDetails) {
                 return res.status(404).json(new ApiError_1.default("User account not found"));
             }
-            const payload = { id: userDetails.id, name: userDetails.name, email: userDetails.email };
+            const payload = { id: userDetails.id, name: userDetails.name, email: userDetails.email, type: userDetails.type };
             const accessToken = (0, jwtToken_1.generateAccessToken)(payload);
             return res
                 .status(200)
@@ -154,8 +164,7 @@ class AuthController {
             }
             const hashedPassword = await (0, password_1.hashPassword)(password);
             await user_db_1.user.updatePassword(userId, hashedPassword);
-            return res.status(200).json(new ApiResponse_1.default("Password is changed successfully. Please log in again." // IMPORTANT: Force re-login
-            ));
+            return res.status(200).json(new ApiResponse_1.default("Password is changed successfully. Please log in again."));
         }
         catch (err) {
             return res
@@ -178,7 +187,8 @@ class AuthController {
             const jwtPayloadAccessToken = {
                 id: userId,
                 name: userdetails.name,
-                email: userdetails.email
+                email: userdetails.email,
+                type: userdetails.type
             };
             const jwtPayloadRefershToken = {
                 id: userId
@@ -226,7 +236,7 @@ class AuthController {
                     .status(401)
                     .json(new ApiError_1.default("Refersh Token is inncorrect"));
             }
-            const newAccessToken = (0, jwtToken_1.generateAccessToken)({ id: userId, name: userDetails.name, email: userDetails.email });
+            const newAccessToken = (0, jwtToken_1.generateAccessToken)({ id: userId, name: userDetails.name, email: userDetails.email, type: userDetails.type });
             return res
                 .status(200)
                 .json(new ApiResponse_1.default("Access token refreshed", {
