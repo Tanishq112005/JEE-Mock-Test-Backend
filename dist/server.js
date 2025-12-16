@@ -11,6 +11,7 @@ const cookie_parser_1 = __importDefault(require("cookie-parser"));
 const auth_1 = require("./routes/auth");
 const email_consumer_1 = require("./rabbitmq/consumers/email-consumer");
 const rabbitmq_connection_1 = require("./rabbitmq/connection/rabbitmq-connection");
+const subject_1 = require("./routes/subject");
 console.log(env_1.PORT);
 const port = env_1.PORT || 3000;
 const app = (0, express_1.default)();
@@ -45,6 +46,7 @@ const startServer = async () => {
 };
 startServer();
 app.use('/api/auth', auth_1.authRoutes);
+app.use('/api/subject', subject_1.subjectRoutes);
 app.use("/health", function (req, res) {
     res.status(200).json(new ApiResponse_1.default("Server is running good", "ok"));
 });
