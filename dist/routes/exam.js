@@ -1,0 +1,10 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.examRoutes = void 0;
+const express_1 = require("express");
+const examController_1 = require("../controllers/examController");
+const router = (0, express_1.Router)();
+router.post("/create", examController_1.examController.createExam);
+router.delete("/delete", examController_1.examController.deleteExam);
+router.get("/get", examController_1.examController.givingExamName);
+exports.examRoutes = router;
