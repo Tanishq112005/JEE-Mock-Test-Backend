@@ -11,79 +11,63 @@ class Chapter {
     constructor(database) {
         this.db = database;
     }
-    // adding the chapter
-    async addingChapter(payload) {
-        try {
-            const subjectInformation = await this.db.subjects.findUnique({
-                where: {
-                    name: payload.subject,
-                },
-            });
-            if (!subjectInformation) {
-                throw new ApiError_1.default("Subject not found");
-            }
-            await this.db.chapters.create({
-                data: {
-                    name: payload.name,
-                    class: payload.classNumber,
-                    chapterNumber: payload.chapterNumber,
-                    subjectId: subjectInformation.id,
-                },
-            });
+    // ---------------- ADD CHAPTER ----------------
+    addingChapter = async (payload) => {
+        console.log("REPO PAYLOAD:", payload);
+        const subjectInformation = await this.db.subjects.findUnique({
+            where: {
+                name: payload.subject,
+            },
+        });
+        if (!subjectInformation) {
+            throw new ApiError_1.default("Subject not found");
         }
-        catch (err) {
-            throw err;
+        await this.db.chapters.create({
+            data: {
+                name: payload.name,
+                class: payload.classNumber,
+                chapterNumber: payload.chapterNumber,
+                subjectId: subjectInformation.id,
+            },
+        });
+    };
+    // ---------------- DELETE CHAPTER ----------------
+    deletingChapter = async (payload) => {
+        await this.db.chapters.delete({
+            where: {
+                id: payload.id,
+            },
+        });
+    };
+    // ---------------- GET CHAPTERS ----------------
+    gettingChapter = async (payload) => {
+        const whereCondition = {};
+        if (payload.classNumber) {
+            whereCondition.class = payload.classNumber;
         }
-    }
-    // deleting the chapter 
-    async deletingChapter(payload) {
-        try {
-            const chapterId = payload.id;
-            await this.db.chapters.delete({
-                where: {
-                    id: chapterId
-                }
-            });
+        if (payload.subjectName) {
+            whereCondition.subjects = {
+                name: payload.subjectName,
+            };
         }
-        catch (err) {
-            throw err;
-        }
-    }
-    // getting all the chapters depends on the condition 
-    async gettingChapter(payload) {
-        try {
-            const whereCondition = {};
-            if (payload.classNumber) {
-                whereCondition.class = Number(payload.classNumber);
-            }
-            if (payload.subjectName) {
-                whereCondition.subjects = {
-                    name: payload.subjectName,
-                };
-            }
-            const chapterListInDb = await this.db.chapters.findMany({
-                select: {
-                    id: true,
-                    name: true,
-                    chapterNumber: true,
-                    class: true,
-                    subjects: {
-                        select: {
-                            id: true,
-                            name: true,
-                        },
+        return this.db.chapters.findMany({
+            where: whereCondition,
+            orderBy: {
+                chapterNumber: "asc",
+            },
+            select: {
+                id: true,
+                name: true,
+                chapterNumber: true,
+                class: true,
+                subjects: {
+                    select: {
+                        id: true,
+                        name: true,
                     },
                 },
-                where: whereCondition,
-                orderBy: {
-                    chapterNumber: "asc",
-                },
-            });
-            return chapterListInDb;
-        }
-        catch (err) {
-            throw err;
-        }
-    }
+            },
+        });
+    };
 }
 exports.chapter = new Chapter(database_1.database);

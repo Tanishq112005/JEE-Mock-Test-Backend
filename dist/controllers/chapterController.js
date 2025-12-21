@@ -27,6 +27,7 @@ class ChapterController {
             res.status(200).json(new ApiResponse_1.default("Chapter is added successfully"));
         }
         catch (err) {
+            console.log(err);
             res.status(500).json(new ApiError_1.default("Error in adding the chapter", err));
         }
     };

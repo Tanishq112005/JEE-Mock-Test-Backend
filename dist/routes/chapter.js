@@ -2,11 +2,11 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.chapterRoutes = void 0;
 const express_1 = require("express");
-const chapter_db_1 = require("../repositories/chapter.db");
 const auth_1 = require("../middlewares/auth");
 const developerRole_1 = require("../middlewares/developerRole");
+const chapterController_1 = require("../controllers/chapterController");
 const router = (0, express_1.Router)();
-router.post("/create", auth_1.authMiddleware, developerRole_1.developerRoleMiddleware, chapter_db_1.chapter.addingChapter);
-router.delete("/delete", auth_1.authMiddleware, developerRole_1.developerRoleMiddleware, chapter_db_1.chapter.deletingChapter);
-router.get("/get", auth_1.authMiddleware, developerRole_1.developerRoleMiddleware, chapter_db_1.chapter.gettingChapter);
+router.post("/create", auth_1.authMiddleware, developerRole_1.developerRoleMiddleware, chapterController_1.chapterController.addingChapter);
+router.delete("/delete", auth_1.authMiddleware, developerRole_1.developerRoleMiddleware, chapterController_1.chapterController.deletingChapter);
+router.get("/get", auth_1.authMiddleware, developerRole_1.developerRoleMiddleware, chapterController_1.chapterController.getChapters);
 exports.chapterRoutes = router;
