@@ -1,6 +1,10 @@
 import { PrismaClient, SubjectName } from "@prisma/client";
 import { database } from "../lib/database";
-import { chapterInform, deletingPayload, gettingPayload } from "../types/chapter.types";
+import {
+  chapterInform,
+  deletingPayload,
+  gettingPayload,
+} from "../types/chapter.types";
 import ApiError from "../utils/ApiError";
 
 class Chapter {
@@ -10,69 +14,57 @@ class Chapter {
     this.db = database;
   }
 
-  // adding the chapter
-  async addingChapter(payload: chapterInform) {
-    try {
-      const subjectInformation = await this.db.subjects.findUnique({
-        where: {
-          name: payload.subject as SubjectName,
-        },
-      });
+  // ---------------- ADD CHAPTER ----------------
+  public addingChapter = async (payload: chapterInform) => {
+     console.log("REPO PAYLOAD:", payload);
+    const subjectInformation = await this.db.subjects.findUnique({
+      where: {
+        name: payload.subject as SubjectName,
+      },
+    });
 
-      if (!subjectInformation) {
-        throw new ApiError("Subject not found");
-      }
-
-       await this.db.chapters.create({
-        data: {
-          name: payload.name,
-          class: payload.classNumber,
-          chapterNumber: payload.chapterNumber,
-          subjectId: subjectInformation.id,
-        },
-      });
-
-    } catch (err) {
-      throw err;
-    }
-  }
-
-
-
-  // deleting the chapter 
-  async deletingChapter(payload : deletingPayload){
-    try {
-      const chapterId = payload.id ; 
-      await this.db.chapters.delete({
-        where : {
-            id : chapterId
-        } 
-      })
-
-    }
-    catch(err){
-        throw err ; 
+    if (!subjectInformation) {
+      throw new ApiError("Subject not found");
     }
 
-  }
+    await this.db.chapters.create({
+      data: {
+        name: payload.name,
+        class: payload.classNumber,
+        chapterNumber: payload.chapterNumber,
+        subjectId: subjectInformation.id,
+      },
+    });
+  };
 
+  // ---------------- DELETE CHAPTER ----------------
+  public deletingChapter = async (payload: deletingPayload) => {
+    await this.db.chapters.delete({
+      where: {
+        id: payload.id,
+      },
+    });
+  };
 
-  // getting all the chapters depends on the condition 
- async gettingChapter(payload: gettingPayload) {
-  try {
+  // ---------------- GET CHAPTERS ----------------
+  public gettingChapter = async (payload: gettingPayload) => {
     const whereCondition: any = {};
 
     if (payload.classNumber) {
-      whereCondition.class = Number(payload.classNumber);
+      whereCondition.class = payload.classNumber;
     }
 
     if (payload.subjectName) {
       whereCondition.subjects = {
-        name: payload.subjectName, 
+        name: payload.subjectName,
       };
     }
 
-    const chapterListInDb = await this.db.chapters.findMany({
+    return this.db.chapters.findMany({
+      where: whereCondition,
+      orderBy: {
+        chapterNumber: "asc",
+      },
       select: {
         id: true,
         name: true,
@@ -85,18 +77,8 @@ class Chapter {
           },
         },
       },
-      where: whereCondition,
-      orderBy: {
-        chapterNumber: "asc",
-      },
     });
-
-    return chapterListInDb;
-  } catch (err) {
-    throw err;
-  }
+  };
 }
-}
-
 
 export const chapter = new Chapter(database);

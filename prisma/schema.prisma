@@ -36,6 +36,12 @@ enum UserType {
   Developer
 }
 
+enum AttemptStatus {
+  ATTEMPTING
+  CORRECT
+  WRONG
+}
+
 enum questionType {
   SingleCorrect
   MultiCorrect
@@ -55,8 +61,8 @@ model user {
   created_at      DateTime         @default(now())
   is_verified     Boolean
   student_profile student_profile?
+  testSession     testResults[]
 }
-
 
 // user_details table
 model student_profile {
@@ -114,6 +120,7 @@ model papers {
   exam              exam            @relation(fields: [examId], references: [id], onDelete: Cascade)
   questions         questions[]
   comprehensions    comprehension[]
+  testSession       testResults[]
 
   @@unique([examId, year, session, shift])
 }
@@ -148,7 +155,7 @@ model questions {
   papers          papers         @relation(fields: [paperId], references: [id], onDelete: Cascade)
   chapters        chapters       @relation(fields: [chapterId], references: [id], onDelete: Cascade)
   comprehension   comprehension? @relation(fields: [comprehensionId], references: [id], onDelete: Cascade)
-
+  statusOfQuestion QuestionAttempt[]
   @@unique([paperId, questionNumber])
 }
 
@@ -182,4 +189,28 @@ model solution {
   imageUrl String?
 
   question questions @relation(fields: [questionId], references: [id], onDelete: Cascade)
+}
+
+// model testResults  table 
+model testResults {
+  id            String   @id @default(uuid())
+  paperId       String
+  userId        String
+  PositiveMarks Int
+  NegativeMarks Int
+  totalAttempt  Int
+  created_at    DateTime @default(now())
+  user          user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  papers        papers   @relation(fields: [paperId], references: [id], onDelete: Cascade)
+}
+
+
+
+// model QuestionAttempt table 
+model QuestionAttempt {
+  id String @id @default(uuid())
+  questionId String
+  status AttemptStatus 
+  userAnswer String[] 
+  questions  questions @relation(fields: [questionId] , references: [id] , onDelete: Cascade)
 }

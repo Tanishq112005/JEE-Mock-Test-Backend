@@ -12,6 +12,7 @@ class ChapterController {
   public addingChapter = async (req: Request, res: Response) => {
     const { name, chapterNumber, classNumber, subject } = req.body;
     try {
+      
       if (!Object.values(SubjectName).includes(subject)) {
         return res.status(400).json(new ApiError("Invalid subject name"));
       }
@@ -22,10 +23,11 @@ class ChapterController {
         classNumber: classNumber,
         subject: subject,
       };
-
+   
       await chapter.addingChapter(payload);
       res.status(200).json(new ApiResponse("Chapter is added successfully"));
     } catch (err: any) {
+      console.log(err) ;
       res.status(500).json(new ApiError("Error in adding the chapter", err));
     }
   };

@@ -1,12 +1,12 @@
 import { Router } from "express";
-import { chapter } from "../repositories/chapter.db";
 import { authMiddleware } from "../middlewares/auth";
 import { developerRoleMiddleware } from "../middlewares/developerRole";
+import { chapterController } from "../controllers/chapterController";
 
 const router = Router() ; 
 
-router.post("/create" ,authMiddleware , developerRoleMiddleware ,  chapter.addingChapter) ; 
-router.delete("/delete" ,authMiddleware , developerRoleMiddleware ,  chapter.deletingChapter) ; 
-router.get("/get" ,authMiddleware , developerRoleMiddleware ,  chapter.gettingChapter) ; 
+router.post("/create" ,authMiddleware , developerRoleMiddleware ,  chapterController.addingChapter) ; 
+router.delete("/delete" ,authMiddleware , developerRoleMiddleware ,  chapterController.deletingChapter) ; 
+router.get("/get" ,authMiddleware , developerRoleMiddleware ,  chapterController.getChapters) ; 
 
 export const chapterRoutes = router ; 
