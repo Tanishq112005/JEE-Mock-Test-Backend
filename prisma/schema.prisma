@@ -14,6 +14,31 @@ datasource db {
 
 // defing the prisma  schema of the database 
 
+enum Day {
+  Monday
+  Tuesday
+  Wednesday
+  Thursday
+  Friday
+  Saturday
+  Sunday
+}
+
+enum Month {
+  January
+  February
+  March
+  April
+  May
+  June
+  July
+  August
+  September
+  October
+  November
+  December
+}
+
 enum ExamName {
   JEE_MAIN
   JEE_ADVANCED
@@ -42,10 +67,21 @@ enum AttemptStatus {
   WRONG
 }
 
+enum Shift {
+  Morning
+  Evening
+  Paper_1
+  Paper_2
+}
+
+enum ExamMode {
+  online
+  offline
+}
+
 enum questionType {
   SingleCorrect
   MultiCorrect
-  MatchTheFollowing
   Integer
   Comprehension
 }
@@ -90,73 +126,74 @@ model subjects {
   id       String      @id @default(uuid())
   name     SubjectName @unique
   chapters chapters[]
+  question questions[]
 }
 
 // chapters model table 
 model chapters {
-  id            String          @id @default(uuid())
-  name          String
+  id            String      @id @default(uuid())
+  name          String      @unique
   subjectId     String
   chapterNumber Int
   class         Int
+
+  // --- New Syllabus Fields ---
+  isCbse        Boolean     @default(false)
+  isJeeMain     Boolean     @default(false)
+  isJeeAdvanced Boolean     @default(false)
+
   questions     questions[]
-  comprehension comprehension[]
-  subjects      subjects        @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  subjects      subjects    @relation(fields: [subjectId], references: [id], onDelete: Cascade)
 }
 
 // papers model table 
 model papers {
-  id                String          @id @default(uuid())
+  id                String      @id @default(uuid())
   examId            String
-  year              Int
-  session           String
-  shift             String?
-  totalMarks        Int
-  totalDuration     Int
-  totalQuestions    Int
-  totalSingleChoice Int             @default(0)
-  totalMultiChoice  Int             @default(0)
-  totalInteger      Int             @default(0)
-  exam              exam            @relation(fields: [examId], references: [id], onDelete: Cascade)
+  year              Int?
+  day               Day?
+  month             Month?
+  date              String?
+  shift             Shift?
+  mode              ExamMode
+  totalMarks        Int?         @default(0)
+  totalDuration     Int?         @default(0)
+  totalQuestions    Int?         @default(0)
+  totalSingleChoice Int?         @default(0)
+  totalMultiChoice  Int?         @default(0)
+  totalInteger      Int?         @default(0)
+  exam              exam        @relation(fields: [examId], references: [id], onDelete: Cascade)
   questions         questions[]
-  comprehensions    comprehension[]
-  testSession       testResults[]
 
-  @@unique([examId, year, session, shift])
-}
+  testSession testResults[]
 
-// model comprehension table 
-model comprehension {
-  id        String @id @default(uuid())
-  paperId   String
-  chapterId String
-
-  papers    papers      @relation(fields: [paperId], references: [id], onDelete: Cascade)
-  chapter   chapters    @relation(fields: [chapterId], references: [id], onDelete: Cascade)
-  questions questions[]
+  @@unique([examId, year, shift])
 }
 
 // model questions table 
 model questions {
-  id              String         @id @default(uuid())
-  paperId         String
-  chapterId       String
-  comprehensionId String?
-  questionNumber  Int
-  english_text    String
-  hindi_text      String?
-  image           String[]
-  type            questionType
-  positiveMarks   Int
-  negativeMarks   Int
-  correctAnswer   String[]
-  options         options?
-  solution        solution?
-  papers          papers         @relation(fields: [paperId], references: [id], onDelete: Cascade)
-  chapters        chapters       @relation(fields: [chapterId], references: [id], onDelete: Cascade)
-  comprehension   comprehension? @relation(fields: [comprehensionId], references: [id], onDelete: Cascade)
+  id                   String       @id @default(uuid())
+  paperId              String?
+  subjectId            String
+  chapterId            String?
+  class                Int
+  content              String
+  comprehensionContent String?
+  comprehensionImage   String[]
+  image                String[]
+  type                 questionType
+  positiveMarks        Int
+  negativeMarks        Int
+  isOutOfSyllabus      Boolean
+  isBonus              Boolean
+  correctAnswer        String[]
+  options              options?
+  solution             solution?
+  papers               papers?      @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  chapters             chapters?    @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  subjects             subjects     @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
   statusOfQuestion QuestionAttempt[]
-  @@unique([paperId, questionNumber])
 }
 
 // model options table 
@@ -165,16 +202,16 @@ model options {
   questionId String @unique
 
   optionAtext  String?
-  optionAimage String?
+  optionAimage String[]
 
   optionBtext  String?
-  optionBimage String?
+  optionBimage String[]
 
   optionCtext  String?
-  optionCimage String?
+  optionCimage String[]
 
   optionDtext  String?
-  optionDimage String?
+  optionDimage String[]
 
   questions questions @relation(fields: [questionId], references: [id], onDelete: Cascade)
 }
@@ -186,7 +223,7 @@ model solution {
 
   text     String
   videoUrl String?
-  imageUrl String?
+  image    String[]
 
   question questions @relation(fields: [questionId], references: [id], onDelete: Cascade)
 }
@@ -204,13 +241,11 @@ model testResults {
   papers        papers   @relation(fields: [paperId], references: [id], onDelete: Cascade)
 }
 
-
-
 // model QuestionAttempt table 
 model QuestionAttempt {
-  id String @id @default(uuid())
+  id         String        @id @default(uuid())
   questionId String
-  status AttemptStatus 
-  userAnswer String[] 
-  questions  questions @relation(fields: [questionId] , references: [id] , onDelete: Cascade)
+  status     AttemptStatus
+  userAnswer String[]
+  questions  questions     @relation(fields: [questionId], references: [id], onDelete: Cascade)
 }

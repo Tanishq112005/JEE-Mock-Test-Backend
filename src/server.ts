@@ -10,10 +10,15 @@ import { rabbitMQClient } from "./rabbitmq/connection/rabbitmq-connection";
 import { subjectRoutes } from "./routes/subject";
 import { examRoutes } from "./routes/exam";
 import { chapterRoutes } from "./routes/chapter";
+import { questionService } from "./services/questionService";
+import { paperRoutes } from "./routes/paper";
+import { questionRoutes } from "./routes/question";
+import { seedChapters } from "./services/scripts";
 console.log(PORT) ;
 const port  = PORT || 3000; 
 const app = express() ; 
-app.use(express.json()) ;
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ limit: "50mb", extended: true }));
 app.use(cors({
     origin: (origin, callback) => {
         
@@ -38,7 +43,9 @@ const startServer = async () => {
         const emailConsumer = new EmailConsumer(rabbitMQClient);
         await emailConsumer.start();
         console.log("✅ Email Worker is running in background.");
-
+        // await seedChapters();
+         
+        
         app.listen(PORT, () => {
             console.log(`🚀 Server is running on port ${PORT}`);
         });
@@ -57,7 +64,8 @@ app.use('/api/auth' , authRoutes);
 app.use('/api/subject' , subjectRoutes) ; 
 app.use('/api/exam' , examRoutes) ; 
 app.use('/api/chapter' , chapterRoutes) ; 
-
+app.use('/api/paper' , paperRoutes) ; 
+app.use('/api/question' , questionRoutes) ; 
 
 
 

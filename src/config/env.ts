@@ -28,5 +28,14 @@ export const {
     REDIS_PASSWORD,
     REDIS_USERNAME,
     BREVO_KEY_1,
-    BREVO_KEY_2
+    BREVO_KEY_2,
+    GEMINI_API_KEY , 
+    BACKBLAZE_REGION, 
+    BACKBLAZE_ENDPOINT,
+    BUCKET_NAME,
+    IMAGE_EXPIRE_TIME,
+     BACKBLAZE_KEY_ID,      // Ensure this exists in your config/env.ts
+  BACKBLAZE_APP_KEY,
+  IV_LENGTH,
+  ENCRYPTION_KEY
 } = process.env;

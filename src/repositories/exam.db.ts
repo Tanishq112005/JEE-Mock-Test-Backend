@@ -58,7 +58,31 @@ class Exam {
             throw err ; 
         }
     }
+    
 
+
+    async gettingIdOfExam(examName : string) : Promise<any> {
+        try {
+           let condition ; 
+           if(examName === ExamName.JEE_ADVANCED){
+            condition = ExamName.JEE_ADVANCED 
+           }
+           else {
+            condition = ExamName.JEE_MAIN 
+           }
+         
+           const examDetails   = await this.db.exam.findUnique({
+            where : {
+                name : condition
+            }
+           })
+
+           return examDetails?.id ; 
+        }
+        catch(err){
+            throw err ; 
+        }
+    }
 }
 
 

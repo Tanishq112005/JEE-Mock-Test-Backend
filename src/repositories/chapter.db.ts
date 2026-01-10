@@ -1,4 +1,4 @@
-import { PrismaClient, SubjectName } from "@prisma/client";
+import { chapters, PrismaClient, SubjectName } from "@prisma/client";
 import { database } from "../lib/database";
 import {
   chapterInform,
@@ -33,6 +33,9 @@ class Chapter {
         class: payload.classNumber,
         chapterNumber: payload.chapterNumber,
         subjectId: subjectInformation.id,
+        isCbse : payload.isCbse , 
+        isJeeAdvanced : payload.isJeeAdvanced , 
+        isJeeMain : payload.isJeeMain
       },
     });
   };
@@ -79,6 +82,21 @@ class Chapter {
       },
     });
   };
+
+
+
+  public gettingChapterId = async (chapterName: string): Promise<chapters> => {
+  const chapter = await this.db.chapters.findUnique({
+    where: { name: chapterName },
+  });
+
+  if (!chapter) {
+    throw new ApiError("Chapter not found");
+  }
+
+  return chapter;
+};
+
 }
 
 export const chapter = new Chapter(database);

@@ -10,7 +10,7 @@ class ChapterController {
 
   // adding the chapter
   public addingChapter = async (req: Request, res: Response) => {
-    const { name, chapterNumber, classNumber, subject } = req.body;
+    const { name, chapterNumber, classNumber, subject , isCbse , isJeeMain , isJeeAdvanced} = req.body;
     try {
       
       if (!Object.values(SubjectName).includes(subject)) {
@@ -22,6 +22,9 @@ class ChapterController {
         chapterNumber: chapterNumber,
         classNumber: classNumber,
         subject: subject,
+        isCbse : isCbse , 
+        isJeeAdvanced : isJeeAdvanced , 
+        isJeeMain : isJeeMain
       };
    
       await chapter.addingChapter(payload);
