@@ -28,6 +28,9 @@ class Chapter {
                 class: payload.classNumber,
                 chapterNumber: payload.chapterNumber,
                 subjectId: subjectInformation.id,
+                isCbse: payload.isCbse,
+                isJeeAdvanced: payload.isJeeAdvanced,
+                isJeeMain: payload.isJeeMain
             },
         });
     };
@@ -68,6 +71,15 @@ class Chapter {
                 },
             },
         });
+    };
+    gettingChapterId = async (chapterName) => {
+        const chapter = await this.db.chapters.findUnique({
+            where: { name: chapterName },
+        });
+        if (!chapter) {
+            throw new ApiError_1.default("Chapter not found");
+        }
+        return chapter;
     };
 }
 exports.chapter = new Chapter(database_1.database);

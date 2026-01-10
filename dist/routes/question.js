@@ -1,0 +1,14 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.questionRoutes = void 0;
+const express_1 = require("express");
+const auth_1 = require("../middlewares/auth");
+const developerRole_1 = require("../middlewares/developerRole");
+const questionController_1 = require("../controllers/questionController");
+const router = (0, express_1.Router)();
+router.post("/create", auth_1.authMiddleware, developerRole_1.developerRoleMiddleware, questionController_1.questionController.createSingleQuestion);
+router.post("/uploadingPaper", auth_1.authMiddleware, developerRole_1.developerRoleMiddleware, questionController_1.questionController.uploadingAllQuestion);
+router.delete("/delete/:questionId", auth_1.authMiddleware, developerRole_1.developerRoleMiddleware, questionController_1.questionController.deleteQuestion);
+router.get("/get", auth_1.authMiddleware, questionController_1.questionController.getQuestions);
+router.get("/paperQuestions/:paperId", auth_1.authMiddleware, questionController_1.questionController.getPaperQuestions);
+exports.questionRoutes = router;

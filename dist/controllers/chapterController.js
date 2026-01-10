@@ -12,7 +12,7 @@ class ChapterController {
     constructor() { }
     // adding the chapter
     addingChapter = async (req, res) => {
-        const { name, chapterNumber, classNumber, subject } = req.body;
+        const { name, chapterNumber, classNumber, subject, isCbse, isJeeMain, isJeeAdvanced } = req.body;
         try {
             if (!Object.values(client_1.SubjectName).includes(subject)) {
                 return res.status(400).json(new ApiError_1.default("Invalid subject name"));
@@ -22,6 +22,9 @@ class ChapterController {
                 chapterNumber: chapterNumber,
                 classNumber: classNumber,
                 subject: subject,
+                isCbse: isCbse,
+                isJeeAdvanced: isJeeAdvanced,
+                isJeeMain: isJeeMain
             };
             await chapter_db_1.chapter.addingChapter(payload);
             res.status(200).json(new ApiResponse_1.default("Chapter is added successfully"));

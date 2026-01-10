@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.exam = void 0;
+const client_1 = require("@prisma/client");
 const database_1 = require("../lib/database");
 class Exam {
     db;
@@ -43,6 +44,26 @@ class Exam {
                 examList.push(examInDb[i].name);
             }
             return examList;
+        }
+        catch (err) {
+            throw err;
+        }
+    }
+    async gettingIdOfExam(examName) {
+        try {
+            let condition;
+            if (examName === client_1.ExamName.JEE_ADVANCED) {
+                condition = client_1.ExamName.JEE_ADVANCED;
+            }
+            else {
+                condition = client_1.ExamName.JEE_MAIN;
+            }
+            const examDetails = await this.db.exam.findUnique({
+                where: {
+                    name: condition
+                }
+            });
+            return examDetails?.id;
         }
         catch (err) {
             throw err;

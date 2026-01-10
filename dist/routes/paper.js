@@ -1,0 +1,12 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.paperRoutes = void 0;
+const express_1 = require("express");
+const auth_1 = require("../middlewares/auth");
+const developerRole_1 = require("../middlewares/developerRole");
+const paperController_1 = require("../controllers/paperController");
+const router = (0, express_1.Router)();
+router.post("/create", auth_1.authMiddleware, developerRole_1.developerRoleMiddleware, paperController_1.paperController.createPaper);
+router.delete("/delete/:paperId", auth_1.authMiddleware, developerRole_1.developerRoleMiddleware, paperController_1.paperController.deletePaper);
+router.get("/get", auth_1.authMiddleware, developerRole_1.developerRoleMiddleware, paperController_1.paperController.getAllPapers);
+exports.paperRoutes = router;
