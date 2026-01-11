@@ -270,7 +270,6 @@ class Question {
 
       // 3. ENCRYPT EVERYTHING IN ONE GO
       return encryptPayload(finalObject);
-
     } catch (error) {
       console.error("Error fetching paper questions:", error);
       throw error;

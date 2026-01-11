@@ -12,7 +12,7 @@ router.post("/create", authMiddleware, developerRoleMiddleware, paperController.
 router.delete("/delete/:paperId", authMiddleware, developerRoleMiddleware, paperController.deletePaper);
 
 
-router.get("/get", authMiddleware, developerRoleMiddleware, paperController.getAllPapers);
+router.get("/get", authMiddleware,  paperController.getAllPapers);
 
 
 

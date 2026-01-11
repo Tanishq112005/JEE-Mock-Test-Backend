@@ -8,5 +8,5 @@ const paperController_1 = require("../controllers/paperController");
 const router = (0, express_1.Router)();
 router.post("/create", auth_1.authMiddleware, developerRole_1.developerRoleMiddleware, paperController_1.paperController.createPaper);
 router.delete("/delete/:paperId", auth_1.authMiddleware, developerRole_1.developerRoleMiddleware, paperController_1.paperController.deletePaper);
-router.get("/get", auth_1.authMiddleware, developerRole_1.developerRoleMiddleware, paperController_1.paperController.getAllPapers);
+router.get("/get", auth_1.authMiddleware, paperController_1.paperController.getAllPapers);
 exports.paperRoutes = router;
