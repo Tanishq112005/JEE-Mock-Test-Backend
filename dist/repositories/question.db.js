@@ -14,12 +14,12 @@ class Question {
     // ---------------------------------------------------------
     // 1. Helper: Sign Image URLs
     // ---------------------------------------------------------
-    async signUrlArray(images) {
+    signUrlArray(images) {
         if (!images || images.length === 0)
             return [];
         const signedUrls = [];
         for (let i = 0; i < images.length; i++) {
-            const link = await s3_1.backblaze.getImageLink(images[i]);
+            const link = s3_1.backblaze.getImageLink(images[i]);
             signedUrls.push(link);
         }
         return signedUrls;
@@ -131,23 +131,23 @@ class Question {
                 const isCbse = q.chapters?.isCbse ?? false;
                 const isJeeMain = q.chapters?.isJeeMain ?? false;
                 const isJeeAdvanced = q.chapters?.isJeeAdvanced ?? false;
-                const signedQuestionImages = await this.signUrlArray(q.image);
-                const signedCompImages = await this.signUrlArray(q.comprehensionImage);
+                const signedQuestionImages = this.signUrlArray(q.image);
+                const signedCompImages = this.signUrlArray(q.comprehensionImage);
                 let processedOptions = null;
                 if (q.options) {
                     processedOptions = {
                         ...q.options,
-                        optionAimage: await this.signUrlArray(q.options.optionAimage),
-                        optionBimage: await this.signUrlArray(q.options.optionBimage),
-                        optionCimage: await this.signUrlArray(q.options.optionCimage),
-                        optionDimage: await this.signUrlArray(q.options.optionDimage),
+                        optionAimage: this.signUrlArray(q.options.optionAimage),
+                        optionBimage: this.signUrlArray(q.options.optionBimage),
+                        optionCimage: this.signUrlArray(q.options.optionCimage),
+                        optionDimage: this.signUrlArray(q.options.optionDimage),
                     };
                 }
                 let processedSolution = null;
                 if (q.solution) {
                     processedSolution = {
                         ...q.solution,
-                        image: await this.signUrlArray(q.solution.image),
+                        image: this.signUrlArray(q.solution.image),
                     };
                 }
                 return {
@@ -204,23 +204,23 @@ class Question {
                 const isCbse = q.chapters?.isCbse ?? false;
                 const isJeeMain = q.chapters?.isJeeMain ?? false;
                 const isJeeAdvanced = q.chapters?.isJeeAdvanced ?? false;
-                const signedQuestionImages = await this.signUrlArray(q.image);
-                const signedCompImages = await this.signUrlArray(q.comprehensionImage);
+                const signedQuestionImages = this.signUrlArray(q.image);
+                const signedCompImages = this.signUrlArray(q.comprehensionImage);
                 let processedOptions = null;
                 if (q.options) {
                     processedOptions = {
                         ...q.options,
-                        optionAimage: await this.signUrlArray(q.options.optionAimage),
-                        optionBimage: await this.signUrlArray(q.options.optionBimage),
-                        optionCimage: await this.signUrlArray(q.options.optionCimage),
-                        optionDimage: await this.signUrlArray(q.options.optionDimage),
+                        optionAimage: this.signUrlArray(q.options.optionAimage),
+                        optionBimage: this.signUrlArray(q.options.optionBimage),
+                        optionCimage: this.signUrlArray(q.options.optionCimage),
+                        optionDimage: this.signUrlArray(q.options.optionDimage),
                     };
                 }
                 let processedSolution = null;
                 if (q.solution) {
                     processedSolution = {
                         ...q.solution,
-                        image: await this.signUrlArray(q.solution.image),
+                        image: this.signUrlArray(q.solution.image),
                     };
                 }
                 return {

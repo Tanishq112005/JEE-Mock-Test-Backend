@@ -19,16 +19,16 @@ class BackblazeService {
     }
     async ensureAuthorized() {
         try {
-            const authResponse = await this.b2.authorize();
-            if (!this.bucketId) {
-                const bucketsResponse = await this.b2.listBuckets();
-                const bucket = bucketsResponse.data.buckets.find((b) => b.bucketName === env_1.BUCKET_NAME);
-                if (!bucket) {
-                    throw new Error(`Bucket with name "${env_1.BUCKET_NAME}" not found in your Backblaze account.`);
-                }
-                this.bucketId = bucket.bucketId;
-                console.log(`Connected to Backblaze. Bucket ID: ${this.bucketId}`);
+            if (this.bucketId)
+                return;
+            await this.b2.authorize();
+            const bucketsResponse = await this.b2.listBuckets();
+            const bucket = bucketsResponse.data.buckets.find((b) => b.bucketName === env_1.BUCKET_NAME);
+            if (!bucket) {
+                throw new Error(`Bucket with name "${env_1.BUCKET_NAME}" not found in your Backblaze account.`);
             }
+            this.bucketId = bucket.bucketId;
+            console.log(`Connected to Backblaze. Bucket ID: ${this.bucketId}`);
         }
         catch (err) {
             console.error("Backblaze Authorization Failed:", err);
@@ -60,25 +60,9 @@ class BackblazeService {
             throw err;
         }
     }
-    async getImageLink(imageName) {
-        try {
-            await this.ensureAuthorized();
-            let expireSeconds = parseInt(env_1.IMAGE_EXPIRE_TIME || "86400");
-            if (expireSeconds > 604800) {
-                console.warn(`Warning: IMAGE_EXPIRE_TIME (${expireSeconds}) exceeds B2 limit. Capping at 7 days.`);
-                expireSeconds = 604800;
-            }
-            const response = await this.b2.getDownloadAuthorization({
-                bucketId: this.bucketId,
-                fileNamePrefix: imageName,
-                validDurationInSeconds: expireSeconds,
-            });
-            return `https://f003.backblazeb2.com/file/${env_1.BUCKET_NAME}/${imageName}?Authorization=${response.data.authorizationToken}`;
-        }
-        catch (err) {
-            console.error("❌ Error generating link:", err);
-            throw err;
-        }
+    // getting the image link
+    getImageLink(imageName) {
+        return `${env_1.IMAGE_WORKER_BASE_URL}/${imageName}`;
     }
 }
 exports.backblaze = new BackblazeService();
