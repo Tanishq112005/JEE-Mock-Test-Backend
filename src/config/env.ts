@@ -37,5 +37,7 @@ export const {
      BACKBLAZE_KEY_ID,      // Ensure this exists in your config/env.ts
   BACKBLAZE_APP_KEY,
   IV_LENGTH,
-  ENCRYPTION_KEY
+  ENCRYPTION_KEY,
+  BUCKET_ID,
+  IMAGE_WORKER_BASE_URL
 } = process.env;
