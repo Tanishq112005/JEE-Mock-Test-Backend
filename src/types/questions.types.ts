@@ -19,7 +19,7 @@ export interface questionParameters {
     options : optionsStoring[] ;  
     correctAnswer : string[] ; 
     questionType : questionType ; 
-    chapter : string ; 
+    chapter : any ; 
     explation : string ; 
     explationImage : string[] ; 
     isOutOfSyllabus : boolean ; 

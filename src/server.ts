@@ -12,6 +12,7 @@ import { examRoutes } from "./routes/exam";
 import { chapterRoutes } from "./routes/chapter";
 import { paperRoutes } from "./routes/paper";
 import { questionRoutes } from "./routes/question";
+import { initializeChapterEmbeddings } from "./services/chapterNameService";
 // import { seedChapters } from "./services/scripts";
 
 const app = express();
@@ -55,7 +56,7 @@ const startServer = async () => {
         const emailConsumer = new EmailConsumer(rabbitMQClient);
         await emailConsumer.start();
         console.log("✅ Email Worker is running in background.");
-
+        await initializeChapterEmbeddings() ; 
         // Only start listening AFTER DB/Queue connections are ready
         app.listen(port, () => {
             console.log(`🚀 Server is running on port ${port}`);

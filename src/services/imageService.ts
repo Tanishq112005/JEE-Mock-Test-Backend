@@ -36,7 +36,7 @@ class ImageConvertingAndUploadingService {
           originalBuffer
         );
         
-        const imageName = `${payload.exam}` +'/'+ `${payload.id+'_'+`image_{${i}}`}`;
+        const imageName = `${payload.exam}` +'/'+ `${payload.id+'_'+ payload.type + '_' + `image_{${i}}`}`;
 
         await backblaze.uploadImage({
           imageName: imageName,
