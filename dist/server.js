@@ -16,6 +16,7 @@ const exam_1 = require("./routes/exam");
 const chapter_1 = require("./routes/chapter");
 const paper_1 = require("./routes/paper");
 const question_1 = require("./routes/question");
+const chapterNameService_1 = require("./services/chapterNameService");
 // import { seedChapters } from "./services/scripts";
 const app = (0, express_1.default)();
 const port = env_1.PORT || 3000;
@@ -52,6 +53,7 @@ const startServer = async () => {
         const emailConsumer = new email_consumer_1.EmailConsumer(rabbitmq_connection_1.rabbitMQClient);
         await emailConsumer.start();
         console.log("✅ Email Worker is running in background.");
+        await (0, chapterNameService_1.initializeChapterEmbeddings)();
         // Only start listening AFTER DB/Queue connections are ready
         app.listen(port, () => {
             console.log(`🚀 Server is running on port ${port}`);

@@ -1,12 +1,12 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.questionService = void 0;
-const aiService_1 = require("./aiService");
 const markdown_1 = require("../utils/markdown");
 const question_db_1 = require("../repositories/question.db");
 const imageService_1 = require("./imageService");
 const client_1 = require("@prisma/client");
 const crypto_1 = require("crypto");
+const chapterNameService_1 = require("./chapterNameService");
 class QuestionCreating {
     constructor() { }
     async htmlContentQuestions(payload) {
@@ -15,7 +15,17 @@ class QuestionCreating {
         const negativeMarks = payload.negMarks;
         const chapterGroup = payload.chapterGroup;
         const chapterName = payload.chapter;
-        const subject = payload.subject;
+        const subjectName = payload.subject;
+        let subject;
+        if (subjectName == 'chemistry') {
+            subject = 'Chemistry';
+        }
+        else if (subjectName == 'mathematics') {
+            subject = 'Mathematics';
+        }
+        else {
+            subject = 'Physics';
+        }
         if (payload.question.en.comprehension != null) {
             typeOfQuestion = "comprehension";
         }
@@ -43,13 +53,16 @@ class QuestionCreating {
         const paperTitle = payload.paperTitle;
         const examName = payload.exam;
         const idOfquestion = (0, crypto_1.randomUUID)();
-        const chapter = await aiService_1.aiService.chapterDecider(chapterGroup, chapterName);
+        const chapter = await (0, chapterNameService_1.findBestChapter)({ chapter: chapterName,
+            chapterGroup: chapterGroup,
+            subject: subject });
         const examYear = payload.year;
         // step1: image uploading in the database
         const imageName = await imageService_1.imageUpload.imageConverstion({
             id: idOfquestion,
             content: contentEn,
-            exam: examName
+            exam: examName,
+            type: 'question'
         });
         // step2 : converting the text into the markup language
         const contentMarkup = markdown_1.markdown.convertor(contentEn);
@@ -58,11 +71,13 @@ class QuestionCreating {
             // selecting the identifier
             const identifier = optionsEn[i].identifier;
             const optionsContentEn = optionsEn[i].content;
+            const idofoptions = (0, crypto_1.randomUUID)();
             // collecting the images names
             const imageNameOptions = await imageService_1.imageUpload.imageConverstion({
-                id: idOfquestion,
+                id: `${idOfquestion + '_' + idofoptions + '_' + i} `,
                 content: optionsContentEn,
                 exam: examName,
+                type: 'option'
             });
             // converting the text into the markup
             const optionContentMarkup = markdown_1.markdown.convertor(optionsContentEn);
@@ -94,6 +109,7 @@ class QuestionCreating {
                 id: idOfquestion,
                 content: comprehensionEn,
                 exam: examName,
+                type: 'comprehension'
             });
             // b. comprehension in the markup
             comprehensionMarkup = markdown_1.markdown.convertor(comprehensionEn);
@@ -108,10 +124,12 @@ class QuestionCreating {
                 id: idOfquestion,
                 content: explanationEn,
                 exam: examName,
+                type: 'explanation'
             });
             // b. markdown language
             explationContentMarkup = markdown_1.markdown.convertor(explanationEn);
         }
+        console.log(chapter);
         return {
             id: idOfquestion,
             isBonus: isBonous,

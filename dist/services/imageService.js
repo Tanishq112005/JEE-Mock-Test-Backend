@@ -32,7 +32,7 @@ class ImageConvertingAndUploadingService {
                 const arrayBuffer = await response.arrayBuffer();
                 const originalBuffer = Buffer.from(arrayBuffer);
                 const finalLoad = await imageConvertor_1.imageConvertor.convertToTransparentMask(originalBuffer);
-                const imageName = `${payload.exam}` + '/' + `${payload.id + '_' + `image_{${i}}`}`;
+                const imageName = `${payload.exam}` + '/' + `${payload.id + '_' + payload.type + '_' + `image_{${i}}`}`;
                 await s3_1.backblaze.uploadImage({
                     imageName: imageName,
                     fileContent: finalLoad,

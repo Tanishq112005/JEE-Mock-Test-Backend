@@ -60,7 +60,32 @@ class Markdown {
             if (!htmlContent)
                 return "";
             const $ = cheerio.load(htmlContent);
-            // 1. Process Images
+            // ---------------------------------------------------------
+            // STEP 1: PRESERVE TABLES & INJECT SPACING
+            // ---------------------------------------------------------
+            const preservedTables = [];
+            $('table').each((i, table) => {
+                const $t = $(table);
+                // 1. Clean container attributes
+                $t.removeAttr('style');
+                $t.removeAttr('width');
+                $t.removeAttr('class');
+                $t.removeAttr('border');
+                $t.find('colgroup').remove();
+                // 2. INJECT SPACING (THE FIX)
+                // We strip messy original styles, then Apply our own padding.
+                // 'padding: 6px 25px' adds 25px gap on Left/Right of every cell.
+                $t.find('td, th').each((_, cell) => {
+                    $(cell).removeAttr('style'); // Remove old styles
+                    $(cell).removeAttr('width');
+                    $(cell).attr('style', 'padding: 5px 20px; vertical-align: top; text-align: left;');
+                });
+                // 3. Save the formatted HTML
+                preservedTables.push($.html(table));
+                // 4. Replace with safe placeholder
+                $t.replaceWith(`TABLEPLACEHOLDER${i}`);
+            });
+            // Process Images
             $('img').each((index, element) => {
                 const el = $(element);
                 const realUrl = el.attr('data-orsrc') || el.attr('src') || '';
@@ -71,96 +96,39 @@ class Markdown {
             });
             $('style').remove();
             $('script').remove();
-            $('colgroup').remove();
             const bodyHtml = $('body').html();
             let markdown = this.turndownService.turndown(bodyHtml || htmlContent || '');
-            // ---------------------------------------------------------
-            // FIX 1: Ensure images have breathing room
-            // ---------------------------------------------------------
+            // Restore Images
             markdown = markdown
                 .replace(/\\!\[/g, '![')
                 .replace(/!\[/g, '\n\n![');
             // ---------------------------------------------------------
-            // FIX 2: Math Processing (Cleaning + Stateful Repair)
+            // STEP 4: RESTORE TABLES
+            // ---------------------------------------------------------
+            markdown = markdown.replace(/TABLEPLACEHOLDER(\d+)/g, (match, id) => {
+                return `\n\n${preservedTables[parseInt(id)]}\n\n`;
+            });
+            // ---------------------------------------------------------
+            // STEP 5: Math Processing
             // ---------------------------------------------------------
             const mathRegex = /(\$\$[\s\S]*?\$\$)|(\$[^$\n]+\$)/g;
             markdown = markdown.replace(mathRegex, (match, blockMath, inlineMath) => {
-                // --- CASE 1: Block Math ($$ ... $$) ---
                 if (blockMath) {
                     let content = blockMath;
-                    // === A. SYNTAX SANITIZER ===
-                    // 1. Fix broken begin tags ($$\ $$begin -> \begin)
                     content = content.replace(/\$\$\s*\\+\s*begin/g, '\\begin');
-                    // 2. Fix text spacing (\text { emf } -> \text{emf})
                     content = content.replace(/\\text\s+\{\s+/g, '\\text{');
-                    // 3. Fix ALL brackets: \left\[, \right\], \[, \] -> [ ]
-                    // We do this in order: first \left\[, then just \[
                     content = content.replace(/\\left\\\[/g, '[').replace(/\\right\\\]/g, ']');
                     content = content.replace(/\\\[/g, '[').replace(/\\\]/g, ']');
-                    // 4. Standard cleanup (Use single backslash)
                     content = content.replace(/\\\\/g, '\\');
-                    // ⚠️ CRITICAL FIX: Do NOT add ' \\\\ \n ' here. 
-                    // Adding \n creates double newlines if the source already has them, 
-                    // which breaks the math block and causes the "EOF got &" error.
-                    // === B. SPLIT & REPAIR LOGIC ===
-                    // Only process complex logic if the block is split by an IMAGE
                     if (content.includes('![')) {
-                        // Split content by the Image Markdown
-                        const parts = content.split(/(!\[.*?\]\(.*?\))/g);
-                        // STATE TRACKER: Keeps track of open environment across parts
-                        let openEnv = null;
-                        return parts.map((part) => {
-                            part = part.trim();
-                            if (part.startsWith('!['))
-                                return `\n\n${part}\n\n`;
-                            if (part === '$$' || part === '')
-                                return '';
-                            let cleanPart = part.replace(/\$\$/g, '').trim();
-                            if (!cleanPart)
-                                return '';
-                            // --- STEP 1: Prepend missing \begin if an env is open ---
-                            if (openEnv) {
-                                cleanPart = `\\begin{${openEnv}}\n${cleanPart}`;
-                            }
-                            // --- STEP 2: Detect if we are leaving this chunk with an open env ---
-                            const beginMatches = [...cleanPart.matchAll(/\\begin\s*\{\s*([a-zA-Z0-9*]+)\s*\}/g)];
-                            if (beginMatches.length > 0) {
-                                const lastBegin = beginMatches[beginMatches.length - 1];
-                                const envName = lastBegin[1];
-                                const index = lastBegin.index || 0;
-                                const remainingText = cleanPart.slice(index);
-                                const hasEnd = new RegExp(`\\\\end\\s*\\{\\s*${envName.replace('*', '\\*')}\\s*\\}`).test(remainingText);
-                                if (!hasEnd)
-                                    openEnv = envName;
-                                else
-                                    openEnv = null;
-                            }
-                            else {
-                                if (openEnv) {
-                                    const hasEnd = new RegExp(`\\\\end\\s*\\{\\s*${openEnv.replace('*', '\\*')}\\s*\\}`).test(cleanPart);
-                                    if (hasEnd)
-                                        openEnv = null;
-                                }
-                            }
-                            // --- STEP 3: Append missing \end if we are leaving it open ---
-                            if (openEnv) {
-                                cleanPart = `${cleanPart}\n\\end{${openEnv}}`;
-                            }
-                            // Final Cleanup: Double backslashes
-                            // We only add \n here because we are reconstructing the block manually
-                            cleanPart = cleanPart.replace(/\\\\/g, '\\\\ \n');
-                            cleanPart = cleanPart.replace(/\\_/g, '_');
-                            return `$$ \n${cleanPart}\n $$`;
-                        }).join('\n');
+                        let cleanBlock = content.replace(/\$\$/g, '').trim();
+                        cleanBlock = cleanBlock.replace(/\\\\/g, '\\\\ ');
+                        return `$$ ${cleanBlock} $$`;
                     }
-                    // --- Standard Block Math (No Image) ---
-                    // Just clean delimiters and return. 
-                    // DO NOT add extra newlines to \\\\ here.
                     let cleanBlock = content.replace(/\$\$/g, '');
                     cleanBlock = cleanBlock.replace(/\\_/g, '_');
-                    return `$$ \n${cleanBlock}\n $$`;
+                    return `$$ ${cleanBlock.trim()} $$`;
                 }
-                // --- CASE 2: Inline Math ($ ... $) ---
                 if (inlineMath) {
                     return inlineMath
                         .replace(/\\\\/g, '\\')
@@ -168,7 +136,6 @@ class Markdown {
                 }
                 return match;
             });
-            // Cleanup excess newlines
             markdown = markdown.replace(/\n{3,}/g, '\n\n');
             return markdown;
         }
