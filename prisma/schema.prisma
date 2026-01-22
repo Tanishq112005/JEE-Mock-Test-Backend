@@ -214,6 +214,7 @@ model questions {
   statusOfQuestion          testQuestionAttemptStatus[]
   chapterWiseQuestionStatus chapterWiseQuestionAttemptStatus[]
   bookmarkedQuestion        bookmarkedQuestion[]
+  activeQuestion            testStatus[] 
 }
 
 // model options table 
@@ -267,7 +268,7 @@ model testStatus {
   
   user             user      @relation(fields: [userId], references: [id], onDelete: Cascade)
   papers           papers    @relation(fields: [paperId], references: [id], onDelete: Cascade)
-
+  questionId  questions? @relation(fields: [activeQuestionId] , references: [id] , onDelete: Cascade) 
   testQuestionStatus testQuestionAttemptStatus[]
 
   @@unique([userId, paperId , created_at])
