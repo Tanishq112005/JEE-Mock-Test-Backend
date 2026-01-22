@@ -117,7 +117,7 @@ class Question {
           solution: true,
           subjects: { select: { name: true } },
           chapters: { 
-            select: { name: true, isCbse: true, isJeeAdvanced: true, isJeeMain: true, chapterNumber: true } 
+            select: { name: true,  isJeeAdvanced: true, isJeeMain: true, chapterNumber: true } 
           },
           papers: {
             select: {
@@ -135,7 +135,6 @@ class Question {
           const subjectName = q.subjects?.name || null;
           const chapterName = q.chapters?.name || null;
           const examName = q.papers?.exam?.name || null;
-          const isCbse = q.chapters?.isCbse ?? false;
           const isJeeMain = q.chapters?.isJeeMain ?? false;
           const isJeeAdvanced = q.chapters?.isJeeAdvanced ?? false;
 
@@ -167,7 +166,7 @@ class Question {
             chapter: chapterName,
             exam: examName,
             paperTitle: q.papers?.year ? `${examName} ${q.papers.year}` : null,
-            isCbse, isJeeMain, isJeeAdvanced,
+            isJeeMain, isJeeAdvanced,
 
             // Remove relations
             subjects: undefined, chapters: undefined, papers: undefined, 
@@ -206,7 +205,7 @@ class Question {
               solution: true,
               subjects: { select: { name: true } }, 
               chapters: { 
-                select: { name: true, isCbse: true, isJeeAdvanced: true, isJeeMain: true } 
+                select: { name: true,  isJeeAdvanced: true, isJeeMain: true } 
               }, 
             },
           },
@@ -219,7 +218,6 @@ class Question {
         paperRaw.questions.map(async (q) => {
           const subjectName = q.subjects?.name || null;
           const chapterName = q.chapters?.name || null;
-          const isCbse = q.chapters?.isCbse ?? false;
           const isJeeMain = q.chapters?.isJeeMain ?? false;
           const isJeeAdvanced = q.chapters?.isJeeAdvanced ?? false;
 
@@ -249,7 +247,7 @@ class Question {
             ...q,
             subject: subjectName,
             chapter: chapterName,
-            isCbse, isJeeMain, isJeeAdvanced,
+             isJeeMain, isJeeAdvanced,
 
             subjects: undefined, chapters: undefined, 
             paperId: undefined, subjectId: undefined, chapterId: undefined,

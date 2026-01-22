@@ -79,6 +79,12 @@ enum ExamMode {
   offline
 }
 
+enum TestState {
+  IN_PROGRESS
+  PAUSED
+  COMPLETED
+}
+
 enum questionType {
   SingleCorrect
   MultiCorrect
@@ -86,22 +92,34 @@ enum questionType {
   Comprehension
 }
 
+enum paperStatus {
+  Complete
+  InProgrees
+}
+
+enum questionSource {
+  ChapterWise
+  Exam
+}
+
 // user model table 
 model user {
-  id              String           @id @default(uuid())
-  name            String
-  email           String           @unique
-  type            UserType         @default(Student)
-  password        String           @unique
-  refersh_token   String?          @unique
-  created_at      DateTime         @default(now())
-  is_verified     Boolean
-  student_profile student_profile?
-  testSession     testResults[]
+  id                        String                             @id @default(uuid())
+  name                      String
+  email                     String                             @unique
+  type                      UserType                           @default(Student)
+  password                  String                             @unique
+  refersh_token             String?                            @unique
+  created_at                DateTime                           @default(now())
+  is_verified               Boolean
+  student_profile           studentProfile?
+  testSession               testStatus[]
+  chapterWiseQuestionStatus chapterWiseQuestionAttemptStatus[]
+  bookMarkedQuestion        bookmarkedQuestion[]
 }
 
 // user_details table
-model student_profile {
+model studentProfile {
   id                 String      @id @default(uuid())
   user_id            String      @unique
   class              Int
@@ -131,19 +149,18 @@ model subjects {
 
 // chapters model table 
 model chapters {
-  id            String      @id @default(uuid())
-  name          String      @unique
+  id            String @id @default(uuid())
+  name          String @unique
   subjectId     String
   chapterNumber Int
   class         Int
 
   // --- New Syllabus Fields ---
-  isCbse        Boolean     @default(false)
-  isJeeMain     Boolean     @default(false)
-  isJeeAdvanced Boolean     @default(false)
+  isJeeMain     Boolean @default(false)
+  isJeeAdvanced Boolean @default(false)
 
-  questions     questions[]
-  subjects      subjects    @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  questions questions[]
+  subjects  subjects    @relation(fields: [subjectId], references: [id], onDelete: Cascade)
 }
 
 // papers model table 
@@ -156,16 +173,16 @@ model papers {
   date              String?
   shift             Shift?
   mode              ExamMode
-  totalMarks        Int?         @default(0)
-  totalDuration     Int?         @default(0)
-  totalQuestions    Int?         @default(0)
-  totalSingleChoice Int?         @default(0)
-  totalMultiChoice  Int?         @default(0)
-  totalInteger      Int?         @default(0)
+  totalMarks        Int?        @default(0)
+  totalDuration     Int?        @default(0)
+  totalQuestions    Int?        @default(0)
+  totalSingleChoice Int?        @default(0)
+  totalMultiChoice  Int?        @default(0)
+  totalInteger      Int?        @default(0)
   exam              exam        @relation(fields: [examId], references: [id], onDelete: Cascade)
   questions         questions[]
 
-  testSession testResults[]
+  testSession testStatus[]
 
   @@unique([examId, year, shift])
 }
@@ -176,6 +193,7 @@ model questions {
   paperId              String?
   subjectId            String
   chapterId            String?
+  questionNumber       Int          @default(autoincrement())
   class                Int
   content              String
   comprehensionContent String?
@@ -193,7 +211,9 @@ model questions {
   chapters             chapters?    @relation(fields: [chapterId], references: [id], onDelete: Cascade)
   subjects             subjects     @relation(fields: [subjectId], references: [id], onDelete: Cascade)
 
-  statusOfQuestion QuestionAttempt[]
+  statusOfQuestion          testQuestionAttemptStatus[]
+  chapterWiseQuestionStatus chapterWiseQuestionAttemptStatus[]
+  bookmarkedQuestion        bookmarkedQuestion[]
 }
 
 // model options table 
@@ -228,24 +248,82 @@ model solution {
   question questions @relation(fields: [questionId], references: [id], onDelete: Cascade)
 }
 
-// model testResults  table 
-model testResults {
-  id            String   @id @default(uuid())
-  paperId       String
-  userId        String
-  PositiveMarks Int
-  NegativeMarks Int
-  totalAttempt  Int
-  created_at    DateTime @default(now())
-  user          user     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  papers        papers   @relation(fields: [paperId], references: [id], onDelete: Cascade)
+// model for the teststatus 
+model testStatus {
+  id               String   @id @default(uuid())
+  userId           String
+  paperId          String
+  
+ 
+  status           TestState @default(IN_PROGRESS)
+  timeLeft         Int       
+  paperOver        Boolean   @default(false)
+  
+  activeSection    String?   
+  activeQuestionId String?   
+  
+  created_at       DateTime  @default(now())
+  updated_at       DateTime  @updatedAt
+  
+  user             user      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  papers           papers    @relation(fields: [paperId], references: [id], onDelete: Cascade)
+
+  testQuestionStatus testQuestionAttemptStatus[]
+
+  @@unique([userId, paperId , created_at])
 }
 
-// model QuestionAttempt table 
-model QuestionAttempt {
-  id         String        @id @default(uuid())
+
+
+// model Test-Question-Attempt table 
+model testQuestionAttemptStatus {
+  id             String        @id @default(uuid())
+  questionId     String
+  testStatusId   String
+  
+  
+  isCorrect      Boolean       @default(false) 
+  status         AttemptStatus @default(ATTEMPTING) 
+  marksObtained  Int           @default(0)  
+  
+  timeSpent      Int
+  isVisited      Boolean       @default(false)
+  markedForReview Boolean      @default(false)
+  userAnswer     String[]
+
+  testStatus     testStatus    @relation(fields: [testStatusId], references: [id], onDelete: Cascade)
+  questions      questions     @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([questionId, testStatusId])
+}
+
+
+// chapter wise question status 
+model chapterWiseQuestionAttemptStatus {
+  id             String        @id @default(uuid())
+  questionId     String
+  userId         String
+  timeSpent      Int
+  questionStatus AttemptStatus
+  userAnswer     String[]
+  created_at     DateTime      @default(now())
+  
+  question       questions     @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  user           user          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, questionId]) 
+}
+
+
+// bookmarked question 
+model bookmarkedQuestion {
+  id         String    @id @default(uuid())
   questionId String
-  status     AttemptStatus
-  userAnswer String[]
-  questions  questions     @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  userId     String
+  created_at DateTime  @default(now())
+  
+  question   questions @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  user       user      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, questionId]) 
 }

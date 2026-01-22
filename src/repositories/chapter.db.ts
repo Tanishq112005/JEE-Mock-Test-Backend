@@ -33,7 +33,6 @@ class Chapter {
         class: payload.classNumber,
         chapterNumber: payload.chapterNumber,
         subjectId: subjectInformation.id,
-        isCbse : payload.isCbse , 
         isJeeAdvanced : payload.isJeeAdvanced , 
         isJeeMain : payload.isJeeMain
       },
