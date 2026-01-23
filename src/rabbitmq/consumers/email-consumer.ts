@@ -1,4 +1,4 @@
-import { emailSender } from "../../worker/email";
+import { emailSender } from "../../utils/email";
 
 export class EmailConsumer {
   private rabbitMQ: any;

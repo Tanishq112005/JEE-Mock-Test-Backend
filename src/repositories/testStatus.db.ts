@@ -1,116 +1,265 @@
 import { AttemptStatus, PrismaClient, TestState } from "@prisma/client";
 import { database } from "../lib/database";
 import { updatingDetails } from "../types/testStatus.types";
+import { encryptPayload } from "../utils/encryption";
+import { question } from "./question.db";
+ // Ensure this points to your Paper/Question DB file
 
 class TestStatus {
-    private db : PrismaClient ;
-    constructor(database : PrismaClient){
-        this.db = database ; 
-    } 
+    private db: PrismaClient;
 
+    constructor(database: PrismaClient) {
+        this.db = database;
+    }
 
-    // Adding the new test 
-    async startingNewTest(userId: string, paperId: string, created_at: Date, time: number) {
+    // =================================================================
+    // API 1: SESSION MANAGEMENT (Create / Resume / Block)
+    // Use this for the "Start Test" button.
+    // Returns plain JSON: { testId, status, message }
+    // =================================================================
+    async startNewTestSession(
+        userId: string,
+        paperId: string,
+        totalTime: number = 10800 // Default 3 hours
+    ) {
         try {
-            // 1. Check if a test session already exists
-            // We reuse the method we just created, which returns tests sorted by newest first.
-            const allTheTestDetails = await this.gettingAllTestDetails(userId, paperId);
+            // 1. Check history (Get latest session)
+            const existingTests = await this.gettingAllTestDetails(userId, paperId);
+            const latestTest = existingTests[0];
 
-            if (allTheTestDetails.length > 0) {
-                const latestTest = allTheTestDetails[0];
+            // 2. CLEANUP: If there is an unfinished test, DELETE IT.
+            // This handles both 'PAUSED' and 'IN_PROGRESS' states automatically.
+            if (latestTest && !latestTest.paperOver) {
+                
+                // Optional: If your Prisma schema does not have 'onDelete: Cascade', 
+                // uncomment the line below to delete attempts first.
+                // await this.db.testQuestionAttemptStatus.deleteMany({ where: { testStatusId: latestTest.id } });
 
-                // Case A: A previous test was paused. Delete it to allow a restart.
-                if (latestTest.status === TestState.PAUSED) {
-                    await this.db.testStatus.delete({
-                        where: {
-                            id: latestTest.id
-                        }
-                    });
-                } 
-                // Case B: A test is currently live. Block the user.
-                else if (latestTest.status === TestState.IN_PROGRESS) {
-                    throw new Error("Your Test Is Currently In Progress. Please complete it or pause it before starting a new one.");
-                }
+                await this.db.testStatus.delete({
+                    where: { id: latestTest.id }
+                });
             }
 
-            // 2. Create the new test session in the db 
-            const adding = await this.db.testStatus.create({
-                data: {
-                    userId: userId,
-                    paperId: paperId,
-                    status: TestState.IN_PROGRESS,
-                    created_at: created_at,
-                    updated_at: created_at,
-                    paperOver: false,
-                    timeLeft: time
-                }
-            });
+            // 3. CREATE: Start a fresh session
+            const newTest = await this.startingNewTest(userId, paperId, new Date(), totalTime);
+            
+            return { 
+                testId: newTest.id, 
+                status: newTest.status, 
+                message: "New Test Started Successfully" 
+            };
 
-            return adding;
         } catch (err) {
-            // Log the error for debugging purposes before throwing
-            console.error("Error starting new test:", err);
+            console.error("Error in startNewTestSession:", err);
             throw err;
         }
     }
 
-    // updating the test status details 
-    
-    async updatingTestDetails(updateDetails: updatingDetails) {
+    // =================================================================
+    // API 2: DATA FETCHING (Get Questions + User Attempts)
+    // Use this for the "Loading Screen" after you have the testId.
+    // Returns: Encrypted Payload
+    // =================================================================
+    async getSessionData(testStatusId: string, userId: string) {
         try {
-        
-            const existingTest = await this.db.testStatus.findFirst({
-                where: {
-                    userId: updateDetails.userId,
-                    paperId: updateDetails.paperId,
-                    created_at: updateDetails.created_at
-                }
+            // 1. Fetch the Test Session to get PaperID and verify owner
+            const currentTestStatus = await this.db.testStatus.findUnique({
+                where: { id: testStatusId },
             });
 
-            if (!existingTest) {
-                throw new Error("Active Test Session not found. Please check userId, paperId, and timeStamp.");
+            if (!currentTestStatus) {
+                throw new Error("Test Session not found");
             }
 
+            // Security Check
+            if (currentTestStatus.userId !== userId) {
+                throw new Error("Unauthorized access to this test session");
+            }
+
+            // 2. Fetch User Attempts for this specific session
+            const userAttempts = await this.db.testQuestionAttemptStatus.findMany({
+                where: { testStatusId: testStatusId }
+            });
+
+            // 3. Fetch Raw Questions from Paper DB (Using your Question Class)
+            // Note: Ensure `question.getRawQuestionsForPaper` is implemented as discussed previously
+            const rawPaperData = await question.getRawQuestionsForPaper(currentTestStatus.paperId);
             
+            if (!rawPaperData) throw new Error("Paper data not found");
+
+            // 4. Merge Logic (Optimize with Map)
+            const attemptMap = new Map();
+            userAttempts.forEach(att => attemptMap.set(att.questionId, att));
+
+            const mergedQuestions = rawPaperData.questions.map((q) => {
+                const userAttempt = attemptMap.get(q.id);
+
+                return {
+                    ...q,
+                    attemptStatus: userAttempt ? {
+                        userAnswer: userAttempt.userAnswer,
+                        isVisited: userAttempt.isVisited,
+                        markedForReview: userAttempt.markedForReview,
+                        timeSpent: userAttempt.timeSpent,
+                        status: userAttempt.status
+                    } : {
+                        // Default Empty State
+                        userAnswer: null,
+                        isVisited: false,
+                        markedForReview: false,
+                        timeSpent: 0,
+                        status: AttemptStatus.ATTEMPTING
+                    }
+                };
+            });
+
+            // 5. Construct Final Payload
+            const finalPayload = {
+                session: {
+                    testId: currentTestStatus.id,
+                    timeLeft: currentTestStatus.timeLeft,
+                    activeSection: currentTestStatus.activeSection,
+                    activeQuestionId: currentTestStatus.activeQuestionId,
+                    status: currentTestStatus.status,
+                    startTime: currentTestStatus.created_at,
+                    paperOver: currentTestStatus.paperOver
+                },
+                paper: rawPaperData.paperDetails,
+                questions: mergedQuestions
+            };
+
+            // 6. Encrypt
+            return finalPayload;
+
+        } catch (err) {
+            console.error("Error in getSessionData:", err);
+            throw err;
+        }
+    }
+
+    // =================================================================
+    // HELPER METHODS (Internal & Background)
+    // =================================================================
+
+    // Helper: Create entry in DB
+    private async startingNewTest(userId: string, paperId: string, created_at: Date, time: number) {
+        return await this.db.testStatus.create({
+            data: {
+                userId,
+                paperId,
+                status: TestState.IN_PROGRESS,
+                created_at,
+                updated_at: created_at,
+                paperOver: false,
+                timeLeft: time
+            }
+        });
+    }
+
+    // Helper: Set status to IN_PROGRESS
+    private async resumeTest(testStatusId: string) {
+        await this.db.testStatus.update({
+            where: { id: testStatusId },
+            data: { status: TestState.IN_PROGRESS }
+        });
+    }
+
+    
+     async gettingAllTestDetails(userId: string, paperId: string) {
+        return await this.db.testStatus.findMany({
+            where: { paperId, userId },
+            orderBy: { created_at: 'desc' }
+        });
+    }
+
+    // 3. UPDATING TEST DETAILS (Syncs frontend state to DB)
+    // This is called periodically (e.g., every 5-10 seconds or on answer change)
+   // In src/repositories/testStatus.db.ts
+
+    // 2. UPDATING TEST DETAILS (Syncs frontend state to DB)
+   async updatingTestDetails(updateDetails: updatingDetails) {
+        try {
+            let testId = updateDetails.testId;
+            let existingTest;
+
+            // Strategy A: ID Lookup (Fastest & Best)
+            if (testId) {
+                existingTest = await this.db.testStatus.findUnique({
+                    where: { id: testId }
+                });
+            } 
+            
+            // Strategy B: Fallback Lookup (If frontend forgot testId)
+            if (!existingTest) {
+                existingTest = await this.db.testStatus.findFirst({
+                    where: {
+                        userId: updateDetails.userId,
+                        paperId: updateDetails.paperId,
+                        paperOver: false // Only look for active tests
+                    },
+                    orderBy: { created_at: 'desc' } 
+                });
+            }
+
+            if (!existingTest) {
+                console.error(`Session Not Found for User: ${updateDetails.userId}, Paper: ${updateDetails.paperId}`);
+                throw new Error("Active Test Session not found.");
+            }
+            
+            testId = existingTest.id;
+
+            // 1. Update Parent (Timer, Status)
             const updateParent = this.db.testStatus.update({
-                where: { id: existingTest.id }, 
+                where: { id: testId },
                 data: {
                     timeLeft: updateDetails.timeLeft,
                     activeSection: updateDetails.activeSection,
                     activeQuestionId: updateDetails.activeQuestionId,
-                    updated_at: updateDetails.timeStamp,
-                    status : updateDetails.state
+                    updated_at: new Date(),
+                    status: updateDetails.state 
                 }
             });
 
-         
+            // 2. Upsert Questions
             const updateQuestions = updateDetails.questionStatus.map((q) => {
+                
+                // --- FIX: Format userAnswer as String[] for Prisma ---
+                let formattedAnswer: string[] = [];
+                if (q.userAnswer !== null && q.userAnswer !== undefined) {
+                    if (Array.isArray(q.userAnswer)) {
+                        formattedAnswer = q.userAnswer.map(String);
+                    } else {
+                        formattedAnswer = [String(q.userAnswer)];
+                    }
+                }
+                // ----------------------------------------------------
+
                 return this.db.testQuestionAttemptStatus.upsert({
                     where: {
                         questionId_testStatusId: {
                             questionId: q.questionId,
-                            testStatusId: existingTest.id
+                            testStatusId: testId!
                         }
                     },
                     create: {
-                        testStatusId: existingTest.id,
+                        testStatusId: testId!,
                         questionId: q.questionId,
                         isVisited: q.isVisited,
                         markedForReview: q.markedForReview,
                         timeSpent: q.timeSpent,
-                        userAnswer: q.userAnswer,
+                        userAnswer: formattedAnswer, 
                         status: AttemptStatus.ATTEMPTING
                     },
                     update: {
                         isVisited: q.isVisited,
                         markedForReview: q.markedForReview,
                         timeSpent: q.timeSpent,
-                        userAnswer: q.userAnswer,
+                        userAnswer: formattedAnswer,
                     }
                 });
             });
 
-           
+            // 3. Execute Transaction
             const result = await this.db.$transaction([
                 updateParent,
                 ...updateQuestions
@@ -122,85 +271,37 @@ class TestStatus {
             throw err;
         }
     }
-
-
-    // getting all the live test or the pause  for the specific paper 
-    async gettingAllTestDetails(userId : string , paperId : string){
+    // 4. SUBMIT TEST
+    async submitTest(testStatusId: string) {
         try {
-           const allTheTestDetails = await this.db.testStatus.findMany({
-            where : {
-                paperId : paperId ,
-                userId : userId
-            },
-            orderBy: {
-                    created_at: 'desc'
-                }
-           })
-           
-           return allTheTestDetails ;
-        }
-        catch(err){
-            console.error("Error in getting all the test details" , err) ; 
-            throw err ; 
-        }
-    }
-
-
-    // removing the pause test , if the user wants to start the new test for the specific paper 
-    
-
-    // getting all the questions status for the specific created_at , test , completed
-    async gettingTestDetails(testStatusId: string) {
-        try {
-            const testDetails = await this.db.testStatus.findUnique({
-                where: {
-                    id: testStatusId
-                },
-                include: {
-                   
-                    testQuestionStatus: {
-                        orderBy: {
-                            questionId: 'asc' 
-                        }
-                    }
+            const completedTest = await this.db.testStatus.update({
+                where: { id: testStatusId },
+                data: {
+                    status: TestState.COMPLETED,
+                    paperOver: true,
+                    updated_at: new Date()
                 }
             });
 
-            if (!testDetails) {
-                throw new Error("Test Details Not Found");
-            }
-
-            return testDetails;
+            // Trigger Analytics Worker here...
+            
+            return { message: "Test Submitted Successfully", testId: completedTest.id };
         } catch (err) {
-            console.error("Error in getting test details:", err);
+            console.error("Error submitting test:", err);
             throw err;
         }
     }
 
-
-
-
-    // after the times over then the test automatically goes in the queue for getting the analyitics stored in the db and all 
-    
-
-
-
-
-   // watchdog , continusly checking if the test time should we need to puase or not 
-   async autoPauseInactiveTests(inactivityThresholdSeconds: number) {
+    // 5. WATCHDOG (Auto-pause inactive tests)
+    async autoPauseInactiveTests(inactivityThresholdSeconds: number) {
         try {
-            // Calculate the time boundary: "Now minus 60 seconds"
             const cutoffTime = new Date(Date.now() - (inactivityThresholdSeconds * 1000));
 
-            // Find and update all tests that are IN_PROGRESS but haven't updated since the cutoffTime
             const result = await this.db.testStatus.updateMany({
                 where: {
                     status: TestState.IN_PROGRESS,
-                    updated_at: {
-                        lt: cutoffTime
-                    },
-                   
-                    paperOver: false 
+                    updated_at: { lt: cutoffTime },
+                    paperOver: false
                 },
                 data: {
                     status: TestState.PAUSED
@@ -208,16 +309,15 @@ class TestStatus {
             });
 
             if (result.count > 0) {
-                console.log(`Watchdog: Auto-paused ${result.count} tests due to inactivity/internet loss.`);
+                console.log(`Watchdog: Auto-paused ${result.count} tests.`);
             }
-            
+
             return result.count;
         } catch (err) {
             console.error("Error in auto-pausing inactive tests:", err);
-        
         }
     }
+
 }
 
-
-export const testStatus = new TestStatus(database) ;
+export const testStatus = new TestStatus(database);

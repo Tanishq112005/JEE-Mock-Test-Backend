@@ -10,11 +10,18 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "tsc",
     "prisma": "npx prisma generate",
+
     "start:prod": "node dist/server.js",
-    "start:prod:worker:email": "node dist/workerRunner/emailWorker.js",
+    "start:prod:worker:email": "node dist/worker/emailWorker.js",
+    "start:prod:worker:update": "node dist/worker/updateTestDetailsWorker.js",
+    "start:prod:worker:watchdog": "node dist/worker/watchdogWorker.js",
+
     "dev:api": "npx ts-node src/server.ts",
-    "dev:worker:email": "npx ts-node src/workerRunner/emailWorker.ts",
-    "start": "concurrently \"npm run dev:api\" \"npm run dev:worker:email\" --names \"API,WORKER\" --prefix-colors \"blue,magenta\""
+    "dev:worker:email": "npx ts-node src/worker/emailWorker.ts",
+    "dev:worker:update": "npx ts-node src/worker/updateTestDetailsWorker.ts",
+    "dev:worker:watchdog": "npx ts-node src/worker/watchdogWorker.ts",
+
+    "start": "concurrently \"npm run dev:api\" \"npm run dev:worker:email\" \"npm run dev:worker:update\" \"npm run dev:worker:watchdog\" --names \"API,EMAIL,UPDATE,DOG\" --prefix-colors \"blue,magenta,yellow,green\""
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.958.0",

@@ -1,6 +1,7 @@
 import { TestState } from "@prisma/client"
 
 export interface updatingDetails {
+    testId : string , 
     userId: string,
     paperId: string,
     timeLeft: number,

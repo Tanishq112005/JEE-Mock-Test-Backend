@@ -259,7 +259,7 @@ class Question {
           };
         })
       );
-
+ 
       const finalObject = {
         ...paperRaw,
         exam: paperRaw.exam?.name, 
@@ -273,6 +273,80 @@ class Question {
       throw error;
     }
   }
+
+
+
+  async getRawQuestionsForPaper(paperId: string) {
+    try {
+      const paperRaw = await this.db.papers.findUnique({
+        where: { id: paperId },
+        include: {
+          exam: { select: { name: true } },
+          questions: {
+            include: {
+              options: true,
+              solution: true,
+              subjects: { select: { name: true } },
+              chapters: {
+                select: { name: true, isJeeAdvanced: true, isJeeMain: true }
+              },
+            },
+            orderBy: { id: 'asc' } // Ensure consistent ordering
+          },
+        },
+      });
+
+      if (!paperRaw) return null;
+
+      // Process images just like before
+      const processedQuestions = await Promise.all(
+        paperRaw.questions.map(async (q) => {
+          const subjectName = q.subjects?.name || null;
+          const chapterName = q.chapters?.name || null;
+          const isJeeMain = q.chapters?.isJeeMain ?? false;
+          const isJeeAdvanced = q.chapters?.isJeeAdvanced ?? false;
+
+          return {
+            ...q,
+            subject: subjectName,
+            chapter: chapterName,
+            isJeeMain,
+            isJeeAdvanced,
+            subjects: undefined, chapters: undefined, paperId: undefined, subjectId: undefined, chapterId: undefined,
+
+            image: this.signUrlArray(q.image),
+            comprehensionImage: this.signUrlArray(q.comprehensionImage),
+            
+            options: q.options ? {
+              ...q.options,
+              optionAimage: this.signUrlArray(q.options.optionAimage),
+              optionBimage: this.signUrlArray(q.options.optionBimage),
+              optionCimage: this.signUrlArray(q.options.optionCimage),
+              optionDimage: this.signUrlArray(q.options.optionDimage),
+            } : null,
+
+            solution: q.solution ? {
+              ...q.solution,
+              image: this.signUrlArray(q.solution.image),
+            } : null,
+          };
+        })
+      );
+
+      return {
+        paperDetails: {
+            ...paperRaw,
+            questions: undefined // Remove questions from top level to keep it clean
+        },
+        questions: processedQuestions
+      };
+
+    } catch (error) {
+      console.error("Error fetching raw paper questions:", error);
+      throw error;
+    }
+  }
+  
 }
 
 export const question = new Question(database);

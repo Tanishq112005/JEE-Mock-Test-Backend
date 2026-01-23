@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.EmailConsumer = void 0;
-const email_1 = require("../../worker/email");
+const email_1 = require("../../utils/email");
 class EmailConsumer {
     rabbitMQ;
     constructor(rabbitMQ) {

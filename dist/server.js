@@ -17,6 +17,7 @@ const chapter_1 = require("./routes/chapter");
 const paper_1 = require("./routes/paper");
 const question_1 = require("./routes/question");
 const chapterNameService_1 = require("./services/chapterNameService");
+const testStatus_1 = require("./routes/testStatus");
 const app = (0, express_1.default)();
 const port = env_1.PORT || 3000;
 // 1. Middlewares
@@ -43,6 +44,7 @@ app.use('/api/exam', exam_1.examRoutes);
 app.use('/api/chapter', chapter_1.chapterRoutes);
 app.use('/api/paper', paper_1.paperRoutes);
 app.use('/api/question', question_1.questionRoutes);
+app.use('/api/testStatus', testStatus_1.testStatusRoutes);
 // 4. Start API Server
 const startServer = async () => {
     try {

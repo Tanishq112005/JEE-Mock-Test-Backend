@@ -13,6 +13,7 @@ import { chapterRoutes } from "./routes/chapter";
 import { paperRoutes } from "./routes/paper";
 import { questionRoutes } from "./routes/question";
 import { initializeChapterEmbeddings } from "./services/chapterNameService";
+import { testStatusRoutes } from "./routes/testStatus";
 
 const app = express();
 const port = PORT || 3000;
@@ -44,6 +45,8 @@ app.use('/api/exam', examRoutes);
 app.use('/api/chapter', chapterRoutes);
 app.use('/api/paper', paperRoutes);
 app.use('/api/question', questionRoutes);
+app.use('/api/testStatus' ,testStatusRoutes) ; 
+
 
 // 4. Start API Server
 const startServer = async () => {

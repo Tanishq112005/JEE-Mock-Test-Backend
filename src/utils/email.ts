@@ -1,6 +1,6 @@
 import axios from "axios";
 import { email_data } from "../types/email.worker.types";
-import ApiError from "../utils/ApiError";
+import ApiError from "./ApiError";
 import { BREVO_KEY_1, BREVO_KEY_2, EMAIL_ID } from "../config/env";
 
 const BREVO_KEYS = [
