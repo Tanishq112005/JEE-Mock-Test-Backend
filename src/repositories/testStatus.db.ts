@@ -108,7 +108,7 @@ class TestStatus {
                         isVisited: false,
                         markedForReview: false,
                         timeSpent: 0,
-                        status: AttemptStatus.ATTEMPTING
+                        status: AttemptStatus.NOT_ANSWERED
                     }
                 };
             });
@@ -248,7 +248,7 @@ class TestStatus {
                         markedForReview: q.markedForReview,
                         timeSpent: q.timeSpent,
                         userAnswer: formattedAnswer, 
-                        status: AttemptStatus.ATTEMPTING
+                        status: AttemptStatus.NOT_ANSWERED
                     },
                     update: {
                         isVisited: q.isVisited,

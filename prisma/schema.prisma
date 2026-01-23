@@ -62,9 +62,10 @@ enum UserType {
 }
 
 enum AttemptStatus {
-  ATTEMPTING
-  CORRECT
-  WRONG
+  ANSWERED
+  NOT_ANSWERED
+  MARKED_FOR_REVIEW
+  ANSWERED_AND_MARKED_FOR_REVIEW
 }
 
 enum Shift {
@@ -214,7 +215,7 @@ model questions {
   statusOfQuestion          testQuestionAttemptStatus[]
   chapterWiseQuestionStatus chapterWiseQuestionAttemptStatus[]
   bookmarkedQuestion        bookmarkedQuestion[]
-  activeQuestion            testStatus[] 
+  activeQuestion            testStatus[]
 }
 
 // model options table 
@@ -251,53 +252,48 @@ model solution {
 
 // model for the teststatus 
 model testStatus {
-  id               String   @id @default(uuid())
-  userId           String
-  paperId          String
-  
- 
-  status           TestState @default(IN_PROGRESS)
-  timeLeft         Int       
-  paperOver        Boolean   @default(false)
-  
-  activeSection    String?   
-  activeQuestionId String?   
-  
-  created_at       DateTime  @default(now())
-  updated_at       DateTime  @updatedAt
-  
-  user             user      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  papers           papers    @relation(fields: [paperId], references: [id], onDelete: Cascade)
-  questionId  questions? @relation(fields: [activeQuestionId] , references: [id] , onDelete: Cascade) 
+  id      String @id @default(uuid())
+  userId  String
+  paperId String
+
+  status    TestState @default(IN_PROGRESS)
+  timeLeft  Int
+  paperOver Boolean   @default(false)
+
+  activeSection    String?
+  activeQuestionId String?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  user               user                        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  papers             papers                      @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  questionId         questions?                  @relation(fields: [activeQuestionId], references: [id], onDelete: Cascade)
   testQuestionStatus testQuestionAttemptStatus[]
 
-  @@unique([userId, paperId , created_at])
+  @@unique([userId, paperId, created_at])
 }
-
-
 
 // model Test-Question-Attempt table 
 model testQuestionAttemptStatus {
-  id             String        @id @default(uuid())
-  questionId     String
-  testStatusId   String
-  
-  
-  isCorrect      Boolean       @default(false) 
-  status         AttemptStatus @default(ATTEMPTING) 
-  marksObtained  Int           @default(0)  
-  
-  timeSpent      Int
-  isVisited      Boolean       @default(false)
-  markedForReview Boolean      @default(false)
-  userAnswer     String[]
+  id           String @id @default(uuid())
+  questionId   String
+  testStatusId String
 
-  testStatus     testStatus    @relation(fields: [testStatusId], references: [id], onDelete: Cascade)
-  questions      questions     @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  isCorrect     Boolean       @default(false)
+  status        AttemptStatus @default(NOT_ANSWERED)
+  marksObtained Int           @default(0)
+
+  timeSpent       Int
+  isVisited       Boolean  @default(false)
+  markedForReview Boolean  @default(false)
+  userAnswer      String[]
+
+  testStatus testStatus @relation(fields: [testStatusId], references: [id], onDelete: Cascade)
+  questions  questions  @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
   @@unique([questionId, testStatusId])
 }
-
 
 // chapter wise question status 
 model chapterWiseQuestionAttemptStatus {
@@ -308,23 +304,22 @@ model chapterWiseQuestionAttemptStatus {
   questionStatus AttemptStatus
   userAnswer     String[]
   created_at     DateTime      @default(now())
-  
-  question       questions     @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  user           user          @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([userId, questionId]) 
+  question questions @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  user     user      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, questionId])
 }
-
 
 // bookmarked question 
 model bookmarkedQuestion {
-  id         String    @id @default(uuid())
+  id         String   @id @default(uuid())
   questionId String
   userId     String
-  created_at DateTime  @default(now())
-  
-  question   questions @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  user       user      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  created_at DateTime @default(now())
 
-  @@unique([userId, questionId]) 
+  question questions @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  user     user      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, questionId])
 }
