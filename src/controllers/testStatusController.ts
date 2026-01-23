@@ -40,7 +40,7 @@ class TestStatusController {
         try {
             
             const gettingTheTestResponse = await testStatus.getSessionData(testStatusId , userId) ; 
-            return res.status(500).json(
+            return res.status(200).json(
                 new ApiResponse(
                     "Your question + test result" , 
                     gettingTheTestResponse

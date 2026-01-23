@@ -29,7 +29,7 @@ class TestStatusController {
         const userId = req.user;
         try {
             const gettingTheTestResponse = await testStatus_db_1.testStatus.getSessionData(testStatusId, userId);
-            return res.status(500).json(new ApiResponse_1.default("Your question + test result", gettingTheTestResponse));
+            return res.status(200).json(new ApiResponse_1.default("Your question + test result", gettingTheTestResponse));
         }
         catch (err) {
             return res.status(500).json(new ApiError_1.default("Error in getting question details", err));
