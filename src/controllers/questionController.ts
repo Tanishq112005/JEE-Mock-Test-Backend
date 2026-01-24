@@ -11,10 +11,11 @@ export class QuestionController {
   constructor() {}
 
   public createSingleQuestion = async (req: Request, res: Response) => {
+    const {paperId , questionNumber} = req.body ; 
     try {
       const questionformatData: questionParameters =
         await questionService.htmlContentQuestions(req.body);
-      await question.addingSingleQuestion(questionformatData , '');
+      await question.addingSingleQuestion(questionformatData , paperId , questionNumber);
 
       return res
         .status(201)

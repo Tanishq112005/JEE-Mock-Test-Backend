@@ -30,7 +30,7 @@ class Question {
   // ---------------------------------------------------------
   // 2. Add Single Question (SAVES PLAIN TEXT TO DB)
   // ---------------------------------------------------------
-  async addingSingleQuestion(questionData: questionParameters, paperId: string) {
+  async addingSingleQuestion(questionData: questionParameters, paperId: string , questionNumber : number) {
     try {
       const actualPaperId = paperId;
       const updationPayload: questionDetails = {
@@ -59,6 +59,7 @@ class Question {
           chapterId: chapterInformation.id,
           subjectId: chapterInformation.subjectId,
           class: chapterInformation.class,
+          questionNumber : questionNumber , 
           options: questionData.options ? {
              create: {
                optionAtext: questionData.options[0]?.content ?? "",

@@ -60,6 +60,7 @@ class QuestionCreating {
     const paperTitle = payload.paperTitle;
     const examName: string = payload.exam;
     const idOfquestion =  randomUUID() ; 
+    
     const chapter  = await findBestChapter({chapter : chapterName ,
     chapterGroup : chapterGroup ,
     subject : subject}           
@@ -188,15 +189,15 @@ class QuestionCreating {
 
         console.log(`Processing Subject: ${subjectName} with ${questionsArray.length} questions.`);
 
-
+       
         for (const qData of questionsArray) {
 
           const formattedData = await this.htmlContentQuestions(qData);
 
-          await question.addingSingleQuestion(formattedData , paperId);
-
+          await question.addingSingleQuestion(formattedData , paperId , globalQuestionCounter);
+           
           console.log(`Uploaded Question #${globalQuestionCounter} - ${subjectName}`);
-
+          
           globalQuestionCounter++;
           totalProcessed++;
         }
