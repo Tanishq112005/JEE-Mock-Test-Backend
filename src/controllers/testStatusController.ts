@@ -107,7 +107,8 @@ class TestStatusController {
             else {
                 payload = {
                     status : testStatusDetails[0].status ,
-                    created_at : testStatusDetails[0].created_at
+                    created_at : testStatusDetails[0].created_at ,
+                    testId : testStatusDetails[0].id
                 } 
             }
 
