@@ -12,9 +12,10 @@ const questionService_1 = require("../services/questionService");
 class QuestionController {
     constructor() { }
     createSingleQuestion = async (req, res) => {
+        const { paperId, questionNumber } = req.body;
         try {
             const questionformatData = await questionService_1.questionService.htmlContentQuestions(req.body);
-            await question_db_1.question.addingSingleQuestion(questionformatData, '');
+            await question_db_1.question.addingSingleQuestion(questionformatData, paperId, questionNumber);
             return res
                 .status(201)
                 .json(new ApiResponse_1.default("Question created successfully"));

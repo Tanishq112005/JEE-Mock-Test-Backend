@@ -160,7 +160,7 @@ class QuestionCreating {
                 console.log(`Processing Subject: ${subjectName} with ${questionsArray.length} questions.`);
                 for (const qData of questionsArray) {
                     const formattedData = await this.htmlContentQuestions(qData);
-                    await question_db_1.question.addingSingleQuestion(formattedData, paperId);
+                    await question_db_1.question.addingSingleQuestion(formattedData, paperId, globalQuestionCounter);
                     console.log(`Uploaded Question #${globalQuestionCounter} - ${subjectName}`);
                     globalQuestionCounter++;
                     totalProcessed++;
