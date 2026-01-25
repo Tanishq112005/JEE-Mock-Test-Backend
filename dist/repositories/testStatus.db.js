@@ -90,7 +90,7 @@ class TestStatus {
                         isVisited: false,
                         markedForReview: false,
                         timeSpent: 0,
-                        status: client_1.AttemptStatus.NOT_ANSWERED
+                        status: client_1.AttemptStatus.notAnswered
                     }
                 };
             });
@@ -155,27 +155,9 @@ class TestStatus {
             let testId = updateDetails.testId;
             let existingTest;
             // Strategy A: ID Lookup (Fastest & Best)
-            if (testId) {
-                existingTest = await this.db.testStatus.findUnique({
-                    where: { id: testId }
-                });
-            }
-            // Strategy B: Fallback Lookup (If frontend forgot testId)
-            if (!existingTest) {
-                existingTest = await this.db.testStatus.findFirst({
-                    where: {
-                        userId: updateDetails.userId,
-                        paperId: updateDetails.paperId,
-                        paperOver: false // Only look for active tests
-                    },
-                    orderBy: { created_at: 'desc' }
-                });
-            }
-            if (!existingTest) {
-                console.error(`Session Not Found for User: ${updateDetails.userId}, Paper: ${updateDetails.paperId}`);
-                throw new Error("Active Test Session not found.");
-            }
-            testId = existingTest.id;
+            existingTest = await this.db.testStatus.findUnique({
+                where: { id: testId }
+            });
             // 1. Update Parent (Timer, Status)
             const updateParent = this.db.testStatus.update({
                 where: { id: testId },
@@ -210,17 +192,16 @@ class TestStatus {
                     create: {
                         testStatusId: testId,
                         questionId: q.questionId,
-                        isVisited: q.isVisited,
-                        markedForReview: q.markedForReview,
                         timeSpent: q.timeSpent,
                         userAnswer: formattedAnswer,
-                        status: client_1.AttemptStatus.NOT_ANSWERED
+                        status: q.status,
                     },
                     update: {
-                        isVisited: q.isVisited,
-                        markedForReview: q.markedForReview,
                         timeSpent: q.timeSpent,
                         userAnswer: formattedAnswer,
+                        status: q.status,
+                        isVisited: q.isVisited,
+                        markedForReview: q.markedForReview
                     }
                 });
             });

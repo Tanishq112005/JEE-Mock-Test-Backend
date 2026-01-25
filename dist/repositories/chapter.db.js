@@ -29,7 +29,8 @@ class Chapter {
                 chapterNumber: payload.chapterNumber,
                 subjectId: subjectInformation.id,
                 isJeeAdvanced: payload.isJeeAdvanced,
-                isJeeMain: payload.isJeeMain
+                isJeeMain: payload.isJeeMain,
+                group: payload.group
             },
         });
     };
@@ -52,6 +53,9 @@ class Chapter {
                 name: payload.subjectName,
             };
         }
+        if (payload.group) {
+            whereCondition.group = payload.group;
+        }
         return this.db.chapters.findMany({
             where: whereCondition,
             orderBy: {
@@ -61,15 +65,36 @@ class Chapter {
                 id: true,
                 name: true,
                 chapterNumber: true,
+                group: true,
                 class: true,
                 subjects: {
                     select: {
                         id: true,
                         name: true,
-                    },
+                    }
                 },
             },
         });
+    };
+    gettingGroup = async (subjectName) => {
+        try {
+            const groups = await this.db.chapters.findMany({
+                where: {
+                    subjects: {
+                        name: subjectName, // Ensure strict Enum matching
+                    },
+                },
+                select: {
+                    group: true,
+                },
+                distinct: ["group"], // <--- Validates only unique group names are returned
+            });
+            // Transform [{ group: "Mechanics" }, { group: "Optics" }] -> ["Mechanics", "Optics"]
+            return groups.map((item) => item.group);
+        }
+        catch (err) {
+            throw err;
+        }
     };
     gettingChapterId = async (chapterName) => {
         const chapter = await this.db.chapters.findUnique({

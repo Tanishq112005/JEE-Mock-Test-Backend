@@ -62,10 +62,8 @@ enum UserType {
 }
 
 enum AttemptStatus {
-  ANSWERED
-  NOT_ANSWERED
-  MARKED_FOR_REVIEW
-  ANSWERED_AND_MARKED_FOR_REVIEW
+  answered
+  notAnswered
 }
 
 enum Shift {
@@ -153,15 +151,18 @@ model chapters {
   id            String @id @default(uuid())
   name          String @unique
   subjectId     String
-  chapterNumber Int
+  group         String 
   class         Int
-
+  chapterNumber Int 
+  
   // --- New Syllabus Fields ---
   isJeeMain     Boolean @default(false)
   isJeeAdvanced Boolean @default(false)
-
+  
   questions questions[]
   subjects  subjects    @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+ 
 }
 
 // papers model table 
@@ -281,12 +282,11 @@ model testQuestionAttemptStatus {
   testStatusId String
 
   isCorrect     Boolean       @default(false)
-  status        AttemptStatus @default(NOT_ANSWERED)
+  status        AttemptStatus @default(notAnswered)
   marksObtained Int           @default(0)
-
+  isVisited     Boolean       @default(false)
+  markedForReview Boolean     @default(false)
   timeSpent       Int
-  isVisited       Boolean  @default(false)
-  markedForReview Boolean  @default(false)
   userAnswer      String[]
 
   testStatus testStatus @relation(fields: [testStatusId], references: [id], onDelete: Cascade)

@@ -1,9 +1,12 @@
+import { InventoryIncludedObjectVersions } from "@aws-sdk/client-s3";
 import { updatingTestDetailsProducer } from "../rabbitmq/producers/updateTestDetails-producer";
 import { paper } from "../repositories/paper.db";
 import { testStatus } from "../repositories/testStatus.db";
+import { user } from "../repositories/user.db";
 import { updatingDetails } from "../types/testStatus.types";
 import ApiError from "../utils/ApiError";
 import ApiResponse from "../utils/ApiResponse";
+import { AttemptStatus } from "@prisma/client";
 
 class TestStatusController {
     constructor(){
@@ -61,20 +64,53 @@ class TestStatusController {
 
     
     public updatingTheDetails = async(req : any , res : any) => {
-        const {testId , paperId , timeLeft , created_at , timeStamp , state , activeSection , activeQuestionId , questionStatus } = req.body ;
+        const {testId , paperId , timeLeftSeconds , created_at , timeStamp , state , activeSectionId , activeQuestionId , questionsById } = req.body ;
         const userId = req.user ; 
         try {
+            const questionStatusArray = Object.values(questionsById || {}).map((q: any) => {
+                let userAnswer : string[] = []; 
+                if(q.numericAnswer != null){
+                   const userNumericAnswerInString = q.numericAnswer.toString() ; 
+                   userAnswer.push(userNumericAnswerInString) ;
+                } 
+                if(q.selectedOptionIds != null){
+                    userAnswer = q.selectedOptionIds ;
+                }
+                
+                if(q.status == AttemptStatus.answered){
+                return {
+                    isVisited : q.isVisited , 
+                    markedForReview : q.markedForReview , 
+                    questionId: q.questionId,
+                    userAnswer: userAnswer ,  
+                    timeSpent: q.timeSpentSeconds || 0,
+                    status : AttemptStatus.answered
+                };
+            }
+                else {
+                   return {
+                    isVisited : q.isVisited , 
+                    markedForReview : q.markedForReview , 
+                    questionId: q.questionId,
+                    userAnswer: userAnswer ,  
+                    timeSpent: q.timeSpentSeconds || 0,
+                    status : AttemptStatus.notAnswered
+                };
+                }
+            
+            });
+
             const details : updatingDetails = {
                 testId : testId , 
                 userId : userId , 
                 paperId : paperId , 
-                timeLeft : timeLeft , 
+                timeLeft : timeLeftSeconds , 
                 activeQuestionId : activeQuestionId , 
-                activeSection : activeSection , 
+                activeSection : activeSectionId , 
                 created_at : created_at ,
                 timeStamp : timeStamp , 
                 state : state ,
-                questionStatus : questionStatus
+                questionStatus : questionsById
             }
 
             // sending in the queue 

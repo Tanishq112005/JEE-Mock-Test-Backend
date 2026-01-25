@@ -8,6 +8,7 @@ const updateTestDetails_producer_1 = require("../rabbitmq/producers/updateTestDe
 const testStatus_db_1 = require("../repositories/testStatus.db");
 const ApiError_1 = __importDefault(require("../utils/ApiError"));
 const ApiResponse_1 = __importDefault(require("../utils/ApiResponse"));
+const client_1 = require("@prisma/client");
 class TestStatusController {
     constructor() {
     }
@@ -36,20 +37,50 @@ class TestStatusController {
         }
     };
     updatingTheDetails = async (req, res) => {
-        const { testId, paperId, timeLeft, created_at, timeStamp, state, activeSection, activeQuestionId, questionStatus } = req.body;
+        const { testId, paperId, timeLeftSeconds, created_at, timeStamp, state, activeSectionId, activeQuestionId, questionsById } = req.body;
         const userId = req.user;
         try {
+            const questionStatusArray = Object.values(questionsById || {}).map((q) => {
+                let userAnswer = [];
+                if (q.numericAnswer != null) {
+                    const userNumericAnswerInString = q.numericAnswer.toString();
+                    userAnswer.push(userNumericAnswerInString);
+                }
+                if (q.selectedOptionIds != null) {
+                    userAnswer = q.selectedOptionIds;
+                }
+                if (q.status == client_1.AttemptStatus.answered) {
+                    return {
+                        isVisited: q.isVisited,
+                        markedForReview: q.markedForReview,
+                        questionId: q.questionId,
+                        userAnswer: userAnswer,
+                        timeSpent: q.timeSpentSeconds || 0,
+                        status: client_1.AttemptStatus.answered
+                    };
+                }
+                else {
+                    return {
+                        isVisited: q.isVisited,
+                        markedForReview: q.markedForReview,
+                        questionId: q.questionId,
+                        userAnswer: userAnswer,
+                        timeSpent: q.timeSpentSeconds || 0,
+                        status: client_1.AttemptStatus.notAnswered
+                    };
+                }
+            });
             const details = {
                 testId: testId,
                 userId: userId,
                 paperId: paperId,
-                timeLeft: timeLeft,
+                timeLeft: timeLeftSeconds,
                 activeQuestionId: activeQuestionId,
-                activeSection: activeSection,
+                activeSection: activeSectionId,
                 created_at: created_at,
                 timeStamp: timeStamp,
                 state: state,
-                questionStatus: questionStatus
+                questionStatus: questionsById
             };
             // sending in the queue 
             const pushingInQueue = await updateTestDetails_producer_1.updatingTestDetailsProducer.updateData(details);

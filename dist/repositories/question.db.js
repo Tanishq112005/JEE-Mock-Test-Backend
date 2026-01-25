@@ -160,6 +160,7 @@ class Question {
                     // Remove relations
                     subjects: undefined, chapters: undefined, papers: undefined,
                     paperId: undefined, subjectId: undefined, chapterId: undefined,
+                    questionNumber: q.questionNumber,
                     image: signedQuestionImages,
                     comprehensionImage: signedCompImages,
                     options: processedOptions,
@@ -227,6 +228,7 @@ class Question {
                     subject: subjectName,
                     chapter: chapterName,
                     isJeeMain, isJeeAdvanced,
+                    questionNumber: q.questionNumber,
                     subjects: undefined, chapters: undefined,
                     paperId: undefined, subjectId: undefined, chapterId: undefined,
                     image: signedQuestionImages,
@@ -284,6 +286,7 @@ class Question {
                     subjects: undefined, chapters: undefined, paperId: undefined, subjectId: undefined, chapterId: undefined,
                     image: this.signUrlArray(q.image),
                     comprehensionImage: this.signUrlArray(q.comprehensionImage),
+                    questionNumber: q.questionNumber,
                     options: q.options ? {
                         ...q.options,
                         optionAimage: this.signUrlArray(q.options.optionAimage),

@@ -1,30 +1,35 @@
-import { CHAPTERS, ChapterMeta, Subject } from "../utils/chapter";
+import { SYLLABUS_DATA, Chapter, Subject } from "../utils/chapter";
 import { getEmbedding } from "../utils/embedding";
 import { cosineSimilarity } from "../utils/similarity";
 
 interface FindChapterPayload {
-  chapter: string;       
-  chapterGroup?: string; 
-  subject: Subject;      
+  chapter: string;
+  chapterGroup?: string;
+  subject: Subject;
 }
 
-
+// Cache stores slug -> embedding vector
 const chapterEmbeddingCache = new Map<string, number[]>();
-
 
 export async function initializeChapterEmbeddings() {
   console.log("Initializing chapter embeddings...");
-  
-  for (const chapter of CHAPTERS) {
-    if (!chapterEmbeddingCache.has(chapter.slug)) {
+
+  // Iterate through the nested structure: Syllabus -> Groups -> Chapters
+  for (const groupData of SYLLABUS_DATA) {
+    for (const chapter of groupData.chapters) {
       
-      const textToEmbed = `${chapter.name}: ${chapter.description} (${chapter.chapterGroup})`;
-      
-      try {
-        const vector = await getEmbedding(textToEmbed);
-        chapterEmbeddingCache.set(chapter.slug, vector);
-      } catch (error) {
-        console.error(`Failed to generate embedding for ${chapter.name}:`, error);
+      // Check cache to avoid re-generating
+      if (!chapterEmbeddingCache.has(chapter.slug)) {
+        
+        // We include the Group Name (e.g., "Mechanics") in the embedding text for better context
+        const textToEmbed = `${chapter.name}: ${chapter.description} (${groupData.group})`;
+
+        try {
+          const vector = await getEmbedding(textToEmbed);
+          chapterEmbeddingCache.set(chapter.slug, vector);
+        } catch (error) {
+          console.error(`Failed to generate embedding for ${chapter.name}:`, error);
+        }
       }
     }
   }
@@ -34,13 +39,21 @@ export async function initializeChapterEmbeddings() {
 export async function findBestChapter(payload: FindChapterPayload): Promise<string> {
   const { chapter, chapterGroup, subject } = payload;
 
-
-  const filteredChapters = CHAPTERS.filter(
-    c => c.subject.toLowerCase() === subject.toLowerCase()
+  // 1. Filter Groups by Subject first
+  const subjectGroups = SYLLABUS_DATA.filter(
+    g => g.subject.toLowerCase() === subject.toLowerCase()
   );
 
-  if (filteredChapters.length === 0) return "Unknown Chapter";
+  // 2. Flatten the nested chapters into a single searchable array
+  // We attach the 'group' name temporarily to help with context if needed, 
+  // though strictly we just need the chapter object for the cache lookup.
+  const candidateChapters = subjectGroups.flatMap(group => 
+    group.chapters.map(ch => ({ ...ch, groupName: group.group }))
+  );
 
+  if (candidateChapters.length === 0) return "Unknown Chapter";
+
+  // 3. Prepare Query Embedding
   const queryText = chapterGroup ? `${chapter} ${chapterGroup}` : chapter;
   let queryEmbedding: number[];
 
@@ -48,20 +61,18 @@ export async function findBestChapter(payload: FindChapterPayload): Promise<stri
     queryEmbedding = await getEmbedding(queryText);
   } catch (error) {
     console.error("Error generating query embedding:", error);
-  
     return "Error processing request";
   }
 
-  let bestMatch: ChapterMeta | null = null;
+  // 4. Find Best Match
+  let bestMatch: Chapter | null = null;
   let maxScore = -1;
 
-  for (const ch of filteredChapters) {
-  
+  for (const ch of candidateChapters) {
     const chEmbedding = chapterEmbeddingCache.get(ch.slug);
-    
+
     if (chEmbedding) {
       const score = cosineSimilarity(queryEmbedding, chEmbedding);
-    
 
       if (score > maxScore) {
         maxScore = score;
@@ -70,7 +81,7 @@ export async function findBestChapter(payload: FindChapterPayload): Promise<stri
     }
   }
 
-  
+  // 5. Threshold check (0.3 is usually a safe baseline for cosine similarity)
   if (bestMatch && maxScore > 0.3) {
     return bestMatch.name;
   }

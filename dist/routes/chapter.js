@@ -9,4 +9,5 @@ const router = (0, express_1.Router)();
 router.post("/create", auth_1.authMiddleware, developerRole_1.developerRoleMiddleware, chapterController_1.chapterController.addingChapter);
 router.delete("/delete", auth_1.authMiddleware, developerRole_1.developerRoleMiddleware, chapterController_1.chapterController.deletingChapter);
 router.get("/get", auth_1.authMiddleware, chapterController_1.chapterController.getChapters);
+router.get("/group", auth_1.authMiddleware, chapterController_1.chapterController.groupName);
 exports.chapterRoutes = router;

@@ -108,7 +108,7 @@ class TestStatus {
                         isVisited: false,
                         markedForReview: false,
                         timeSpent: 0,
-                        status: AttemptStatus.NOT_ANSWERED
+                        status: AttemptStatus.notAnswered
                     }
                 };
             });
@@ -183,30 +183,13 @@ class TestStatus {
             let existingTest;
 
             // Strategy A: ID Lookup (Fastest & Best)
-            if (testId) {
-                existingTest = await this.db.testStatus.findUnique({
+           
+            existingTest = await this.db.testStatus.findUnique({
                     where: { id: testId }
                 });
-            } 
             
-            // Strategy B: Fallback Lookup (If frontend forgot testId)
-            if (!existingTest) {
-                existingTest = await this.db.testStatus.findFirst({
-                    where: {
-                        userId: updateDetails.userId,
-                        paperId: updateDetails.paperId,
-                        paperOver: false // Only look for active tests
-                    },
-                    orderBy: { created_at: 'desc' } 
-                });
-            }
-
-            if (!existingTest) {
-                console.error(`Session Not Found for User: ${updateDetails.userId}, Paper: ${updateDetails.paperId}`);
-                throw new Error("Active Test Session not found.");
-            }
             
-            testId = existingTest.id;
+           
 
             // 1. Update Parent (Timer, Status)
             const updateParent = this.db.testStatus.update({
@@ -221,7 +204,7 @@ class TestStatus {
             });
 
             // 2. Upsert Questions
-            const updateQuestions = updateDetails.questionStatus.map((q) => {
+            const updateQuestions = updateDetails.questionStatus.map((q : any) => {
                 
                 // --- FIX: Format userAnswer as String[] for Prisma ---
                 let formattedAnswer: string[] = [];
@@ -244,17 +227,17 @@ class TestStatus {
                     create: {
                         testStatusId: testId!,
                         questionId: q.questionId,
-                        isVisited: q.isVisited,
-                        markedForReview: q.markedForReview,
                         timeSpent: q.timeSpent,
                         userAnswer: formattedAnswer, 
-                        status: AttemptStatus.NOT_ANSWERED
+                        status: q.status , 
                     },
                     update: {
-                        isVisited: q.isVisited,
-                        markedForReview: q.markedForReview,
                         timeSpent: q.timeSpent,
                         userAnswer: formattedAnswer,
+                        status : q.status , 
+                        isVisited : q.isVisited , 
+                        markedForReview : q.markedForReview
+                        
                     }
                 });
             });

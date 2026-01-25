@@ -8,6 +8,7 @@ export interface chapterInform {
     isCbse: boolean,
     isJeeMain: boolean,
     isJeeAdvanced: boolean
+    group : string
 }
 
 
@@ -18,6 +19,7 @@ export interface deletingPayload {
 
 export interface gettingPayload {
     classNumber?: number,
-    subjectName?: SubjectName
+    subjectName?: SubjectName ,
+    group?: string ,
 
 }

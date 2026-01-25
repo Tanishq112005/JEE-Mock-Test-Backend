@@ -12,7 +12,7 @@ class ChapterController {
     constructor() { }
     // adding the chapter
     addingChapter = async (req, res) => {
-        const { name, chapterNumber, classNumber, subject, isCbse, isJeeMain, isJeeAdvanced } = req.body;
+        const { name, chapterNumber, classNumber, group, subject, isCbse, isJeeMain, isJeeAdvanced } = req.body;
         try {
             if (!Object.values(client_1.SubjectName).includes(subject)) {
                 return res.status(400).json(new ApiError_1.default("Invalid subject name"));
@@ -21,6 +21,7 @@ class ChapterController {
                 name: name,
                 chapterNumber: chapterNumber,
                 classNumber: classNumber,
+                group: group,
                 subject: subject,
                 isCbse: isCbse,
                 isJeeAdvanced: isJeeAdvanced,
@@ -71,6 +72,24 @@ class ChapterController {
             return res
                 .status(500)
                 .json(new ApiError_1.default("Error fetching chapters", err));
+        }
+    };
+    groupName = async (req, res) => {
+        try {
+            let { subjectName } = req.query;
+            if (subjectName) {
+                if (!Object.values(client_1.SubjectName).includes(subjectName)) {
+                    return res
+                        .status(400)
+                        .json(new ApiError_1.default("Invalid subject name"));
+                }
+                subjectName = subjectName;
+            }
+            const finalResponse = await chapter_db_1.chapter.gettingGroup(subjectName);
+            return res.status(200).json(new ApiResponse_1.default(`Group Of the ${subjectName} are: `, finalResponse));
+        }
+        catch (err) {
+            return res.status(500).json(new ApiError_1.default("Error in getting the group", err));
         }
     };
 }
