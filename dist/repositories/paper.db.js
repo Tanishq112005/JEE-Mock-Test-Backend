@@ -99,28 +99,29 @@ class Paper {
             let integer = paperInformation.totalInteger || 0;
             let paperMarks = paperInformation.totalMarks || 0;
             const marks = paperMarks + questionInformation.positiveMarks;
-            if (questionInformation.questionType === "Integer") {
+            if (questionInformation.questionType === "Integer" || questionInformation.questionType === "ComprehensionInteger") {
                 integer += 1;
             }
-            if (questionInformation.questionType === "MultiCorrect") {
+            if (questionInformation.questionType === "MultiCorrect" || questionInformation.questionType === "ComprehensionMultiCorrect") {
                 multiChoice += 1;
             }
             if (questionInformation.questionType === "SingleCorrect" ||
-                questionInformation.questionType === "Comprehension") {
+                questionInformation.questionType === "ComprehensionSingleCorrect") {
                 singleChoice += 1;
             }
-            await this.db.papers.update({
-                where: {
-                    id: questionInformation.paperId,
-                },
-                data: {
-                    totalQuestions: (paperInformation.totalQuestions || 0) + 1,
-                    totalMarks: marks,
-                    totalSingleChoice: singleChoice,
-                    totalMultiChoice: multiChoice,
-                    totalInteger: integer,
-                },
-            });
+            if (questionInformation.questionType)
+                await this.db.papers.update({
+                    where: {
+                        id: questionInformation.paperId,
+                    },
+                    data: {
+                        totalQuestions: (paperInformation.totalQuestions || 0) + 1,
+                        totalMarks: marks,
+                        totalSingleChoice: singleChoice,
+                        totalMultiChoice: multiChoice,
+                        totalInteger: integer,
+                    },
+                });
         }
         catch (err) {
             throw err;

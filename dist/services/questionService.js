@@ -32,15 +32,21 @@ class QuestionCreating {
         let questionFormat;
         if (typeOfQuestion === 'mcq') {
             questionFormat = client_1.questionType.SingleCorrect;
+            if (payload.question.en.comprehension != null) {
+                questionFormat = client_1.questionType.ComprehensionSingleCorrect;
+            }
         }
         else if (typeOfQuestion === 'mcqm') {
             questionFormat = client_1.questionType.MultiCorrect;
-        }
-        else if (typeOfQuestion === 'integer') {
-            questionFormat = client_1.questionType.Integer;
+            if (payload.question.en.comprehension != null) {
+                questionFormat = client_1.questionType.ComprehensionMultiCorrect;
+            }
         }
         else {
-            questionFormat = client_1.questionType.Comprehension;
+            questionFormat = client_1.questionType.Integer;
+            if (payload.question.en.comprehension != null) {
+                questionFormat = client_1.questionType.ComprehensionInteger;
+            }
         }
         const isBonous = payload.isBonus;
         const isOutOfSyllabus = payload.isOutOfSyllabus;

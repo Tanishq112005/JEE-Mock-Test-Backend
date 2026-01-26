@@ -26,6 +26,52 @@ class Question {
         return signedUrls;
     }
     // ---------------------------------------------------------
+    // Helper: Group and Sort Questions by Type
+    // ---------------------------------------------------------
+    groupAndSortBySection(questions) {
+        const sections = {
+            MultiCorrect: [],
+            SingleCorrect: [],
+            Integer: [],
+        };
+        questions.forEach((q) => {
+            // Mapping based on user requirements
+            switch (q.type) {
+                // MultiCorrect Section
+                case "MultiCorrect":
+                case "ComprehensionMultiCorrect":
+                case client_1.questionType.MultiCorrect:
+                case client_1.questionType.ComprehensionMultiCorrect:
+                    sections.MultiCorrect.push(q);
+                    break;
+                // SingleCorrect Section
+                case "SingleCorrect":
+                case "ComprehensionSingleCorrect":
+                case client_1.questionType.SingleCorrect:
+                case client_1.questionType.ComprehensionSingleCorrect:
+                    sections.SingleCorrect.push(q);
+                    break;
+                // Integer Section
+                case "Integer":
+                case "ComprehensionInteger":
+                case client_1.questionType.Integer:
+                case client_1.questionType.ComprehensionInteger:
+                    sections.Integer.push(q);
+                    break;
+                default:
+                    // Fallback if needed, or push to SingleCorrect by default
+                    // console.warn("Unknown question type:", q.type);
+                    break;
+            }
+        });
+        // Sort each section by questionNumber
+        const sorter = (a, b) => (a.questionNumber || 0) - (b.questionNumber || 0);
+        sections.MultiCorrect.sort(sorter);
+        sections.SingleCorrect.sort(sorter);
+        sections.Integer.sort(sorter);
+        return sections;
+    }
+    // ---------------------------------------------------------
     // 2. Add Single Question (SAVES PLAIN TEXT TO DB)
     // ---------------------------------------------------------
     async addingSingleQuestion(questionData, paperId, questionNumber) {
@@ -237,25 +283,20 @@ class Question {
                     solution: processedSolution,
                 };
             }));
-            // Filter and Sort by Subject
-            const physics = processedQuestions
-                .filter((q) => q.subject === client_1.SubjectName.Physics || q.subject === "Physics")
-                .sort((a, b) => (a.questionNumber || 0) - (b.questionNumber || 0));
-            const chemistry = processedQuestions
-                .filter((q) => q.subject === client_1.SubjectName.Chemistry || q.subject === "Chemistry")
-                .sort((a, b) => (a.questionNumber || 0) - (b.questionNumber || 0));
-            const mathematics = processedQuestions
-                .filter((q) => q.subject === client_1.SubjectName.Mathematics || q.subject === "Mathematics")
-                .sort((a, b) => (a.questionNumber || 0) - (b.questionNumber || 0));
+            // 1. Group by Subject
+            const physicsRaw = processedQuestions.filter((q) => q.subject === client_1.SubjectName.Physics || q.subject === "Physics");
+            const chemistryRaw = processedQuestions.filter((q) => q.subject === client_1.SubjectName.Chemistry || q.subject === "Chemistry");
+            const mathematicsRaw = processedQuestions.filter((q) => q.subject === client_1.SubjectName.Mathematics || q.subject === "Mathematics");
+            // 2. Group by Type within Subject
             const finalObject = {
                 ...paperRaw,
                 exam: paperRaw.exam?.name,
-                questions: undefined, // Removing the flat list to save space/bandwidth
-                Physics: physics,
-                Chemistry: chemistry,
-                Mathematics: mathematics,
+                questions: undefined,
+                Physics: this.groupAndSortBySection(physicsRaw),
+                Chemistry: this.groupAndSortBySection(chemistryRaw),
+                Mathematics: this.groupAndSortBySection(mathematicsRaw),
             };
-            // 3. ENCRYPT EVERYTHING IN ONE GO
+            // 3. ENCRYPT
             return (0, encryption_1.encryptPayload)(finalObject);
         }
         catch (error) {
@@ -287,7 +328,6 @@ class Question {
             });
             if (!paperRaw)
                 return null;
-            // Process images just like before
             const processedQuestions = await Promise.all(paperRaw.questions.map(async (q) => {
                 const subjectName = q.subjects?.name || null;
                 const chapterName = q.chapters?.name || null;
@@ -316,24 +356,19 @@ class Question {
                     } : null,
                 };
             }));
-            // Filter and Sort by Subject
-            const physics = processedQuestions
-                .filter((q) => q.subject === client_1.SubjectName.Physics || q.subject === "Physics")
-                .sort((a, b) => (a.questionNumber || 0) - (b.questionNumber || 0));
-            const chemistry = processedQuestions
-                .filter((q) => q.subject === client_1.SubjectName.Chemistry || q.subject === "Chemistry")
-                .sort((a, b) => (a.questionNumber || 0) - (b.questionNumber || 0));
-            const mathematics = processedQuestions
-                .filter((q) => q.subject === client_1.SubjectName.Mathematics || q.subject === "Mathematics")
-                .sort((a, b) => (a.questionNumber || 0) - (b.questionNumber || 0));
+            // 1. Group by Subject
+            const physicsRaw = processedQuestions.filter((q) => q.subject === client_1.SubjectName.Physics || q.subject === "Physics");
+            const chemistryRaw = processedQuestions.filter((q) => q.subject === client_1.SubjectName.Chemistry || q.subject === "Chemistry");
+            const mathematicsRaw = processedQuestions.filter((q) => q.subject === client_1.SubjectName.Mathematics || q.subject === "Mathematics");
+            // 2. Group by Type within Subject & Return
             return {
                 paperDetails: {
                     ...paperRaw,
                     questions: undefined
                 },
-                Physics: physics,
-                Chemistry: chemistry,
-                Mathematics: mathematics
+                Physics: this.groupAndSortBySection(physicsRaw),
+                Chemistry: this.groupAndSortBySection(chemistryRaw),
+                Mathematics: this.groupAndSortBySection(mathematicsRaw)
             };
         }
         catch (error) {
