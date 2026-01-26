@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.question = void 0;
+const client_1 = require("@prisma/client");
 const database_1 = require("../lib/database");
 const paper_db_1 = require("./paper.db");
 const chapter_db_1 = require("./chapter.db");
@@ -168,7 +169,6 @@ class Question {
                 };
             }));
             // 3. ENCRYPT EVERYTHING IN ONE GO
-            // This returns a string like "iv:encrypted_blob"
             return (0, encryption_1.encryptPayload)(processedQuestions);
         }
         catch (err) {
@@ -237,10 +237,23 @@ class Question {
                     solution: processedSolution,
                 };
             }));
+            // Filter and Sort by Subject
+            const physics = processedQuestions
+                .filter((q) => q.subject === client_1.SubjectName.Physics || q.subject === "Physics")
+                .sort((a, b) => (a.questionNumber || 0) - (b.questionNumber || 0));
+            const chemistry = processedQuestions
+                .filter((q) => q.subject === client_1.SubjectName.Chemistry || q.subject === "Chemistry")
+                .sort((a, b) => (a.questionNumber || 0) - (b.questionNumber || 0));
+            const mathematics = processedQuestions
+                .filter((q) => q.subject === client_1.SubjectName.Mathematics || q.subject === "Mathematics")
+                .sort((a, b) => (a.questionNumber || 0) - (b.questionNumber || 0));
             const finalObject = {
                 ...paperRaw,
                 exam: paperRaw.exam?.name,
-                questions: processedQuestions,
+                questions: undefined, // Removing the flat list to save space/bandwidth
+                Physics: physics,
+                Chemistry: chemistry,
+                Mathematics: mathematics,
             };
             // 3. ENCRYPT EVERYTHING IN ONE GO
             return (0, encryption_1.encryptPayload)(finalObject);
@@ -250,6 +263,9 @@ class Question {
             throw error;
         }
     }
+    // =================================================================
+    // 5. GET RAW QUESTIONS BY PAPER ID (UNENCRYPTED)
+    // =================================================================
     async getRawQuestionsForPaper(paperId) {
         try {
             const paperRaw = await this.db.papers.findUnique({
@@ -265,7 +281,7 @@ class Question {
                                 select: { name: true, isJeeAdvanced: true, isJeeMain: true }
                             },
                         },
-                        orderBy: { id: 'asc' } // Ensure consistent ordering
+                        orderBy: { id: 'asc' }
                     },
                 },
             });
@@ -300,12 +316,24 @@ class Question {
                     } : null,
                 };
             }));
+            // Filter and Sort by Subject
+            const physics = processedQuestions
+                .filter((q) => q.subject === client_1.SubjectName.Physics || q.subject === "Physics")
+                .sort((a, b) => (a.questionNumber || 0) - (b.questionNumber || 0));
+            const chemistry = processedQuestions
+                .filter((q) => q.subject === client_1.SubjectName.Chemistry || q.subject === "Chemistry")
+                .sort((a, b) => (a.questionNumber || 0) - (b.questionNumber || 0));
+            const mathematics = processedQuestions
+                .filter((q) => q.subject === client_1.SubjectName.Mathematics || q.subject === "Mathematics")
+                .sort((a, b) => (a.questionNumber || 0) - (b.questionNumber || 0));
             return {
                 paperDetails: {
                     ...paperRaw,
-                    questions: undefined // Remove questions from top level to keep it clean
+                    questions: undefined
                 },
-                questions: processedQuestions
+                Physics: physics,
+                Chemistry: chemistry,
+                Mathematics: mathematics
             };
         }
         catch (error) {

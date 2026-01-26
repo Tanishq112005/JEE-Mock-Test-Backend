@@ -62,7 +62,7 @@ class TestStatus {
     // =================================================================
     async getSessionData(testStatusId: string, userId: string) {
         try {
-            // 1. Fetch the Test Session to get PaperID and verify owner
+            // 1. Fetch the Test Session
             const currentTestStatus = await this.db.testStatus.findUnique({
                 where: { id: testStatusId },
             });
@@ -71,49 +71,58 @@ class TestStatus {
                 throw new Error("Test Session not found");
             }
 
-            // Security Check
             if (currentTestStatus.userId !== userId) {
                 throw new Error("Unauthorized access to this test session");
             }
 
-            // 2. Fetch User Attempts for this specific session
+            // 2. Fetch User Attempts
             const userAttempts = await this.db.testQuestionAttemptStatus.findMany({
                 where: { testStatusId: testStatusId }
             });
 
-            // 3. Fetch Raw Questions from Paper DB (Using your Question Class)
-            // Note: Ensure `question.getRawQuestionsForPaper` is implemented as discussed previously
-            const rawPaperData = await question.getRawQuestionsForPaper(currentTestStatus.paperId);
+            // 3. Fetch Raw Questions (Subject-wise Object)
+            // Returns: { paperDetails, Physics: [], Chemistry: [], Mathematics: [] }
+            const rawPaperData: any = await question.getRawQuestionsForPaper(currentTestStatus.paperId);
             
             if (!rawPaperData) throw new Error("Paper data not found");
 
-            // 4. Merge Logic (Optimize with Map)
+            // 4. Create Map for O(1) Access
             const attemptMap = new Map();
             userAttempts.forEach(att => attemptMap.set(att.questionId, att));
 
-            const mergedQuestions = rawPaperData.questions.map((q) => {
-                const userAttempt = attemptMap.get(q.id);
+            // 5. Helper Function to Merge Attempts
+            const mergeAttempts = (questions: any[]) => {
+                if (!questions || !Array.isArray(questions)) return [];
+                
+                return questions.map((q: any) => {
+                    const userAttempt = attemptMap.get(q.id);
 
-                return {
-                    ...q,
-                    attemptStatus: userAttempt ? {
-                        userAnswer: userAttempt.userAnswer,
-                        isVisited: userAttempt.isVisited,
-                        markedForReview: userAttempt.markedForReview,
-                        timeSpent: userAttempt.timeSpent,
-                        status: userAttempt.status
-                    } : {
-                        // Default Empty State
-                        userAnswer: null,
-                        isVisited: false,
-                        markedForReview: false,
-                        timeSpent: 0,
-                        status: AttemptStatus.notAnswered
-                    }
-                };
-            });
+                    return {
+                        ...q,
+                        attemptStatus: userAttempt ? {
+                            userAnswer: userAttempt.userAnswer,
+                            isVisited: userAttempt.isVisited,
+                            markedForReview: userAttempt.markedForReview,
+                            timeSpent: userAttempt.timeSpent,
+                            status: userAttempt.status
+                        } : {
+                            // Default Empty State
+                            userAnswer: null,
+                            isVisited: false,
+                            markedForReview: false,
+                            timeSpent: 0,
+                            status: AttemptStatus.notAnswered
+                        }
+                    };
+                });
+            };
 
-            // 5. Construct Final Payload
+            // 6. Process Each Subject Individually
+            const processedPhysics = mergeAttempts(rawPaperData.Physics);
+            const processedChemistry = mergeAttempts(rawPaperData.Chemistry);
+            const processedMathematics = mergeAttempts(rawPaperData.Mathematics);
+
+            // 7. Construct Final Payload
             const finalPayload = {
                 session: {
                     testId: currentTestStatus.id,
@@ -125,10 +134,13 @@ class TestStatus {
                     paperOver: currentTestStatus.paperOver
                 },
                 paper: rawPaperData.paperDetails,
-                questions: mergedQuestions
+                // Return subject keys instead of a single 'questions' array
+                Physics: processedPhysics,
+                Chemistry: processedChemistry,
+                Mathematics: processedMathematics
             };
 
-            // 6. Encrypt
+            // 8. Encrypt
             return finalPayload;
 
         } catch (err) {
@@ -136,7 +148,6 @@ class TestStatus {
             throw err;
         }
     }
-
     // =================================================================
     // HELPER METHODS (Internal & Background)
     // =================================================================

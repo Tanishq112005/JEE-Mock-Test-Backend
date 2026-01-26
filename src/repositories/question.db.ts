@@ -17,7 +17,7 @@ class Question {
   // ---------------------------------------------------------
   // 1. Helper: Sign Image URLs
   // ---------------------------------------------------------
-  private  signUrlArray(images: string[]): string[] {
+  private signUrlArray(images: string[]): string[] {
     if (!images || images.length === 0) return [];
     const signedUrls: string[] = [];
     for (let i = 0; i < images.length; i++) {
@@ -172,7 +172,7 @@ class Question {
             // Remove relations
             subjects: undefined, chapters: undefined, papers: undefined, 
             paperId: undefined, subjectId: undefined, chapterId: undefined,
-           questionNumber : q.questionNumber ,
+            questionNumber : q.questionNumber ,
             image: signedQuestionImages,
             comprehensionImage: signedCompImages,
             options: processedOptions,
@@ -182,7 +182,6 @@ class Question {
       );
 
       // 3. ENCRYPT EVERYTHING IN ONE GO
-      // This returns a string like "iv:encrypted_blob"
       return encryptPayload(processedQuestions);
 
     } catch (err) {
@@ -260,11 +259,27 @@ class Question {
           };
         })
       );
- 
+      
+      // Filter and Sort by Subject
+      const physics = processedQuestions
+        .filter((q : any) => q.subject === SubjectName.Physics || q.subject === "Physics")
+        .sort((a, b) => (a.questionNumber || 0) - (b.questionNumber || 0));
+
+      const chemistry = processedQuestions
+        .filter((q : any) => q.subject === SubjectName.Chemistry || q.subject === "Chemistry")
+        .sort((a, b) => (a.questionNumber || 0) - (b.questionNumber || 0));
+
+      const mathematics = processedQuestions
+        .filter((q : any) => q.subject === SubjectName.Mathematics || q.subject === "Mathematics")
+        .sort((a, b) => (a.questionNumber || 0) - (b.questionNumber || 0));
+
       const finalObject = {
         ...paperRaw,
         exam: paperRaw.exam?.name, 
-        questions: processedQuestions,
+        questions: undefined, // Removing the flat list to save space/bandwidth
+        Physics: physics,
+        Chemistry: chemistry,
+        Mathematics: mathematics,
       };
 
       // 3. ENCRYPT EVERYTHING IN ONE GO
@@ -275,8 +290,9 @@ class Question {
     }
   }
 
-
-
+  // =================================================================
+  // 5. GET RAW QUESTIONS BY PAPER ID (UNENCRYPTED)
+  // =================================================================
   async getRawQuestionsForPaper(paperId: string) {
     try {
       const paperRaw = await this.db.papers.findUnique({
@@ -292,7 +308,7 @@ class Question {
                 select: { name: true, isJeeAdvanced: true, isJeeMain: true }
               },
             },
-            orderBy: { id: 'asc' } // Ensure consistent ordering
+            orderBy: { id: 'asc' } 
           },
         },
       });
@@ -334,12 +350,27 @@ class Question {
         })
       );
 
+      // Filter and Sort by Subject
+      const physics = processedQuestions
+        .filter((q : any) => q.subject === SubjectName.Physics || q.subject === "Physics")
+        .sort((a, b) => (a.questionNumber || 0) - (b.questionNumber || 0));
+
+      const chemistry = processedQuestions
+        .filter((q : any) => q.subject === SubjectName.Chemistry || q.subject === "Chemistry")
+        .sort((a, b) => (a.questionNumber || 0) - (b.questionNumber || 0));
+
+      const mathematics = processedQuestions
+        .filter((q : any) => q.subject === SubjectName.Mathematics || q.subject === "Mathematics")
+        .sort((a, b) => (a.questionNumber || 0) - (b.questionNumber || 0));
+
       return {
         paperDetails: {
             ...paperRaw,
-            questions: undefined // Remove questions from top level to keep it clean
+            questions: undefined 
         },
-        questions: processedQuestions
+        Physics: physics,
+        Chemistry: chemistry,
+        Mathematics: mathematics
       };
 
     } catch (error) {
