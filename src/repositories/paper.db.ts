@@ -116,21 +116,23 @@ class Paper {
             const marks =
                 paperMarks + questionInformation.positiveMarks;
 
-            if (questionInformation.questionType === "Integer") {
+            if (questionInformation.questionType === "Integer" || questionInformation.questionType === "ComprehensionInteger") {
                 integer += 1;
             }
 
-            if (questionInformation.questionType === "MultiCorrect") {
+            if (questionInformation.questionType === "MultiCorrect" || questionInformation.questionType === "ComprehensionMultiCorrect") {
                 multiChoice += 1;
             }
 
             if (
-                questionInformation.questionType === "SingleCorrect" ||
-                questionInformation.questionType === "Comprehension"
+                questionInformation.questionType === "SingleCorrect" || 
+                questionInformation.questionType === "ComprehensionSingleCorrect"
             ) {
                 singleChoice += 1;
             }
 
+         
+            if(questionInformation.questionType)
             await this.db.papers.update({
                 where: {
                     id: questionInformation.paperId,

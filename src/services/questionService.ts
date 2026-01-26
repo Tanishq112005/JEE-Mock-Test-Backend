@@ -38,16 +38,23 @@ class QuestionCreating {
     let questionFormat: questionType;
     if (typeOfQuestion === 'mcq') {
       questionFormat = questionType.SingleCorrect;
+         if (payload.question.en.comprehension != null) {
+         questionFormat = questionType.ComprehensionSingleCorrect
+    }
     }
     else if (typeOfQuestion === 'mcqm') {
       questionFormat = questionType.MultiCorrect;
+         if (payload.question.en.comprehension != null) {
+         questionFormat = questionType.ComprehensionMultiCorrect
     }
-    else if (typeOfQuestion === 'integer') {
-      questionFormat = questionType.Integer;
     }
     else {
-      questionFormat = questionType.Comprehension;
+      questionFormat = questionType.Integer;
+        if (payload.question.en.comprehension != null) {
+         questionFormat = questionType.ComprehensionInteger
     }
+    }
+  
 
     const isBonous: boolean = payload.isBonus;
     const isOutOfSyllabus: boolean = payload.isOutOfSyllabus;

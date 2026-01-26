@@ -1,4 +1,4 @@
-import { chapters, PrismaClient, SubjectName } from "@prisma/client";
+import { chapters, PrismaClient, SubjectName, questionType } from "@prisma/client";
 import { database } from "../lib/database";
 import { questionParameters } from "../types/questions.types";
 import { paper } from "./paper.db";
@@ -28,9 +28,63 @@ class Question {
   }
 
   // ---------------------------------------------------------
+  // Helper: Group and Sort Questions by Type
+  // ---------------------------------------------------------
+  private groupAndSortBySection(questions: any[]) {
+    const sections = {
+      MultiCorrect: [] as any[],
+      SingleCorrect: [] as any[],
+      Integer: [] as any[],
+    };
+
+    questions.forEach((q) => {
+      // Mapping based on user requirements
+      switch (q.type) {
+        // MultiCorrect Section
+        case "MultiCorrect":
+        case "ComprehensionMultiCorrect":
+        case questionType.MultiCorrect: 
+        case questionType.ComprehensionMultiCorrect:
+          sections.MultiCorrect.push(q);
+          break;
+
+        // SingleCorrect Section
+        case "SingleCorrect":
+        case "ComprehensionSingleCorrect":
+        case questionType.SingleCorrect:
+        case questionType.ComprehensionSingleCorrect:
+          sections.SingleCorrect.push(q);
+          break;
+
+        // Integer Section
+        case "Integer":
+        case "ComprehensionInteger":
+        case questionType.Integer:
+        case questionType.ComprehensionInteger:
+          sections.Integer.push(q);
+          break;
+        
+        default:
+          // Fallback if needed, or push to SingleCorrect by default
+          // console.warn("Unknown question type:", q.type);
+          break;
+      }
+    });
+
+    // Sort each section by questionNumber
+    const sorter = (a: any, b: any) => (a.questionNumber || 0) - (b.questionNumber || 0);
+    
+    sections.MultiCorrect.sort(sorter);
+    sections.SingleCorrect.sort(sorter);
+    sections.Integer.sort(sorter);
+
+    return sections;
+  }
+
+  // ---------------------------------------------------------
   // 2. Add Single Question (SAVES PLAIN TEXT TO DB)
   // ---------------------------------------------------------
-  async addingSingleQuestion(questionData: questionParameters, paperId: string , questionNumber : number) {
+  async addingSingleQuestion(questionData: questionParameters, paperId: string, questionNumber: number) {
     try {
       const actualPaperId = paperId;
       const updationPayload: questionDetails = {
@@ -59,18 +113,18 @@ class Question {
           chapterId: chapterInformation.id,
           subjectId: chapterInformation.subjectId,
           class: chapterInformation.class,
-          questionNumber : questionNumber , 
+          questionNumber: questionNumber,
           options: questionData.options ? {
-             create: {
-               optionAtext: questionData.options[0]?.content ?? "",
-               optionAimage: questionData.options[0]?.image ?? [],
-               optionBtext: questionData.options[1]?.content ?? "",
-               optionBimage: questionData.options[1]?.image ?? [],
-               optionCtext: questionData.options[2]?.content ?? "",
-               optionCimage: questionData.options[2]?.image ?? [],
-               optionDtext: questionData.options[3]?.content ?? "",
-               optionDimage: questionData.options[3]?.image ?? [],
-             }
+            create: {
+              optionAtext: questionData.options[0]?.content ?? "",
+              optionAimage: questionData.options[0]?.image ?? [],
+              optionBtext: questionData.options[1]?.content ?? "",
+              optionBimage: questionData.options[1]?.image ?? [],
+              optionCtext: questionData.options[2]?.content ?? "",
+              optionCimage: questionData.options[2]?.image ?? [],
+              optionDtext: questionData.options[3]?.content ?? "",
+              optionDimage: questionData.options[3]?.image ?? [],
+            }
           } : undefined,
           solution: {
             create: {
@@ -86,9 +140,9 @@ class Question {
   }
 
   async deletingQuestion(questionId: string) {
-      try {
-          await this.db.questions.delete({ where: { id: questionId } })
-      } catch (err) { throw err; }
+    try {
+      await this.db.questions.delete({ where: { id: questionId } })
+    } catch (err) { throw err; }
   }
 
 
@@ -117,14 +171,14 @@ class Question {
           options: true,
           solution: true,
           subjects: { select: { name: true } },
-          chapters: { 
-            select: { name: true,  isJeeAdvanced: true, isJeeMain: true, chapterNumber: true } 
+          chapters: {
+            select: { name: true, isJeeAdvanced: true, isJeeMain: true, chapterNumber: true }
           },
           papers: {
             select: {
               mode: true, shift: true, date: true, month: true, year: true,
               exam: { select: { name: true } }
-            } 
+            }
           },
         },
         orderBy: { papers: { year: "desc" } },
@@ -139,17 +193,17 @@ class Question {
           const isJeeMain = q.chapters?.isJeeMain ?? false;
           const isJeeAdvanced = q.chapters?.isJeeAdvanced ?? false;
 
-          const signedQuestionImages =  this.signUrlArray(q.image);
+          const signedQuestionImages = this.signUrlArray(q.image);
           const signedCompImages = this.signUrlArray(q.comprehensionImage);
 
           let processedOptions = null;
           if (q.options) {
             processedOptions = {
               ...q.options,
-              optionAimage:  this.signUrlArray(q.options.optionAimage),
-              optionBimage:  this.signUrlArray(q.options.optionBimage),
-              optionCimage:  this.signUrlArray(q.options.optionCimage),
-              optionDimage:  this.signUrlArray(q.options.optionDimage),
+              optionAimage: this.signUrlArray(q.options.optionAimage),
+              optionBimage: this.signUrlArray(q.options.optionBimage),
+              optionCimage: this.signUrlArray(q.options.optionCimage),
+              optionDimage: this.signUrlArray(q.options.optionDimage),
             };
           }
 
@@ -157,7 +211,7 @@ class Question {
           if (q.solution) {
             processedSolution = {
               ...q.solution,
-              image:  this.signUrlArray(q.solution.image),
+              image: this.signUrlArray(q.solution.image),
             };
           }
 
@@ -170,9 +224,9 @@ class Question {
             isJeeMain, isJeeAdvanced,
 
             // Remove relations
-            subjects: undefined, chapters: undefined, papers: undefined, 
+            subjects: undefined, chapters: undefined, papers: undefined,
             paperId: undefined, subjectId: undefined, chapterId: undefined,
-            questionNumber : q.questionNumber ,
+            questionNumber: q.questionNumber,
             image: signedQuestionImages,
             comprehensionImage: signedCompImages,
             options: processedOptions,
@@ -198,15 +252,15 @@ class Question {
       const paperRaw = await this.db.papers.findUnique({
         where: { id: paperId },
         include: {
-          exam: { select: { name: true } }, 
+          exam: { select: { name: true } },
           questions: {
             include: {
               options: true,
               solution: true,
-              subjects: { select: { name: true } }, 
-              chapters: { 
-                select: { name: true,  isJeeAdvanced: true, isJeeMain: true } 
-              }, 
+              subjects: { select: { name: true } },
+              chapters: {
+                select: { name: true, isJeeAdvanced: true, isJeeMain: true }
+              },
             },
           },
         },
@@ -221,17 +275,17 @@ class Question {
           const isJeeMain = q.chapters?.isJeeMain ?? false;
           const isJeeAdvanced = q.chapters?.isJeeAdvanced ?? false;
 
-          const signedQuestionImages =  this.signUrlArray(q.image);
-          const signedCompImages =  this.signUrlArray(q.comprehensionImage);
+          const signedQuestionImages = this.signUrlArray(q.image);
+          const signedCompImages = this.signUrlArray(q.comprehensionImage);
 
           let processedOptions = null;
           if (q.options) {
             processedOptions = {
               ...q.options,
-              optionAimage:  this.signUrlArray(q.options.optionAimage),
-              optionBimage:  this.signUrlArray(q.options.optionBimage),
-              optionCimage:  this.signUrlArray(q.options.optionCimage),
-              optionDimage:  this.signUrlArray(q.options.optionDimage),
+              optionAimage: this.signUrlArray(q.options.optionAimage),
+              optionBimage: this.signUrlArray(q.options.optionBimage),
+              optionCimage: this.signUrlArray(q.options.optionCimage),
+              optionDimage: this.signUrlArray(q.options.optionDimage),
             };
           }
 
@@ -239,7 +293,7 @@ class Question {
           if (q.solution) {
             processedSolution = {
               ...q.solution,
-              image:  this.signUrlArray(q.solution.image),
+              image: this.signUrlArray(q.solution.image),
             };
           }
 
@@ -247,9 +301,9 @@ class Question {
             ...q,
             subject: subjectName,
             chapter: chapterName,
-             isJeeMain, isJeeAdvanced,
-             questionNumber : q.questionNumber ,
-            subjects: undefined, chapters: undefined, 
+            isJeeMain, isJeeAdvanced,
+            questionNumber: q.questionNumber,
+            subjects: undefined, chapters: undefined,
             paperId: undefined, subjectId: undefined, chapterId: undefined,
 
             image: signedQuestionImages,
@@ -259,30 +313,23 @@ class Question {
           };
         })
       );
-      
-      // Filter and Sort by Subject
-      const physics = processedQuestions
-        .filter((q : any) => q.subject === SubjectName.Physics || q.subject === "Physics")
-        .sort((a, b) => (a.questionNumber || 0) - (b.questionNumber || 0));
 
-      const chemistry = processedQuestions
-        .filter((q : any) => q.subject === SubjectName.Chemistry || q.subject === "Chemistry")
-        .sort((a, b) => (a.questionNumber || 0) - (b.questionNumber || 0));
+      // 1. Group by Subject
+      const physicsRaw = processedQuestions.filter((q: any) => q.subject === SubjectName.Physics || q.subject === "Physics");
+      const chemistryRaw = processedQuestions.filter((q: any) => q.subject === SubjectName.Chemistry || q.subject === "Chemistry");
+      const mathematicsRaw = processedQuestions.filter((q: any) => q.subject === SubjectName.Mathematics || q.subject === "Mathematics");
 
-      const mathematics = processedQuestions
-        .filter((q : any) => q.subject === SubjectName.Mathematics || q.subject === "Mathematics")
-        .sort((a, b) => (a.questionNumber || 0) - (b.questionNumber || 0));
-
+      // 2. Group by Type within Subject
       const finalObject = {
         ...paperRaw,
-        exam: paperRaw.exam?.name, 
-        questions: undefined, // Removing the flat list to save space/bandwidth
-        Physics: physics,
-        Chemistry: chemistry,
-        Mathematics: mathematics,
+        exam: paperRaw.exam?.name,
+        questions: undefined,
+        Physics: this.groupAndSortBySection(physicsRaw),
+        Chemistry: this.groupAndSortBySection(chemistryRaw),
+        Mathematics: this.groupAndSortBySection(mathematicsRaw),
       };
 
-      // 3. ENCRYPT EVERYTHING IN ONE GO
+      // 3. ENCRYPT
       return encryptPayload(finalObject);
     } catch (error) {
       console.error("Error fetching paper questions:", error);
@@ -308,14 +355,13 @@ class Question {
                 select: { name: true, isJeeAdvanced: true, isJeeMain: true }
               },
             },
-            orderBy: { id: 'asc' } 
+            orderBy: { id: 'asc' }
           },
         },
       });
 
       if (!paperRaw) return null;
 
-      // Process images just like before
       const processedQuestions = await Promise.all(
         paperRaw.questions.map(async (q) => {
           const subjectName = q.subjects?.name || null;
@@ -333,7 +379,7 @@ class Question {
 
             image: this.signUrlArray(q.image),
             comprehensionImage: this.signUrlArray(q.comprehensionImage),
-            questionNumber : q.questionNumber ,
+            questionNumber: q.questionNumber,
             options: q.options ? {
               ...q.options,
               optionAimage: this.signUrlArray(q.options.optionAimage),
@@ -350,27 +396,20 @@ class Question {
         })
       );
 
-      // Filter and Sort by Subject
-      const physics = processedQuestions
-        .filter((q : any) => q.subject === SubjectName.Physics || q.subject === "Physics")
-        .sort((a, b) => (a.questionNumber || 0) - (b.questionNumber || 0));
+      // 1. Group by Subject
+      const physicsRaw = processedQuestions.filter((q: any) => q.subject === SubjectName.Physics || q.subject === "Physics");
+      const chemistryRaw = processedQuestions.filter((q: any) => q.subject === SubjectName.Chemistry || q.subject === "Chemistry");
+      const mathematicsRaw = processedQuestions.filter((q: any) => q.subject === SubjectName.Mathematics || q.subject === "Mathematics");
 
-      const chemistry = processedQuestions
-        .filter((q : any) => q.subject === SubjectName.Chemistry || q.subject === "Chemistry")
-        .sort((a, b) => (a.questionNumber || 0) - (b.questionNumber || 0));
-
-      const mathematics = processedQuestions
-        .filter((q : any) => q.subject === SubjectName.Mathematics || q.subject === "Mathematics")
-        .sort((a, b) => (a.questionNumber || 0) - (b.questionNumber || 0));
-
+      // 2. Group by Type within Subject & Return
       return {
         paperDetails: {
-            ...paperRaw,
-            questions: undefined 
+          ...paperRaw,
+          questions: undefined
         },
-        Physics: physics,
-        Chemistry: chemistry,
-        Mathematics: mathematics
+        Physics: this.groupAndSortBySection(physicsRaw),
+        Chemistry: this.groupAndSortBySection(chemistryRaw),
+        Mathematics: this.groupAndSortBySection(mathematicsRaw)
       };
 
     } catch (error) {
@@ -378,7 +417,7 @@ class Question {
       throw error;
     }
   }
-  
+
 }
 
 export const question = new Question(database);

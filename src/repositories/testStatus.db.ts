@@ -3,7 +3,6 @@ import { database } from "../lib/database";
 import { updatingDetails } from "../types/testStatus.types";
 import { encryptPayload } from "../utils/encryption";
 import { question } from "./question.db";
- // Ensure this points to your Paper/Question DB file
 
 class TestStatus {
     private db: PrismaClient;
@@ -13,34 +12,24 @@ class TestStatus {
     }
 
     // =================================================================
-    // API 1: SESSION MANAGEMENT (Create / Resume / Block)
-    // Use this for the "Start Test" button.
-    // Returns plain JSON: { testId, status, message }
+    // API 1: SESSION MANAGEMENT
     // =================================================================
     async startNewTestSession(
         userId: string,
         paperId: string,
-        totalTime: number = 10800 // Default 3 hours
+        totalTime: number = 10800
     ) {
         try {
-            // 1. Check history (Get latest session)
             const existingTests = await this.gettingAllTestDetails(userId, paperId);
             const latestTest = existingTests[0];
 
-            // 2. CLEANUP: If there is an unfinished test, DELETE IT.
-            // This handles both 'PAUSED' and 'IN_PROGRESS' states automatically.
             if (latestTest && !latestTest.paperOver) {
-                
-                // Optional: If your Prisma schema does not have 'onDelete: Cascade', 
-                // uncomment the line below to delete attempts first.
                 // await this.db.testQuestionAttemptStatus.deleteMany({ where: { testStatusId: latestTest.id } });
-
                 await this.db.testStatus.delete({
                     where: { id: latestTest.id }
                 });
             }
 
-            // 3. CREATE: Start a fresh session
             const newTest = await this.startingNewTest(userId, paperId, new Date(), totalTime);
             
             return { 
@@ -56,13 +45,11 @@ class TestStatus {
     }
 
     // =================================================================
-    // API 2: DATA FETCHING (Get Questions + User Attempts)
-    // Use this for the "Loading Screen" after you have the testId.
-    // Returns: Encrypted Payload
+    // API 2: DATA FETCHING (Updated for Subject -> Section Structure)
     // =================================================================
     async getSessionData(testStatusId: string, userId: string) {
         try {
-            // 1. Fetch the Test Session
+            // 1. Fetch Test Session
             const currentTestStatus = await this.db.testStatus.findUnique({
                 where: { id: testStatusId },
             });
@@ -80,8 +67,8 @@ class TestStatus {
                 where: { testStatusId: testStatusId }
             });
 
-            // 3. Fetch Raw Questions (Subject-wise Object)
-            // Returns: { paperDetails, Physics: [], Chemistry: [], Mathematics: [] }
+            // 3. Fetch Raw Questions
+            // Structure: { paperDetails, Physics: { MultiCorrect: [], ... }, Chemistry: { ... }, ... }
             const rawPaperData: any = await question.getRawQuestionsForPaper(currentTestStatus.paperId);
             
             if (!rawPaperData) throw new Error("Paper data not found");
@@ -90,37 +77,52 @@ class TestStatus {
             const attemptMap = new Map();
             userAttempts.forEach(att => attemptMap.set(att.questionId, att));
 
-            // 5. Helper Function to Merge Attempts
-            const mergeAttempts = (questions: any[]) => {
-                if (!questions || !Array.isArray(questions)) return [];
-                
-                return questions.map((q: any) => {
-                    const userAttempt = attemptMap.get(q.id);
+            // 5. Helper: Recursively traverse object to find arrays of questions
+            const mergeAttemptsRecursive = (data: any): any => {
+                // Base Case: If data is an array, it's a list of questions. Process it.
+                if (Array.isArray(data)) {
+                    return data.map((q: any) => {
+                        const userAttempt = attemptMap.get(q.id);
+                        return {
+                            ...q,
+                            attemptStatus: userAttempt ? {
+                                userAnswer: userAttempt.userAnswer,
+                                isVisited: userAttempt.isVisited,
+                                markedForReview: userAttempt.markedForReview,
+                                timeSpent: userAttempt.timeSpent,
+                                status: userAttempt.status
+                            } : {
+                                userAnswer: null,
+                                isVisited: false,
+                                markedForReview: false,
+                                timeSpent: 0,
+                                status: AttemptStatus.notAnswered
+                            }
+                        };
+                    });
+                }
 
-                    return {
-                        ...q,
-                        attemptStatus: userAttempt ? {
-                            userAnswer: userAttempt.userAnswer,
-                            isVisited: userAttempt.isVisited,
-                            markedForReview: userAttempt.markedForReview,
-                            timeSpent: userAttempt.timeSpent,
-                            status: userAttempt.status
-                        } : {
-                            // Default Empty State
-                            userAnswer: null,
-                            isVisited: false,
-                            markedForReview: false,
-                            timeSpent: 0,
-                            status: AttemptStatus.notAnswered
+                // Recursive Step: If data is an object (e.g., "Physics", "MultiCorrect"), traverse its keys
+                if (data && typeof data === 'object') {
+                    const newData: any = {};
+                    for (const key in data) {
+                        if (key === 'paperDetails') {
+                             newData[key] = data[key]; // Skip processing paper details
+                        } else {
+                             newData[key] = mergeAttemptsRecursive(data[key]);
                         }
-                    };
-                });
+                    }
+                    return newData;
+                }
+
+                return data;
             };
 
-            // 6. Process Each Subject Individually
-            const processedPhysics = mergeAttempts(rawPaperData.Physics);
-            const processedChemistry = mergeAttempts(rawPaperData.Chemistry);
-            const processedMathematics = mergeAttempts(rawPaperData.Mathematics);
+            // 6. Process Subjects (Physics, Chemistry, Mathematics)
+            // This will automatically handle the nested MultiCorrect/SingleCorrect/Integer structure
+            const processedPhysics = mergeAttemptsRecursive(rawPaperData.Physics);
+            const processedChemistry = mergeAttemptsRecursive(rawPaperData.Chemistry);
+            const processedMathematics = mergeAttemptsRecursive(rawPaperData.Mathematics);
 
             // 7. Construct Final Payload
             const finalPayload = {
@@ -134,7 +136,6 @@ class TestStatus {
                     paperOver: currentTestStatus.paperOver
                 },
                 paper: rawPaperData.paperDetails,
-                // Return subject keys instead of a single 'questions' array
                 Physics: processedPhysics,
                 Chemistry: processedChemistry,
                 Mathematics: processedMathematics
@@ -148,11 +149,11 @@ class TestStatus {
             throw err;
         }
     }
+
     // =================================================================
-    // HELPER METHODS (Internal & Background)
+    // HELPER METHODS
     // =================================================================
 
-    // Helper: Create entry in DB
     private async startingNewTest(userId: string, paperId: string, created_at: Date, time: number) {
         return await this.db.testStatus.create({
             data: {
@@ -167,7 +168,6 @@ class TestStatus {
         });
     }
 
-    // Helper: Set status to IN_PROGRESS
     private async resumeTest(testStatusId: string) {
         await this.db.testStatus.update({
             where: { id: testStatusId },
@@ -175,34 +175,21 @@ class TestStatus {
         });
     }
 
-    
-     async gettingAllTestDetails(userId: string, paperId: string) {
+    async gettingAllTestDetails(userId: string, paperId: string) {
         return await this.db.testStatus.findMany({
             where: { paperId, userId },
             orderBy: { created_at: 'desc' }
         });
     }
 
-    // 3. UPDATING TEST DETAILS (Syncs frontend state to DB)
-    // This is called periodically (e.g., every 5-10 seconds or on answer change)
-   // In src/repositories/testStatus.db.ts
-
-    // 2. UPDATING TEST DETAILS (Syncs frontend state to DB)
-   async updatingTestDetails(updateDetails: updatingDetails) {
+    // =================================================================
+    // 3. UPDATING TEST DETAILS
+    // =================================================================
+    async updatingTestDetails(updateDetails: updatingDetails) {
         try {
             let testId = updateDetails.testId;
-            let existingTest;
 
-            // Strategy A: ID Lookup (Fastest & Best)
-           
-            existingTest = await this.db.testStatus.findUnique({
-                    where: { id: testId }
-                });
-            
-            
-           
-
-            // 1. Update Parent (Timer, Status)
+            // 1. Update Parent
             const updateParent = this.db.testStatus.update({
                 where: { id: testId },
                 data: {
@@ -216,8 +203,6 @@ class TestStatus {
 
             // 2. Upsert Questions
             const updateQuestions = updateDetails.questionStatus.map((q : any) => {
-                
-                // --- FIX: Format userAnswer as String[] for Prisma ---
                 let formattedAnswer: string[] = [];
                 if (q.userAnswer !== null && q.userAnswer !== undefined) {
                     if (Array.isArray(q.userAnswer)) {
@@ -226,7 +211,6 @@ class TestStatus {
                         formattedAnswer = [String(q.userAnswer)];
                     }
                 }
-                // ----------------------------------------------------
 
                 return this.db.testQuestionAttemptStatus.upsert({
                     where: {
@@ -248,12 +232,10 @@ class TestStatus {
                         status : q.status , 
                         isVisited : q.isVisited , 
                         markedForReview : q.markedForReview
-                        
                     }
                 });
             });
 
-            // 3. Execute Transaction
             const result = await this.db.$transaction([
                 updateParent,
                 ...updateQuestions
@@ -265,7 +247,10 @@ class TestStatus {
             throw err;
         }
     }
+
+    // =================================================================
     // 4. SUBMIT TEST
+    // =================================================================
     async submitTest(testStatusId: string) {
         try {
             const completedTest = await this.db.testStatus.update({
@@ -276,8 +261,6 @@ class TestStatus {
                     updated_at: new Date()
                 }
             });
-
-            // Trigger Analytics Worker here...
             
             return { message: "Test Submitted Successfully", testId: completedTest.id };
         } catch (err) {
@@ -286,7 +269,9 @@ class TestStatus {
         }
     }
 
-    // 5. WATCHDOG (Auto-pause inactive tests)
+    // =================================================================
+    // 5. WATCHDOG
+    // =================================================================
     async autoPauseInactiveTests(inactivityThresholdSeconds: number) {
         try {
             const cutoffTime = new Date(Date.now() - (inactivityThresholdSeconds * 1000));
