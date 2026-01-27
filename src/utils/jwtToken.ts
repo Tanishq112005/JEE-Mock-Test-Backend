@@ -25,7 +25,7 @@ function verifyAccessToken(token: string)  {
         const decoded = jwt.verify(token, jwtConfigAccessToken.secret_key);
         return decoded;
     } catch (err: any) {
-        return err.message;
+        return err;
     }
 }
  

@@ -24,7 +24,7 @@ function verifyAccessToken(token) {
         return decoded;
     }
     catch (err) {
-        return err.message;
+        return err;
     }
 }
 // generating the refersh token 

@@ -98,13 +98,16 @@ export class AuthController {
       
        const  refreshToken = generateRefershToken({id : informationOfUser.id}, "1d"); ;
        await user.updateRefershToken(email, refreshToken);
-
+      const isProduction = process.env.NODE_ENV === "production";
       res.cookie("refreshToken", refreshToken, {
         
         httpOnly: true,
-        secure: true, 
-        sameSite: "none" as const,
-        maxAge: 30 * 24 * 60 * 60 * 1000,
+    // Only true in production (HTTPS). False for localhost (HTTP).
+    secure: isProduction, 
+    // "None" requires Secure=true. Use "Lax" for localhost.
+    sameSite: isProduction ? "none" : "lax", 
+    maxAge: 30 * 24 * 60 * 60 * 1000,
+    path: "/" // Add this to ensure cookie works on all routes
       }); 
 
 
@@ -280,13 +283,15 @@ export class AuthController {
       }
 
       await user.updateRefershToken(email, refreshToken);
-
+      const isProduction = process.env.NODE_ENV === "production";
       res.cookie("refreshToken", refreshToken, {
         
+        
         httpOnly: true,
-        secure: true, 
-        sameSite: "none" as const,
-        maxAge: 30 * 24 * 60 * 60 * 1000,
+    secure: isProduction, // Now this variable exists!
+    sameSite: isProduction ? "none" : "lax",
+    maxAge: 30 * 24 * 60 * 60 * 1000,
+    path: "/"
       });
       return res
         .status(200)

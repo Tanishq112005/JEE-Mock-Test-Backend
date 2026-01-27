@@ -110,7 +110,7 @@ class TestStatusController {
                 created_at : created_at ,
                 timeStamp : timeStamp , 
                 state : state ,
-                questionStatus : questionsById
+                questionStatus : questionStatusArray
             }
 
             // sending in the queue 

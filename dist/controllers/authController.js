@@ -78,11 +78,15 @@ class AuthController {
             const refreshToken = (0, jwtToken_1.generateRefershToken)({ id: informationOfUser.id }, "1d");
             ;
             await user_db_1.user.updateRefershToken(email, refreshToken);
+            const isProduction = process.env.NODE_ENV === "production";
             res.cookie("refreshToken", refreshToken, {
                 httpOnly: true,
-                secure: true,
-                sameSite: "none",
+                // Only true in production (HTTPS). False for localhost (HTTP).
+                secure: isProduction,
+                // "None" requires Secure=true. Use "Lax" for localhost.
+                sameSite: isProduction ? "none" : "lax",
                 maxAge: 30 * 24 * 60 * 60 * 1000,
+                path: "/" // Add this to ensure cookie works on all routes
             });
             return res
                 .status(200)
@@ -202,11 +206,13 @@ class AuthController {
                 refreshToken = (0, jwtToken_1.generateRefershToken)(jwtPayloadRefershToken, "1d");
             }
             await user_db_1.user.updateRefershToken(email, refreshToken);
+            const isProduction = process.env.NODE_ENV === "production";
             res.cookie("refreshToken", refreshToken, {
                 httpOnly: true,
-                secure: true,
-                sameSite: "none",
+                secure: isProduction, // Now this variable exists!
+                sameSite: isProduction ? "none" : "lax",
                 maxAge: 30 * 24 * 60 * 60 * 1000,
+                path: "/"
             });
             return res
                 .status(200)
