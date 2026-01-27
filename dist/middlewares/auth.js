@@ -19,7 +19,7 @@ const authMiddleware = (req, res, next) => {
         return next();
     }
     catch (err) {
-        return res.status(403).json(new ApiError_1.default("Invalid or expired access token", ["Forbidden"]));
+        return res.status(401).json(new ApiError_1.default("Invalid or expired access token", ["Forbidden"]));
     }
 };
 exports.authMiddleware = authMiddleware;

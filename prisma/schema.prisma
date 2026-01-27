@@ -306,7 +306,9 @@ model chapterWiseQuestionAttemptStatus {
   questionStatus AttemptStatus
   userAnswer     String[]
   created_at     DateTime      @default(now())
-
+  isCorrect      Boolean       @default(false)
+  marksObtained  Int           @default(0)
+   
   question questions @relation(fields: [questionId], references: [id], onDelete: Cascade)
   user     user      @relation(fields: [userId], references: [id], onDelete: Cascade)
 

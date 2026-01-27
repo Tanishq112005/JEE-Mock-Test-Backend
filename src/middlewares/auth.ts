@@ -20,7 +20,7 @@ export const authMiddleware = (req : any, res : any, next : any) => {
 
     return next();
   } catch (err) {
-    return res.status(403).json(
+    return res.status(401).json(
       new ApiError("Invalid or expired access token", ["Forbidden"])
     );
   }
