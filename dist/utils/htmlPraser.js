@@ -37,22 +37,62 @@ exports.htmlParser = void 0;
 const cheerio = __importStar(require("cheerio"));
 class HtmlParser {
     constructor() { }
-    // extracting the image from the html tags 
-    extractImages(htmlContent) {
+    /**
+     * Replaces valid image URLs with simple placeholders (image_0, image_1).
+     * Returns:
+     * 1. Modified HTML (to save in DB)
+     * 2. Image Map (to help you download the files)
+     */
+    processContent(htmlContent) {
         try {
+            if (!htmlContent)
+                return { html: "", images: [] };
+            // FIX: Load with standard arguments. Cheerio wraps content in <body>.
             const $ = cheerio.load(htmlContent);
-            const imageLinks = $('img')
-                .map((index, element) => {
+            const imagesFound = [];
+            // 1. Flatten <picture> tags
+            $('picture').each((_, element) => {
+                const imgTag = $(element).find('img');
+                if (imgTag.length > 0) {
+                    $(element).replaceWith(imgTag);
+                }
+            });
+            // 2. Process every <img> tag
+            $('img').each((index, element) => {
                 const el = $(element);
-                return el.attr('data-orsrc') || el.attr('src');
-            })
-                .get();
-            const uniqueLinks = [...new Set(imageLinks)].filter(link => link && link.trim() !== '');
-            return uniqueLinks;
+                // Get the real URL
+                const originalUrl = el.attr('data-orsrc') || el.attr('src');
+                if (originalUrl && originalUrl.trim() !== '') {
+                    const placeholder = `image_${index}`;
+                    // UPDATE HTML: Set src="image_0"
+                    el.attr('src', placeholder);
+                    el.attr('alt', placeholder);
+                    // Cleanup attributes
+                    el.removeAttr('data-orsrc');
+                    el.removeAttr('srcset');
+                    el.removeAttr('style');
+                    el.removeAttr('width');
+                    el.removeAttr('height');
+                    // Save mapping
+                    imagesFound.push({
+                        placeholder: placeholder,
+                        originalUrl: originalUrl
+                    });
+                }
+            });
+            // 3. Clean up
+            $('script').remove();
+            $('style').remove();
+            // FIX: Extract content from <body> to avoid wrapping in <html><body> tags
+            const finalHtml = $('body').html() || $.html();
+            return {
+                html: finalHtml || "",
+                images: imagesFound
+            };
         }
         catch (err) {
-            console.error("Error extracting images:", err);
-            return [];
+            console.error("Error processing HTML:", err);
+            return { html: htmlContent, images: [] };
         }
     }
 }

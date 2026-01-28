@@ -26,7 +26,35 @@ class Question {
         return signedUrls;
     }
     // ---------------------------------------------------------
-    // Helper: Group and Sort Questions by Type
+    // 2. Helper: Inject Signed URLs (CONVERTS MARKDOWN TO HTML IMG)
+    // ---------------------------------------------------------
+    injectUrlsIntoHtml(content, signedUrls) {
+        if (!content)
+            return "";
+        if (!signedUrls || signedUrls.length === 0)
+            return content;
+        let updatedContent = content;
+        signedUrls.forEach((url, index) => {
+            const placeholder = `image_${index}`;
+            // Regex to match Markdown image syntax: ![alt text](image_0)
+            const markdownImgRegex = new RegExp(`!\\[(.*?)\\]\\(${placeholder}\\)`, 'g');
+            if (markdownImgRegex.test(updatedContent)) {
+                // REPLACE Markdown with HTML <img> tag
+                updatedContent = updatedContent.replace(markdownImgRegex, (match, altText) => {
+                    const cleanAlt = altText || `image_${index}`;
+                    return `<img src="${url}" alt="${cleanAlt}" style="max-width:100%; height:auto; display:block; margin: 10px auto;" />`;
+                });
+            }
+            else {
+                // FALLBACK: If it was already HTML or just the text, replace simple placeholder
+                const simpleRegex = new RegExp(placeholder, 'g');
+                updatedContent = updatedContent.replace(simpleRegex, url);
+            }
+        });
+        return updatedContent;
+    }
+    // ---------------------------------------------------------
+    // 3. Helper: Group and Sort Questions by Type
     // ---------------------------------------------------------
     groupAndSortBySection(questions) {
         const sections = {
@@ -35,23 +63,19 @@ class Question {
             Integer: [],
         };
         questions.forEach((q) => {
-            // Mapping based on user requirements
             switch (q.type) {
-                // MultiCorrect Section
                 case "MultiCorrect":
                 case "ComprehensionMultiCorrect":
                 case client_1.questionType.MultiCorrect:
                 case client_1.questionType.ComprehensionMultiCorrect:
                     sections.MultiCorrect.push(q);
                     break;
-                // SingleCorrect Section
                 case "SingleCorrect":
                 case "ComprehensionSingleCorrect":
                 case client_1.questionType.SingleCorrect:
                 case client_1.questionType.ComprehensionSingleCorrect:
                     sections.SingleCorrect.push(q);
                     break;
-                // Integer Section
                 case "Integer":
                 case "ComprehensionInteger":
                 case client_1.questionType.Integer:
@@ -59,12 +83,9 @@ class Question {
                     sections.Integer.push(q);
                     break;
                 default:
-                    // Fallback if needed, or push to SingleCorrect by default
-                    // console.warn("Unknown question type:", q.type);
                     break;
             }
         });
-        // Sort each section by questionNumber
         const sorter = (a, b) => (a.questionNumber || 0) - (b.questionNumber || 0);
         sections.MultiCorrect.sort(sorter);
         sections.SingleCorrect.sort(sorter);
@@ -72,19 +93,17 @@ class Question {
         return sections;
     }
     // ---------------------------------------------------------
-    // 2. Add Single Question (SAVES PLAIN TEXT TO DB)
+    // 4. Add Single Question
     // ---------------------------------------------------------
     async addingSingleQuestion(questionData, paperId, questionNumber) {
         try {
-            const actualPaperId = paperId;
             const updationPayload = {
                 positiveMarks: questionData.postiveMarks,
                 questionType: questionData.questionType,
-                paperId: actualPaperId,
+                paperId: paperId,
             };
             await paper_db_1.paper.addingDetails(updationPayload);
             const chapterInformation = await chapter_db_1.chapter.gettingChapterId(questionData.chapter);
-            // Save content AS IS (Plain Text) so you can read/edit in DB
             await this.db.questions.create({
                 data: {
                     id: questionData.id,
@@ -92,7 +111,7 @@ class Question {
                     isBonus: questionData.isBonus,
                     positiveMarks: questionData.postiveMarks,
                     negativeMarks: questionData.negativeMarks,
-                    paperId: actualPaperId,
+                    paperId: paperId,
                     content: questionData.question,
                     image: questionData.questionImage,
                     comprehensionContent: questionData.comprehension,
@@ -137,7 +156,7 @@ class Question {
         }
     }
     // =================================================================
-    // 3. GET QUESTIONS (RETURNS SINGLE ENCRYPTED STRING)
+    // 5. GET QUESTIONS (RETURNS ENCRYPTED)
     // =================================================================
     async gettingQuestion(year, chapterId, paperId, questionId, subject) {
         try {
@@ -152,7 +171,6 @@ class Question {
                 whereQuery.subjects = { name: subject };
             if (year)
                 whereQuery.papers = { year: year };
-            // 1. Fetch Plain Data
             const questionsRaw = await this.db.questions.findMany({
                 where: whereQuery,
                 include: {
@@ -171,7 +189,6 @@ class Question {
                 },
                 orderBy: { papers: { year: "desc" } },
             });
-            // 2. Process Images & Structure (Still in Memory)
             const processedQuestions = await Promise.all(questionsRaw.map(async (q) => {
                 const subjectName = q.subjects?.name || null;
                 const chapterName = q.chapters?.name || null;
@@ -180,41 +197,52 @@ class Question {
                 const isJeeAdvanced = q.chapters?.isJeeAdvanced ?? false;
                 const signedQuestionImages = this.signUrlArray(q.image);
                 const signedCompImages = this.signUrlArray(q.comprehensionImage);
+                const finalQuestionHtml = this.injectUrlsIntoHtml(q.content, signedQuestionImages);
+                const finalCompHtml = this.injectUrlsIntoHtml(q.comprehensionContent, signedCompImages);
                 let processedOptions = null;
                 if (q.options) {
+                    const optAImgs = this.signUrlArray(q.options.optionAimage);
+                    const optBImgs = this.signUrlArray(q.options.optionBimage);
+                    const optCImgs = this.signUrlArray(q.options.optionCimage);
+                    const optDImgs = this.signUrlArray(q.options.optionDimage);
                     processedOptions = {
                         ...q.options,
-                        optionAimage: this.signUrlArray(q.options.optionAimage),
-                        optionBimage: this.signUrlArray(q.options.optionBimage),
-                        optionCimage: this.signUrlArray(q.options.optionCimage),
-                        optionDimage: this.signUrlArray(q.options.optionDimage),
+                        optionAtext: this.injectUrlsIntoHtml(q.options.optionAtext, optAImgs),
+                        optionBtext: this.injectUrlsIntoHtml(q.options.optionBtext, optBImgs),
+                        optionCtext: this.injectUrlsIntoHtml(q.options.optionCtext, optCImgs),
+                        optionDtext: this.injectUrlsIntoHtml(q.options.optionDtext, optDImgs),
+                        optionAimage: undefined,
+                        optionBimage: undefined,
+                        optionCimage: undefined,
+                        optionDimage: undefined,
                     };
                 }
                 let processedSolution = null;
                 if (q.solution) {
+                    const solImages = this.signUrlArray(q.solution.image);
                     processedSolution = {
                         ...q.solution,
-                        image: this.signUrlArray(q.solution.image),
+                        text: this.injectUrlsIntoHtml(q.solution.text, solImages),
+                        image: undefined,
                     };
                 }
                 return {
                     ...q,
+                    content: finalQuestionHtml,
+                    comprehensionContent: finalCompHtml,
                     subject: subjectName,
                     chapter: chapterName,
                     exam: examName,
                     paperTitle: q.papers?.year ? `${examName} ${q.papers.year}` : null,
                     isJeeMain, isJeeAdvanced,
-                    // Remove relations
                     subjects: undefined, chapters: undefined, papers: undefined,
                     paperId: undefined, subjectId: undefined, chapterId: undefined,
-                    questionNumber: q.questionNumber,
-                    image: signedQuestionImages,
-                    comprehensionImage: signedCompImages,
+                    image: undefined,
+                    comprehensionImage: undefined,
                     options: processedOptions,
                     solution: processedSolution,
                 };
             }));
-            // 3. ENCRYPT EVERYTHING IN ONE GO
             return (0, encryption_1.encryptPayload)(processedQuestions);
         }
         catch (err) {
@@ -223,7 +251,7 @@ class Question {
         }
     }
     // =================================================================
-    // 4. GET QUESTIONS BY PAPER ID (RETURNS SINGLE ENCRYPTED STRING)
+    // 6. GET QUESTIONS BY PAPER ID
     // =================================================================
     async getQuestionsByPaperId(paperId) {
         try {
@@ -252,52 +280,61 @@ class Question {
                 const isJeeAdvanced = q.chapters?.isJeeAdvanced ?? false;
                 const signedQuestionImages = this.signUrlArray(q.image);
                 const signedCompImages = this.signUrlArray(q.comprehensionImage);
+                const finalQuestionHtml = this.injectUrlsIntoHtml(q.content, signedQuestionImages);
+                const finalCompHtml = this.injectUrlsIntoHtml(q.comprehensionContent, signedCompImages);
                 let processedOptions = null;
                 if (q.options) {
+                    const optAImgs = this.signUrlArray(q.options.optionAimage);
+                    const optBImgs = this.signUrlArray(q.options.optionBimage);
+                    const optCImgs = this.signUrlArray(q.options.optionCimage);
+                    const optDImgs = this.signUrlArray(q.options.optionDimage);
                     processedOptions = {
                         ...q.options,
-                        optionAimage: this.signUrlArray(q.options.optionAimage),
-                        optionBimage: this.signUrlArray(q.options.optionBimage),
-                        optionCimage: this.signUrlArray(q.options.optionCimage),
-                        optionDimage: this.signUrlArray(q.options.optionDimage),
+                        optionAtext: this.injectUrlsIntoHtml(q.options.optionAtext, optAImgs),
+                        optionBtext: this.injectUrlsIntoHtml(q.options.optionBtext, optBImgs),
+                        optionCtext: this.injectUrlsIntoHtml(q.options.optionCtext, optCImgs),
+                        optionDtext: this.injectUrlsIntoHtml(q.options.optionDtext, optDImgs),
+                        optionAimage: undefined,
+                        optionBimage: undefined,
+                        optionCimage: undefined,
+                        optionDimage: undefined,
                     };
                 }
                 let processedSolution = null;
                 if (q.solution) {
+                    const solImages = this.signUrlArray(q.solution.image);
                     processedSolution = {
                         ...q.solution,
-                        image: this.signUrlArray(q.solution.image),
+                        text: this.injectUrlsIntoHtml(q.solution.text, solImages),
+                        image: undefined,
                     };
                 }
                 return {
                     ...q,
+                    content: finalQuestionHtml,
+                    comprehensionContent: finalCompHtml,
                     subject: subjectName,
                     chapter: chapterName,
                     isJeeMain, isJeeAdvanced,
-                    questionNumber: q.questionNumber,
                     subjects: undefined, chapters: undefined,
                     paperId: undefined, subjectId: undefined, chapterId: undefined,
-                    image: signedQuestionImages,
-                    comprehensionImage: signedCompImages,
+                    image: undefined,
+                    comprehensionImage: undefined,
                     options: processedOptions,
                     solution: processedSolution,
                 };
             }));
-            // 1. Group by Subject
             const physicsRaw = processedQuestions.filter((q) => q.subject === client_1.SubjectName.Physics || q.subject === "Physics");
             const chemistryRaw = processedQuestions.filter((q) => q.subject === client_1.SubjectName.Chemistry || q.subject === "Chemistry");
             const mathematicsRaw = processedQuestions.filter((q) => q.subject === client_1.SubjectName.Mathematics || q.subject === "Mathematics");
-            // 2. Group by Type within Subject
-            const finalObject = {
+            return (0, encryption_1.encryptPayload)({
                 ...paperRaw,
                 exam: paperRaw.exam?.name,
                 questions: undefined,
                 Physics: this.groupAndSortBySection(physicsRaw),
                 Chemistry: this.groupAndSortBySection(chemistryRaw),
                 Mathematics: this.groupAndSortBySection(mathematicsRaw),
-            };
-            // 3. ENCRYPT
-            return (0, encryption_1.encryptPayload)(finalObject);
+            });
         }
         catch (error) {
             console.error("Error fetching paper questions:", error);
@@ -305,7 +342,7 @@ class Question {
         }
     }
     // =================================================================
-    // 5. GET RAW QUESTIONS BY PAPER ID (UNENCRYPTED)
+    // 7. GET RAW QUESTIONS BY PAPER ID
     // =================================================================
     async getRawQuestionsForPaper(paperId) {
         try {
@@ -333,34 +370,56 @@ class Question {
                 const chapterName = q.chapters?.name || null;
                 const isJeeMain = q.chapters?.isJeeMain ?? false;
                 const isJeeAdvanced = q.chapters?.isJeeAdvanced ?? false;
+                const signedQuestionImages = this.signUrlArray(q.image);
+                const signedCompImages = this.signUrlArray(q.comprehensionImage);
+                const finalQuestionHtml = this.injectUrlsIntoHtml(q.content, signedQuestionImages);
+                const finalCompHtml = this.injectUrlsIntoHtml(q.comprehensionContent, signedCompImages);
+                let processedOptions = null;
+                if (q.options) {
+                    const optAImgs = this.signUrlArray(q.options.optionAimage);
+                    const optBImgs = this.signUrlArray(q.options.optionBimage);
+                    const optCImgs = this.signUrlArray(q.options.optionCimage);
+                    const optDImgs = this.signUrlArray(q.options.optionDimage);
+                    processedOptions = {
+                        ...q.options,
+                        optionAtext: this.injectUrlsIntoHtml(q.options.optionAtext, optAImgs),
+                        optionBtext: this.injectUrlsIntoHtml(q.options.optionBtext, optBImgs),
+                        optionCtext: this.injectUrlsIntoHtml(q.options.optionCtext, optCImgs),
+                        optionDtext: this.injectUrlsIntoHtml(q.options.optionDtext, optDImgs),
+                        optionAimage: undefined,
+                        optionBimage: undefined,
+                        optionCimage: undefined,
+                        optionDimage: undefined,
+                    };
+                }
+                let processedSolution = null;
+                if (q.solution) {
+                    const solImages = this.signUrlArray(q.solution.image);
+                    processedSolution = {
+                        ...q.solution,
+                        text: this.injectUrlsIntoHtml(q.solution.text, solImages),
+                        image: undefined,
+                    };
+                }
                 return {
                     ...q,
+                    content: finalQuestionHtml,
+                    comprehensionContent: finalCompHtml,
                     subject: subjectName,
                     chapter: chapterName,
                     isJeeMain,
                     isJeeAdvanced,
                     subjects: undefined, chapters: undefined, paperId: undefined, subjectId: undefined, chapterId: undefined,
-                    image: this.signUrlArray(q.image),
-                    comprehensionImage: this.signUrlArray(q.comprehensionImage),
+                    image: undefined,
+                    comprehensionImage: undefined,
                     questionNumber: q.questionNumber,
-                    options: q.options ? {
-                        ...q.options,
-                        optionAimage: this.signUrlArray(q.options.optionAimage),
-                        optionBimage: this.signUrlArray(q.options.optionBimage),
-                        optionCimage: this.signUrlArray(q.options.optionCimage),
-                        optionDimage: this.signUrlArray(q.options.optionDimage),
-                    } : null,
-                    solution: q.solution ? {
-                        ...q.solution,
-                        image: this.signUrlArray(q.solution.image),
-                    } : null,
+                    options: processedOptions,
+                    solution: processedSolution,
                 };
             }));
-            // 1. Group by Subject
             const physicsRaw = processedQuestions.filter((q) => q.subject === client_1.SubjectName.Physics || q.subject === "Physics");
             const chemistryRaw = processedQuestions.filter((q) => q.subject === client_1.SubjectName.Chemistry || q.subject === "Chemistry");
             const mathematicsRaw = processedQuestions.filter((q) => q.subject === client_1.SubjectName.Mathematics || q.subject === "Mathematics");
-            // 2. Group by Type within Subject & Return
             return {
                 paperDetails: {
                     ...paperRaw,

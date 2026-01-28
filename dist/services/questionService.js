@@ -1,7 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.questionService = void 0;
-const markdown_1 = require("../utils/markdown");
 const question_db_1 = require("../repositories/question.db");
 const imageService_1 = require("./imageService");
 const client_1 = require("@prisma/client");
@@ -17,36 +16,30 @@ class QuestionCreating {
         const chapterName = payload.chapter;
         const subjectName = payload.subject;
         let subject;
-        if (subjectName == 'chemistry') {
-            subject = 'Chemistry';
-        }
-        else if (subjectName == 'mathematics') {
-            subject = 'Mathematics';
-        }
-        else {
-            subject = 'Physics';
-        }
+        if (subjectName === "chemistry")
+            subject = "Chemistry";
+        else if (subjectName === "mathematics")
+            subject = "Mathematics";
+        else
+            subject = "Physics";
         if (payload.question.en.comprehension != null) {
             typeOfQuestion = "comprehension";
         }
         let questionFormat;
-        if (typeOfQuestion === 'mcq') {
+        if (typeOfQuestion === "mcq") {
             questionFormat = client_1.questionType.SingleCorrect;
-            if (payload.question.en.comprehension != null) {
+            if (payload.question.en.comprehension != null)
                 questionFormat = client_1.questionType.ComprehensionSingleCorrect;
-            }
         }
-        else if (typeOfQuestion === 'mcqm') {
+        else if (typeOfQuestion === "mcqm") {
             questionFormat = client_1.questionType.MultiCorrect;
-            if (payload.question.en.comprehension != null) {
+            if (payload.question.en.comprehension != null)
                 questionFormat = client_1.questionType.ComprehensionMultiCorrect;
-            }
         }
         else {
             questionFormat = client_1.questionType.Integer;
-            if (payload.question.en.comprehension != null) {
+            if (payload.question.en.comprehension != null)
                 questionFormat = client_1.questionType.ComprehensionInteger;
-            }
         }
         const isBonous = payload.isBonus;
         const isOutOfSyllabus = payload.isOutOfSyllabus;
@@ -56,86 +49,73 @@ class QuestionCreating {
         const correctOptionsEn = payload.question.en.correct_options;
         const correctAnswerEn = payload.question.en.answer;
         const explanationEn = payload.question.en.explanation;
-        const paperTitle = payload.paperTitle;
         const examName = payload.exam;
         const idOfquestion = (0, crypto_1.randomUUID)();
-        const chapter = await (0, chapterNameService_1.findBestChapter)({ chapter: chapterName,
+        const chapter = await (0, chapterNameService_1.findBestChapter)({
+            chapter: chapterName,
             chapterGroup: chapterGroup,
-            subject: subject });
-        const examYear = payload.year;
-        // step1: image uploading in the database
-        const imageName = await imageService_1.imageUpload.imageConverstion({
+            subject: subject,
+        });
+        const questionResult = await imageService_1.imageUpload.imageConverstion({
             id: idOfquestion,
             content: contentEn,
             exam: examName,
-            type: 'question'
+            type: "question",
         });
-        // step2 : converting the text into the markup language
-        const contentMarkup = markdown_1.markdown.convertor(contentEn);
+        const contentHtml = questionResult.html;
+        const questionImages = questionResult.imagePaths;
         let optionsContent = [];
         for (let i = 0; i < optionsEn.length; i++) {
-            // selecting the identifier
             const identifier = optionsEn[i].identifier;
             const optionsContentEn = optionsEn[i].content;
             const idofoptions = (0, crypto_1.randomUUID)();
-            // collecting the images names
-            const imageNameOptions = await imageService_1.imageUpload.imageConverstion({
-                id: `${idOfquestion + '_' + idofoptions + '_' + i} `,
+            const optionResult = await imageService_1.imageUpload.imageConverstion({
+                id: `${idOfquestion}_${idofoptions}_${i}`,
                 content: optionsContentEn,
                 exam: examName,
-                type: 'option'
+                type: "option",
             });
-            // converting the text into the markup
-            const optionContentMarkup = markdown_1.markdown.convertor(optionsContentEn);
             optionsContent.push({
                 identifier: identifier,
-                content: optionContentMarkup,
-                image: imageNameOptions,
+                content: optionResult.html, // DIRECT HTML
+                image: optionResult.imagePaths,
             });
         }
-        // step4 :  storing the answer
+        // --- 4. Process Answers ---
         let answers = [];
-        // 1. Add correct_options (e.g. ["B"]) if it exists
-        if (Array.isArray(correctOptionsEn)) {
+        if (Array.isArray(correctOptionsEn))
             answers = [...correctOptionsEn];
-        }
-        // 2. Add answer (e.g. "5" or null) ONLY if it is truthy
-        if (correctAnswerEn) {
+        if (correctAnswerEn)
             answers.push(correctAnswerEn);
-        }
-        // 3. SAFETY FILTER: Remove any remaining null/undefined values just in case
-        answers = answers.filter(ans => ans !== null && ans !== undefined && ans !== "");
-        // step5 : if the problem is compresehison
-        let imageNameComprehison = [];
-        let comprehensionMarkup = "";
-        // ONLY process if comprehensionEn is NOT null
+        answers = answers.filter((ans) => ans !== null && ans !== undefined && ans !== "");
+        // --- 5. Process Comprehension (HTML ONLY) ---
+        let comprehensionHtml = "";
+        let comprehensionImages = [];
         if (comprehensionEn) {
-            // a. image formation
-            imageNameComprehison = await imageService_1.imageUpload.imageConverstion({
+            const compResult = await imageService_1.imageUpload.imageConverstion({
                 id: idOfquestion,
                 content: comprehensionEn,
                 exam: examName,
-                type: 'comprehension'
+                type: "comprehension",
             });
-            // b. comprehension in the markup
-            comprehensionMarkup = markdown_1.markdown.convertor(comprehensionEn);
+            comprehensionHtml = compResult.html; // DIRECT HTML
+            comprehensionImages = compResult.imagePaths;
         }
-        // step6: explanation
-        let explanationImageNames = [];
-        let explationContentMarkup = "";
-        // ONLY process if explanationEn is NOT null
+        // --- 6. Process Explanation (HTML ONLY) ---
+        let explationHtml = "";
+        let explanationImages = [];
         if (explanationEn) {
-            // a. imageProcessing
-            explanationImageNames = await imageService_1.imageUpload.imageConverstion({
+            const expResult = await imageService_1.imageUpload.imageConverstion({
                 id: idOfquestion,
                 content: explanationEn,
                 exam: examName,
-                type: 'explanation'
+                type: "explanation",
             });
-            // b. markdown language
-            explationContentMarkup = markdown_1.markdown.convertor(explanationEn);
+            explationHtml = expResult.html; // DIRECT HTML
+            explanationImages = expResult.imagePaths;
         }
-        console.log(chapter);
+        console.log(`Processed: ${chapter}`);
+        // --- 7. Return Final Object ---
         return {
             id: idOfquestion,
             isBonus: isBonous,
@@ -144,15 +124,15 @@ class QuestionCreating {
             postiveMarks: postiveMarks,
             negativeMarks: negativeMarks,
             subject: subject,
-            question: contentMarkup,
-            questionImage: imageName,
-            comprehension: comprehensionMarkup,
-            comprehensionImage: imageNameComprehison,
+            question: contentHtml, // Saving HTML
+            questionImage: questionImages,
+            comprehension: comprehensionHtml, // Saving HTML
+            comprehensionImage: comprehensionImages,
             options: optionsContent,
             correctAnswer: answers,
-            explation: explationContentMarkup,
-            explationImage: explanationImageNames,
-            chapter: chapter
+            explation: explationHtml, // Saving HTML
+            explationImage: explanationImages,
+            chapter: chapter,
         };
     }
     async uploadBulkQuestions(fullJsonData, paperId) {
@@ -175,7 +155,7 @@ class QuestionCreating {
             return {
                 success: true,
                 message: `Successfully uploaded ${totalProcessed} questions across ${results.length} subjects.`,
-                count: totalProcessed
+                count: totalProcessed,
             };
         }
         catch (error) {
