@@ -187,67 +187,109 @@ class TestStatus {
     // =================================================================
     async updatingTestDetails(updateDetails: updatingDetails) {
         try {
-            let testId = updateDetails.testId;
+            const testId = updateDetails.testId;
 
-            // 1. Update Parent
-            const updateParent = this.db.testStatus.update({
-                where: { id: testId },
-                data: {
-                    timeLeft: updateDetails.timeLeft,
-                    activeSection: updateDetails.activeSection,
-                    activeQuestionId: updateDetails.activeQuestionId,
-                    updated_at: new Date(),
-                    status: updateDetails.state 
-                }
+            // ---------------------------------------------------------
+            // 🛑 1. SAFETY CHECK: Prevent P2025 (Record Not Found)
+            // ---------------------------------------------------------
+            // We check if the test exists first. If the frontend sends an update
+            // for a test that hasn't finished creating yet (race condition), 
+            // we skip this update instead of crashing the server.
+            const existingTest = await this.db.testStatus.findUnique({
+                where: { id: testId }
             });
 
-            // 2. Upsert Questions
-            const updateQuestions = updateDetails.questionStatus.map((q : any) => {
-                let formattedAnswer: string[] = [];
-                if (q.userAnswer !== null && q.userAnswer !== undefined) {
-                    if (Array.isArray(q.userAnswer)) {
-                        formattedAnswer = q.userAnswer.map(String);
-                    } else {
-                        formattedAnswer = [String(q.userAnswer)];
-                    }
-                }
+            if (!existingTest) {
+                console.warn(`⚠️ Skipped update: TestID ${testId} not found in database.`);
+                return null; 
+            }
 
-                return this.db.testQuestionAttemptStatus.upsert({
-                    where: {
-                        questionId_testStatusId: {
-                            questionId: q.questionId,
-                            testStatusId: testId!
-                        }
-                    },
-                    create: {
-                        testStatusId: testId!,
-                        questionId: q.questionId,
-                        timeSpent: q.timeSpent,
-                        userAnswer: formattedAnswer, 
-                        status: q.status , 
-                    },
-                    update: {
-                        timeSpent: q.timeSpent,
-                        userAnswer: formattedAnswer,
-                        status : q.status , 
-                        isVisited : q.isVisited , 
-                        markedForReview : q.markedForReview
+            // ---------------------------------------------------------
+            // 🚀 2. INTERACTIVE TRANSACTION (Fixes P2028 Timeout)
+            // ---------------------------------------------------------
+            const result = await this.db.$transaction(async (tx) => {
+
+                // A. Update Parent (Use 'tx' instead of 'this.db')
+                const updateParent = await tx.testStatus.update({
+                    where: { id: testId },
+                    data: {
+                        timeLeft: updateDetails.timeLeft,
+                        activeSection: updateDetails.activeSection,
+                        activeQuestionId: updateDetails.activeQuestionId,
+                        updated_at: new Date(),
+                        status: updateDetails.state
                     }
                 });
+
+                // B. Prepare Question Upserts
+                // specific logic: We create an array of promises to run in parallel
+                const questionPromises = updateDetails.questionStatus.map((q: any) => {
+                    let formattedAnswer: string[] = [];
+
+                    // --- LOGIC FIX: Handle Numeric vs Options correctly ---
+                    // Priority 1: Numeric Answer
+                    if (q.numericAnswer !== null && q.numericAnswer !== undefined && q.numericAnswer !== '') {
+                        formattedAnswer.push(String(q.numericAnswer));
+                    }
+                    // Priority 2: Selected Options (Only if no numeric answer)
+                    else if (q.selectedOptionIds !== null && Array.isArray(q.selectedOptionIds) && q.selectedOptionIds.length > 0) {
+                        formattedAnswer = q.selectedOptionIds.map(String);
+                    }
+                    // Fallback: If payload sent 'userAnswer' directly (legacy support)
+                    else if (q.userAnswer !== null && q.userAnswer !== undefined) {
+                         if (Array.isArray(q.userAnswer)) {
+                            formattedAnswer = q.userAnswer.map(String);
+                        } else {
+                            formattedAnswer = [String(q.userAnswer)];
+                        }
+                    }
+
+                    // Use 'tx' here as well!
+                    return tx.testQuestionAttemptStatus.upsert({
+                        where: {
+                            questionId_testStatusId: {
+                                questionId: q.questionId,
+                                testStatusId: testId!
+                            }
+                        },
+                        create: {
+                            testStatusId: testId!,
+                            questionId: q.questionId,
+                            timeSpent: q.timeSpent || 0,
+                            userAnswer: formattedAnswer,
+                            status: q.status,
+                        },
+                        update: {
+                            timeSpent: q.timeSpent || 0,
+                            userAnswer: formattedAnswer,
+                            status: q.status,
+                            isVisited: q.isVisited,
+                            markedForReview: q.markedForReview
+                        }
+                    });
+                });
+
+                // C. Execute all question updates
+                await Promise.all(questionPromises);
+
+                // D. Return the parent update result
+                return updateParent;
+
+            }, {
+                // TIMEOUT CONFIGURATION
+                maxWait: 5000,  // Wait max 5s to get a connection from the pool
+                timeout: 20000  // Allow the transaction to run for 20s
             });
 
-            const result = await this.db.$transaction([
-                updateParent,
-                ...updateQuestions
-            ]);
+            return result;
 
-            return result[0];
         } catch (err) {
             console.error("Error updating test details:", err);
+            // Optional: Don't throw if it's just a record not found error to keep the consumer running
+            // if (err.code === 'P2025') return null; 
             throw err;
         }
     }
-
     // =================================================================
     // 4. SUBMIT TEST
     // =================================================================

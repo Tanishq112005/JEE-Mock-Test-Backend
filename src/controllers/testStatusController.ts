@@ -7,6 +7,8 @@ import { updatingDetails } from "../types/testStatus.types";
 import ApiError from "../utils/ApiError";
 import ApiResponse from "../utils/ApiResponse";
 import { AttemptStatus } from "@prisma/client";
+import { questionDetails } from "../types/paper.types";
+import { detailsFromFrontend, questionDetailsFromFrontend } from "../types/update.types";
 
 class TestStatusController {
     constructor(){
@@ -64,25 +66,19 @@ class TestStatusController {
 
     
     public updatingTheDetails = async(req : any , res : any) => {
-        const {testId , paperId , timeLeftSeconds , created_at , timeStamp , state , activeSectionId , activeQuestionId , questionsById } = req.body ;
+        const {testId , paperId , timeLeft , created_at , timeStamp , state , activeSection , activeQuestionId , questionsById }  : detailsFromFrontend = req.body ;
         const userId = req.user ; 
         try {
-            const questionStatusArray = Object.values(questionsById || {}).map((q: any) => {
-                let userAnswer : string[] = []; 
-                if(q.numericAnswer != null){
-                   const userNumericAnswerInString = q.numericAnswer.toString() ; 
-                   userAnswer.push(userNumericAnswerInString) ;
-                } 
-                if(q.selectedOptionIds != null){
-                    userAnswer = q.selectedOptionIds ;
-                }
+            const questionStatusArray = Object.values(questionsById || {}).map((q: questionDetailsFromFrontend) => {
+               
+               
                 
                 if(q.status == AttemptStatus.answered){
                 return {
                     isVisited : q.isVisited , 
                     markedForReview : q.markedForReview , 
                     questionId: q.questionId,
-                    userAnswer: userAnswer ,  
+                    userAnswer: q.userAnswer ,  
                     timeSpent: q.timeSpentSeconds || 0,
                     status : AttemptStatus.answered
                 };
@@ -92,7 +88,7 @@ class TestStatusController {
                     isVisited : q.isVisited , 
                     markedForReview : q.markedForReview , 
                     questionId: q.questionId,
-                    userAnswer: userAnswer ,  
+                    userAnswer: q.userAnswer ,  
                     timeSpent: q.timeSpentSeconds || 0,
                     status : AttemptStatus.notAnswered
                 };
@@ -104,9 +100,9 @@ class TestStatusController {
                 testId : testId , 
                 userId : userId , 
                 paperId : paperId , 
-                timeLeft : timeLeftSeconds , 
+                timeLeft : timeLeft , 
                 activeQuestionId : activeQuestionId , 
-                activeSection : activeSectionId , 
+                activeSection : activeSection , 
                 created_at : created_at ,
                 timeStamp : timeStamp , 
                 state : state ,

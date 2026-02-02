@@ -37,24 +37,16 @@ class TestStatusController {
         }
     };
     updatingTheDetails = async (req, res) => {
-        const { testId, paperId, timeLeftSeconds, created_at, timeStamp, state, activeSectionId, activeQuestionId, questionsById } = req.body;
+        const { testId, paperId, timeLeft, created_at, timeStamp, state, activeSection, activeQuestionId, questionsById } = req.body;
         const userId = req.user;
         try {
             const questionStatusArray = Object.values(questionsById || {}).map((q) => {
-                let userAnswer = [];
-                if (q.numericAnswer != null) {
-                    const userNumericAnswerInString = q.numericAnswer.toString();
-                    userAnswer.push(userNumericAnswerInString);
-                }
-                if (q.selectedOptionIds != null) {
-                    userAnswer = q.selectedOptionIds;
-                }
                 if (q.status == client_1.AttemptStatus.answered) {
                     return {
                         isVisited: q.isVisited,
                         markedForReview: q.markedForReview,
                         questionId: q.questionId,
-                        userAnswer: userAnswer,
+                        userAnswer: q.userAnswer,
                         timeSpent: q.timeSpentSeconds || 0,
                         status: client_1.AttemptStatus.answered
                     };
@@ -64,7 +56,7 @@ class TestStatusController {
                         isVisited: q.isVisited,
                         markedForReview: q.markedForReview,
                         questionId: q.questionId,
-                        userAnswer: userAnswer,
+                        userAnswer: q.userAnswer,
                         timeSpent: q.timeSpentSeconds || 0,
                         status: client_1.AttemptStatus.notAnswered
                     };
@@ -74,9 +66,9 @@ class TestStatusController {
                 testId: testId,
                 userId: userId,
                 paperId: paperId,
-                timeLeft: timeLeftSeconds,
+                timeLeft: timeLeft,
                 activeQuestionId: activeQuestionId,
-                activeSection: activeSectionId,
+                activeSection: activeSection,
                 created_at: created_at,
                 timeStamp: timeStamp,
                 state: state,
