@@ -29,6 +29,7 @@ export class UpdateTestDetailsConsumer {
             console.log("🔄 UpdateTestDetails Consumer waiting for messages...");
 
             // 4. Consume
+            channel.prefetch(1);
             channel.consume(queueName, async (msg: ConsumeMessage | null) => {
                 if (!msg) return;
 
