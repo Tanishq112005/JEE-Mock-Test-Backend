@@ -22,6 +22,7 @@ class UpdateTestDetailsConsumer {
             await channel.bindQueue(queueName, exchangeName, routingKey);
             console.log("🔄 UpdateTestDetails Consumer waiting for messages...");
             // 4. Consume
+            channel.prefetch(1);
             channel.consume(queueName, async (msg) => {
                 if (!msg)
                     return;
