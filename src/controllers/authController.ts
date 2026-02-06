@@ -92,7 +92,8 @@ export class AuthController {
 
       await user.changingIsVerifiedStatus(email);
       const informationOfUser: any = await user.checkingUserPresent(email);
-
+      // creating the student right now always 
+      await user.creatingStudent(informationOfUser.id) ;  
       const payload: jwtPayloadAccessToken = { id: informationOfUser.id , email : informationOfUser.email , name : informationOfUser.name , type : informationOfUser.type};
       const accessToken: string = generateAccessToken(payload);
       

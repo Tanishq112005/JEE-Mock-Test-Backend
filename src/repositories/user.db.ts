@@ -1,3 +1,4 @@
+import { Prisma, PrismaClient } from "@prisma/client";
 import { database } from "../lib/database";
 
 import {
@@ -9,8 +10,8 @@ import ApiError from "../utils/ApiError";
 
 
 class User {
-  private db: any ;
-  constructor(database : any) {
+  private db: PrismaClient ;
+  constructor(database : PrismaClient) {
     this.db = database;
   }
 
@@ -162,6 +163,23 @@ class User {
      }
     catch(err : any){
       throw err ; 
+    }
+   }
+
+
+
+
+   async creatingStudent(userId : string){
+    try {
+      const studentProfile = await this.db.studentProfile.create({
+        data : {
+          user_id : userId
+        }
+      }) ;
+
+    }
+    catch(err : any){
+      throw err ;
     }
    }
 }

@@ -2,7 +2,7 @@ import { chapter } from "../repositories/chapter.db"; // Adjust path to your rep
 import { SYLLABUS_DATA } from "../utils/chapter";     // Adjust path to your data file
 import { SubjectName } from "@prisma/client";
 
-const seedDatabase = async () => {
+export const seedDatabase = async () => {
   console.log("🚀 Starting Chapter Upload...");
 
   // 1. Iterate over each Group (e.g., Mechanics, Algebra)

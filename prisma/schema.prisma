@@ -1,8 +1,6 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+// ==========================================
+// CONFIGURATION
+// ==========================================
 
 generator client {
   provider = "prisma-client-js"
@@ -12,31 +10,13 @@ datasource db {
   provider = "postgresql"
 }
 
-// defing the prisma  schema of the database 
+// ==========================================
+// ENUMS
+// ==========================================
 
-enum Day {
-  Monday
-  Tuesday
-  Wednesday
-  Thursday
-  Friday
-  Saturday
-  Sunday
-}
-
-enum Month {
-  January
-  February
-  March
-  April
-  May
-  June
-  July
-  August
-  September
-  October
-  November
-  December
+enum UserType {
+  Student
+  Developer
 }
 
 enum ExamName {
@@ -56,26 +36,11 @@ enum Study_mode {
   self
 }
 
-enum UserType {
-  Student
-  Developer
-}
-
 enum AttemptStatus {
   answered
   notAnswered
-}
-
-enum Shift {
-  Morning
-  Evening
-  Paper_1
-  Paper_2
-}
-
-enum ExamMode {
-  online
-  offline
+  markedForReview
+  visited
 }
 
 enum TestState {
@@ -93,237 +58,485 @@ enum questionType {
   ComprehensionInteger
 }
 
-enum paperStatus {
-  Complete
-  InProgrees
+enum ExamMode {
+  online
+  offline
 }
 
-enum questionSource {
-  ChapterWise
-  Exam
+enum Shift {
+  Morning
+  Evening
+  Paper_1
+  Paper_2
 }
 
-// user model table 
+enum PartialMarkingRule {
+  NONE              // No partial marking (JEE Main)
+  LINEAR            // +1 for each correct option (Old JEE Adv)
+  STEP_WISE         // +3 if one missed, +2 if two missed (New JEE Adv)
+}
+
+
+
+
+enum Day {
+  Monday 
+  Tuesday 
+  Wednesday 
+  Thursday 
+  Friday
+  Saturday
+  Sunday
+}
+
+
+enum Month {
+  January
+  February
+  March
+  April
+  May
+  June
+  July
+  August
+  September
+  October
+  November
+ December
+}
+// ==========================================
+// 1. USER MANAGEMENT
+// ==========================================
+
 model user {
-  id                        String                             @id @default(uuid())
-  name                      String
-  email                     String                             @unique
-  type                      UserType                           @default(Student)
-  password                  String                             @unique
-  refersh_token             String?                            @unique
-  created_at                DateTime                           @default(now())
-  is_verified               Boolean
-  student_profile           studentProfile?
-  testSession               testStatus[]
-  chapterWiseQuestionStatus chapterWiseQuestionAttemptStatus[]
-  bookMarkedQuestion        bookmarkedQuestion[]
+  id              String          @id @default(uuid())
+  name            String
+  email           String          @unique
+  type            UserType        @default(Student)
+  password        String          @unique
+  refersh_token   String?         @unique
+  lastVisited     DateTime        @default(now())
+  created_at      DateTime        @default(now())
+  is_verified     Boolean
+  student_profile studentProfile?
 }
 
-// user_details table
 model studentProfile {
-  id                 String      @id @default(uuid())
-  user_id            String      @unique
-  class              Int
+  id                 String     @id @default(uuid())
+  user_id            String     @unique
+  class              Int?
   study_mode         Study_mode?
   institution        String?
-  phone              BigInt?     @unique
+  phone              BigInt?    @unique
   phone_country_code String?
-  created_at         DateTime    @default(now())
-  updated_at         DateTime    @updatedAt
-  user               user        @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  
+  // Gamification
+  streak             BigInt     @default(0)
+  maximumStreak      BigInt     @default(0)
+  rank               BigInt     @default(1)
+
+  // Relationships
+  testSession        testStatus[]
+  chapterWiseStatus  chapterWiseQuestionAttemptStatus[]
+  bookMarkedQuestion bookmarkedQuestion[]
+  
+  // Analytics Relations
+  overallAnalytics   StudentOverallAnalytics?
+  subjectAnalytics   SubjectAnalytics[]
+  chapterAnalytics   ChapterAnalytics[]
+  typeAnalytics      QuestionTypeAnalytics[]
+  examAnalytics      ExamAnalytics[]
+  testSummaries      TestAttemptSummary[]
+
+  created_at         DateTime   @default(now())
+  updated_at         DateTime   @updatedAt
+  user               user       @relation(fields: [user_id], references: [id], onDelete: Cascade)
 }
 
-// exam model table 
+// ==========================================
+// 2. CONTENT (Exams, Subjects, Chapters)
+// ==========================================
+
 model exam {
   id     String   @id @default(uuid())
   name   ExamName @unique
   papers papers[]
 }
 
-// subjects model table 
 model subjects {
-  id       String      @id @default(uuid())
-  name     SubjectName @unique
-  chapters chapters[]
-  question questions[]
+  id               String             @id @default(uuid())
+  name             SubjectName        @unique
+  chapters         chapters[]
+  questions        questions[]
+  
+  // For Analytics
+  subjectAnalytics SubjectAnalytics[]
 }
 
-// chapters model table 
 model chapters {
-  id            String @id @default(uuid())
-  name          String @unique
-  subjectId     String
-  group         String 
-  class         Int
-  chapterNumber Int 
+  id               String             @id @default(uuid())
+  name             String             @unique
+  subjectId        String
+  group            String
+  class            Int
+  chapterNumber    Int
   
-  // --- New Syllabus Fields ---
-  isJeeMain     Boolean @default(false)
-  isJeeAdvanced Boolean @default(false)
-  
-  questions questions[]
-  subjects  subjects    @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  // Syllabus Filtering
+  isJeeMain        Boolean            @default(false)
+  isJeeAdvanced    Boolean            @default(false)
 
- 
+  questions        questions[]
+  chapterAnalytics ChapterAnalytics[]
+  subjects         subjects           @relation(fields: [subjectId], references: [id], onDelete: Cascade)
 }
 
-// papers model table 
+// ==========================================
+// 3. PAPERS & MARKING SCHEMES
+// ==========================================
+
 model papers {
-  id                String      @id @default(uuid())
+  id                String               @id @default(uuid())
   examId            String
+  
+  // Metadata
   year              Int?
-  day               Day?
-  month             Month?
-  date              String?
   shift             Shift?
   mode              ExamMode
-  totalMarks        Int?        @default(0)
-  totalDuration     Int?        @default(0)
-  totalQuestions    Int?        @default(0)
-  totalSingleChoice Int?        @default(0)
-  totalMultiChoice  Int?        @default(0)
-  totalInteger      Int?        @default(0)
-  exam              exam        @relation(fields: [examId], references: [id], onDelete: Cascade)
+  date              String?              // e.g. "2024-01-27"
+  
+  day               Day
+  month             Month
+  // Totals (Cached for display)
+  totalMarks        Int?                 @default(0)
+  totalDuration     Int?                 @default(0)
+  totalQuestions    Int?                 @default(0)
+  totalMultiChoice Int                   @default(0) 
+  totalSingleChoice Int                  @default(0)
+  totalInteger Int                        @default(0)
+  // Hierarchy 
+  exam              exam                 @relation(fields: [examId], references: [id], onDelete: Cascade)
   questions         questions[]
-
-  testSession testStatus[]
+  testSession       testStatus[]
+  
+  // The Marking Rules for this specific paper
+  markingSchemes    paperMarkingScheme[]
 
   @@unique([examId, year, shift])
 }
 
-// model questions table 
-model questions {
-  id                   String       @id @default(uuid())
-  paperId              String?
-  subjectId            String
-  chapterId            String?
-  questionNumber       Int          @default(autoincrement())
-  class                Int
-  content              String
-  comprehensionContent String?
-  comprehensionImage   String[]
-  image                String[]
-  type                 questionType
-  positiveMarks        Int
-  negativeMarks        Int
-  isOutOfSyllabus      Boolean
-  isBonus              Boolean
-  correctAnswer        String[]
-  options              options?
-  solution             solution?
-  papers               papers?      @relation(fields: [paperId], references: [id], onDelete: Cascade)
-  chapters             chapters?    @relation(fields: [chapterId], references: [id], onDelete: Cascade)
-  subjects             subjects     @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+model paperMarkingScheme {
+  id               String             @id @default(uuid())
+  paperId          String
+  questionType     questionType
+  
+  // Marks
+  positiveMarks    Int                // e.g., +4
+  negativeMarks    Int                // e.g., -1 or -2
+  
+  // Partial Logic
+  isPartial        Boolean            @default(false)
+  ruleType         PartialMarkingRule @default(NONE) // Defines HOW to calculate partials
+  partialMarks     Int                @default(1)    // Base value (e.g. +1 per option)
+  
+  paper            papers             @relation(fields: [paperId], references: [id], onDelete: Cascade)
 
-  statusOfQuestion          testQuestionAttemptStatus[]
-  chapterWiseQuestionStatus chapterWiseQuestionAttemptStatus[]
-  bookmarkedQuestion        bookmarkedQuestion[]
-  activeQuestion            testStatus[]
+  @@unique([paperId, questionType])
 }
 
-// model options table 
-model options {
-  id         String @id @default(uuid())
-  questionId String @unique
+// ==========================================
+// 4. QUESTIONS BANK
+// ==========================================
 
+model questions {
+  id                 String         @id @default(uuid())
+  
+  // Hierarchy
+  subjectId          String
+  chapterId          String?
+  paperId            String?
+  
+  // Content
+  class              Int
+  content            String         // Markdown/HTML/LaTeX
+  image              String[]
+  type               questionType
+  questionNumber     Int 
+
+  // comphersion 
+  comprehensionContent  String 
+  comprehensionImage  String[]
+  // Overrides (If specific Q is different from Paper Scheme)
+  positiveMarks      Int
+  negativeMarks      Int
+  
+  isOutOfSyllabus    Boolean        @default(false)
+  isBonus            Boolean        @default(false)
+  
+  correctAnswer      String[]       // ["A", "C"]
+  
+  // Relations
+  options            options?
+  solution           solution?
+  
+  // Foreign Keys
+  papers             papers?        @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  chapters           chapters?      @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  subjects           subjects       @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  
+  // Reverse Relations
+  attempts           testQuestionAttemptStatus[]
+  chapterWiseAttempts chapterWiseQuestionAttemptStatus[]
+  globalStats        QuestionGlobalStats?
+  bookmarkedBy       bookmarkedQuestion[]
+  
+  // Active pointer
+  activeInTests      testStatus[]   @relation("ActiveQuestion")
+}
+
+model options {
+  id           String    @id @default(uuid())
+  questionId   String    @unique
+  
   optionAtext  String?
   optionAimage String[]
-
+  
   optionBtext  String?
   optionBimage String[]
-
+  
   optionCtext  String?
   optionCimage String[]
-
+  
   optionDtext  String?
   optionDimage String[]
-
-  questions questions @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  
+  questions    questions @relation(fields: [questionId], references: [id], onDelete: Cascade)
 }
 
-// model solution table
 model solution {
-  id         String @id @default(uuid())
-  questionId String @unique
-
-  text     String
-  videoUrl String?
-  image    String[]
-
-  question questions @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  id         String    @id @default(uuid())
+  questionId String    @unique
+  text       String
+  videoUrl   String?
+  image      String[]
+  question   questions @relation(fields: [questionId], references: [id], onDelete: Cascade)
 }
 
-// model for the teststatus 
+// ==========================================
+// 5. TESTING ENGINE
+// ==========================================
+
 model testStatus {
-  id      String @id @default(uuid())
-  userId  String
-  paperId String
+  id                 String                      @id @default(uuid())
+  studentId          String
+  paperId            String
+  
+  status             TestState                   @default(IN_PROGRESS)
+  timeLeft           Int
+  activeQuestionId   String?
+  
+  // Flag to prevent double-counting in Analytics
+  isAnalyzed         Boolean                     @default(false) 
+  
+  created_at         DateTime                    @default(now())
+  updated_at         DateTime                    @updatedAt
 
-  status    TestState @default(IN_PROGRESS)
-  timeLeft  Int
-  paperOver Boolean   @default(false)
-
-  activeSection    String?
-  activeQuestionId String?
-
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-
-  user               user                        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user               studentProfile              @relation(fields: [studentId], references: [id], onDelete: Cascade)
   papers             papers                      @relation(fields: [paperId], references: [id], onDelete: Cascade)
-  questionId         questions?                  @relation(fields: [activeQuestionId], references: [id], onDelete: Cascade)
+  activeSection      String?
+  activeQuestion     questions?                  @relation("ActiveQuestion", fields: [activeQuestionId], references: [id])
+  
   testQuestionStatus testQuestionAttemptStatus[]
+  summary            TestAttemptSummary?
 
-  @@unique([userId, paperId, created_at])
+  @@unique([paperId, created_at])
 }
 
-// model Test-Question-Attempt table 
 model testQuestionAttemptStatus {
-  id           String @id @default(uuid())
-  questionId   String
-  testStatusId String
-
+  id            String        @id @default(uuid())
+  questionId    String
+  testStatusId  String
+  
+  // Result
   isCorrect     Boolean       @default(false)
   status        AttemptStatus @default(notAnswered)
-  marksObtained Int           @default(0)
+  marksObtained Float         @default(0.0) // Float for partial marks (e.g. 1.5)
+  
+  // User Action
+  timeSpent     Int           // Seconds
+  userAnswer    String[]      // What they clicked
   isVisited     Boolean       @default(false)
   markedForReview Boolean     @default(false)
-  timeSpent       Int
-  userAnswer      String[]
-
-  testStatus testStatus @relation(fields: [testStatusId], references: [id], onDelete: Cascade)
-  questions  questions  @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  
+  testStatus    testStatus    @relation(fields: [testStatusId], references: [id], onDelete: Cascade)
+  questions     questions     @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
   @@unique([questionId, testStatusId])
 }
 
-// chapter wise question status 
 model chapterWiseQuestionAttemptStatus {
-  id             String        @id @default(uuid())
+  id             String         @id @default(uuid())
   questionId     String
-  userId         String
-  timeSpent      Int
+  studentId      String
+  
+  // Results
   questionStatus AttemptStatus
+  isCorrect      Boolean        @default(false)
+  marksObtained  Float          @default(0.0)
+  
+  // Metadata
+  timeSpent      Int
   userAnswer     String[]
-  created_at     DateTime      @default(now())
-  isCorrect      Boolean       @default(false)
-  marksObtained  Int           @default(0)
-   
-  question questions @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  user     user      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  created_at     DateTime       @default(now())
+  
+  question       questions      @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  user           studentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
-  @@index([userId, questionId])
+  @@index([studentId, questionId, created_at])
 }
 
-// bookmarked question 
+// ==========================================
+// 6. ANALYTICS ENGINE (Corrected)
+// ==========================================
+
+// DASHBOARD TOTALS
+model StudentOverallAnalytics {
+  id               String         @id @default(uuid())
+  studentId        String         @unique
+  totalAttempted   Int            @default(0)
+  totalCorrect     Int            @default(0) 
+  totalPartial     Int            @default(0) 
+  
+  totalMarksEarned Float          @default(0.0)
+  maxPossibleMarks Float          @default(0.0)
+  totalTimeSpent   Int            @default(0)
+  
+  student          studentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+// SUBJECT STATS
+model SubjectAnalytics {
+  id               String         @id @default(uuid())
+  studentId        String
+  subjectId        String
+  
+  totalAttempted   Int            @default(0)
+  totalMarksEarned Float          @default(0.0)
+  maxPossibleMarks Float          @default(0.0)
+  totalTimeSpent   Int            @default(0)
+  totalCorrect     Int            @default(0) 
+  
+  student          studentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  subject          subjects       @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, subjectId])
+}
+
+// CHAPTER STATS (Split Practice vs Test)
+model ChapterAnalytics {
+  id               String         @id @default(uuid())
+  studentId        String
+  chapterId        String
+  
+  // Overall Efficiency
+  totalMarksEarned Float          @default(0.0)
+  maxPossibleMarks Float          @default(0.0)
+  totalTimeSpent   Int            @default(0)
+  
+  // Context Split
+  practiceAttempted Int           @default(0)
+  practiceCorrect   Int           @default(0)
+  testAttempted     Int           @default(0)
+  testCorrect       Int           @default(0)
+  
+  student          studentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  chapter          chapters       @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, chapterId])
+}
+
+// FORMAT STATS
+model QuestionTypeAnalytics {
+  id               String         @id @default(uuid())
+  studentId        String
+  type             questionType
+  
+  totalAttempted   Int            @default(0)
+  totalCorrect     Int            @default(0)
+  totalPartial     Int            @default(0)
+  totalMarksEarned Float          @default(0.0)
+  
+  // FIXED: Added this field to allow code to compile
+  totalTimeSpent   Int            @default(0)
+  
+  student          studentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, type])
+}
+
+// EXAM FOCUS (Main vs Advanced)
+model ExamAnalytics {
+  id               String         @id @default(uuid())
+  studentId        String
+  examName         ExamName
+  
+  totalAttempted   Int            @default(0)
+  totalMarksEarned Float          @default(0.0)
+  testsCompleted   Int            @default(0)
+  
+  student          studentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, examName])
+}
+
+// TEST SNAPSHOTS
+model TestAttemptSummary {
+  id               String         @id @default(uuid())
+  testStatusId     String         @unique
+  studentId        String
+  
+  totalScore       Float
+  maxScore         Float
+  percentage       Float
+  accuracy         Float          // Selection Accuracy
+  efficiency       Float          // Marks Efficiency
+  
+  timeTaken        Int
+  subjectSplits    Json           // { "Physics": { "score": 25, "attempted": 10 } }
+  
+  testStatus       testStatus     @relation(fields: [testStatusId], references: [id], onDelete: Cascade)
+  student          studentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  created_at       DateTime       @default(now())
+}
+
+// GLOBAL DATA
+model QuestionGlobalStats {
+  id               String         @id @default(uuid())
+  questionId       String         @unique
+  
+  totalAttempts    Int            @default(0)
+  totalCorrect     Int            @default(0)
+  totalPartial     Int            @default(0)
+  
+  // FIXED: Changed from averageTime (Float) to totalTimeSpent (Int) for atomic increments
+  totalTimeSpent   Int            @default(0) 
+  
+  difficultyRating Float          @default(0.0) // 0-10
+  
+  question         questions      @relation(fields: [questionId], references: [id], onDelete: Cascade)
+}
+
+// ==========================================
+// 7. UTILITIES
+// ==========================================
+
 model bookmarkedQuestion {
-  id         String   @id @default(uuid())
+  id         String         @id @default(uuid())
   questionId String
-  userId     String
-  created_at DateTime @default(now())
+  studentId  String
+  created_at DateTime       @default(now())
 
-  question questions @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  user     user      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question   questions      @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  user       studentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, questionId])
+  @@unique([studentId, questionId])
 }

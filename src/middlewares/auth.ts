@@ -1,7 +1,9 @@
+import { UserType } from "@prisma/client";
 import ApiError from "../utils/ApiError";
 import { verifyAccessToken } from "../utils/jwtToken";
+import { middleware } from "../repositories/middleware.db";
 
-export const authMiddleware = (req: any, res: any, next: any) => {
+export const authMiddleware = async (req: any, res: any, next: any) => {
   const accessToken: string = req.headers["authorization"]?.split(" ")[1];
 
   if (!accessToken) {
@@ -22,13 +24,16 @@ export const authMiddleware = (req: any, res: any, next: any) => {
 
     // Now we know decoded is a valid object
     req.user = decoded.id; 
-    req.type = decoded.type;
-
+    req.type  = decoded.type;
+    
+    if(decoded.type == UserType.Student){
+      req.user = await middleware.gettingStudentId(req.user) ; 
+    }
     console.log("DEBUG [Middleware] Set req.user to:", req.user);
     return next();
 
   } catch (err) {
-    // This catch block will now handle "jwt expired" and "Invalid Token Content"
+ 
     console.log("DEBUG [Middleware] Token Validation Failed");
     return res.status(401).json(
       new ApiError("Invalid or expired access token", ["Forbidden"])

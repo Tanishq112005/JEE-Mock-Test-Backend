@@ -9,6 +9,7 @@ import ApiResponse from "../utils/ApiResponse";
 import { AttemptStatus } from "@prisma/client";
 import { questionDetails } from "../types/paper.types";
 import { detailsFromFrontend, questionDetailsFromFrontend } from "../types/update.types";
+import { testEvaluationProducer } from "../rabbitmq/producers/testEvalution-producer";
 
 class TestStatusController {
     constructor(){
@@ -17,7 +18,7 @@ class TestStatusController {
     
     // creating new test 
     public createTestStatus = async (req : any , res : any) => {
-        const {paperId  } = req.body ; 
+        const {paperId} = req.body ; 
         const userId = req.user ; 
         
         try {
@@ -157,7 +158,71 @@ class TestStatusController {
         }
     } 
 
-   
+    
+    // submitting the test 
+    public submitTest = async(req : any , res : any) => {
+        const {testId , paperId , timeLeft , created_at , timeStamp , state , activeSection , activeQuestionId , questionsById }  : detailsFromFrontend = req.body ;
+        const userId = req.user ; 
+
+      
+            try {
+            const questionStatusArray = Object.values(questionsById || {}).map((q: questionDetailsFromFrontend) => {
+               
+               
+                
+                if(q.status == AttemptStatus.answered){
+                return {
+                    isVisited : q.isVisited , 
+                    markedForReview : q.markedForReview , 
+                    questionId: q.questionId,
+                    userAnswer: q.userAnswer ,  
+                    timeSpent: q.timeSpentSeconds || 0,
+                    status : AttemptStatus.answered
+                };
+            }
+                else {
+                   return {
+                    isVisited : q.isVisited , 
+                    markedForReview : q.markedForReview , 
+                    questionId: q.questionId,
+                    userAnswer: q.userAnswer ,  
+                    timeSpent: q.timeSpentSeconds || 0,
+                    status : AttemptStatus.notAnswered
+                };
+                }
+            
+            });
+
+            const details : updatingDetails = {
+                testId : testId , 
+                userId : userId , 
+                paperId : paperId , 
+                timeLeft : timeLeft , 
+                activeQuestionId : activeQuestionId , 
+                activeSection : activeSection , 
+                created_at : created_at ,
+                timeStamp : timeStamp , 
+                state : state ,
+                questionStatus : questionStatusArray
+            }
+
+            // sending in the queue 
+            const pushingInQueue = await testEvaluationProducer.evaluateTheData(details); 
+            
+            return res.status(200).json(
+                new ApiResponse(
+                    "Pushed in queue" 
+                )
+            )
+        }
+        catch(err : any){
+            res.status(500).json(
+                new ApiError(
+                    "Error in submitting the test" , err
+                )
+            )
+        }
+    }
 
 }
 

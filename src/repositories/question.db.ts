@@ -486,6 +486,46 @@ class Question {
       throw error;
     }
   }
+  
+
+
+
+  async gettingQuestionForChapter (chapterId : string , userId : string) {
+    try {
+        
+      // in this we will take the question and also with the attempt status from the test attempt and the chapter wise attempt 
+
+      const chapterWiseRawDetails = await this.db.questions.findMany({
+        where : {
+          chapterId : chapterId 
+        } , 
+        include : {
+          bookmarkedBy : {
+            where : {
+              studentId : userId
+            }
+          } ,
+          chapterWiseAttempts : {
+            where : {
+              studentId : userId 
+            }
+          }, 
+         
+          solution : true , 
+          options : true ,
+          
+        }  
+      }) ;
+
+
+
+     
+    }
+    catch(err : any){
+      throw err ; 
+    }
+  }
+
 
 }
 

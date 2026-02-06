@@ -1,12 +1,9 @@
 import { question } from "../repositories/question.db";
-import {
-  optionsStoring,
-  questionParameters,
-} from "../types/questions.types";
+import { optionsStoring, questionParameters } from "../types/questions.types";
 import { imageUpload } from "./imageService";
 import { questionType } from "@prisma/client";
 import { randomUUID } from "crypto";
-import { findBestChapter } from "./chapterNameService";
+import { searchEngine } from "../utils/similarity"; // <-- ADDED: Your new Hybrid Engine
 import { Subject } from "../utils/chapter";
 
 class QuestionCreating {
@@ -14,19 +11,22 @@ class QuestionCreating {
 
   async htmlContentQuestions(payload: any): Promise<questionParameters> {
     
-
     let typeOfQuestion: string = payload.type;
     const postiveMarks: number = payload.marks;
     const negativeMarks: number = payload.negMarks;
-    const chapterGroup: string = payload.chapterGroup;
+    
+    // Raw inputs from the file/payload
+    const chapterGroup: string = payload.chapterGroup || ""; 
     const chapterName: string = payload.chapter;
     const subjectName: string = payload.subject;
 
+    // Normalize Subject
     let subject: Subject;
-    if (subjectName === "chemistry") subject = "Chemistry";
-    else if (subjectName === "mathematics") subject = "Mathematics";
+    if (subjectName.toLowerCase() === "chemistry") subject = "Chemistry";
+    else if (subjectName.toLowerCase() === "mathematics") subject = "Mathematics";
     else subject = "Physics";
 
+    // ... (Question Type Logic remains the same) ...
     if (payload.question.en.comprehension != null) {
       typeOfQuestion = "comprehension";
     }
@@ -54,13 +54,34 @@ class QuestionCreating {
     const examName = payload.exam;
     const idOfquestion = randomUUID();
 
-    const chapter = await findBestChapter({
-      chapter: chapterName,
-      chapterGroup: chapterGroup,
-      subject: subject,
-    });
+    // =========================================================
+    // 🧠 INTELLIGENT CHAPTER MAPPING (Hybrid Search)
+    // =========================================================
+    
+    // 1. Construct a rich query string
+    // e.g. "Chemistry Thermodynamics Physical Chemistry"
+    const searchQuery = `${subject} ${chapterName} ${chapterGroup}`;
 
-   
+    // 2. Ask the Search Engine
+    // It uses Vector Similarity (Meaning) + Keyword Matching (Precision)
+    const searchResults = await searchEngine.findChapter(searchQuery);
+
+    let finalChapterName = chapterName; // Default fallback
+
+    if (searchResults.length > 0) {
+        // We take the top result. 
+        // You can use .slug if you want the ID, or .name for the official title.
+        finalChapterName = searchResults[0].name; 
+        
+        // Optional: Log confidence to verify it's working
+        console.log(`🔍 Mapped "${chapterName}" -> "${finalChapterName}" (Score: ${searchResults[0].score.toFixed(2)})`);
+    } else {
+        console.warn(`⚠️ Could not map chapter: "${chapterName}". Using raw value.`);
+    }
+
+    // =========================================================
+
+    // ... (Image Processing logic remains the same) ...
     const questionResult = await imageUpload.imageConverstion({
       id: idOfquestion,
       content: contentEn,
@@ -68,10 +89,8 @@ class QuestionCreating {
       type: "question",
     });
 
-  
     const contentHtml = questionResult.html; 
     const questionImages = questionResult.imagePaths;
-
 
     let optionsContent: optionsStoring[] = [];
     for (let i = 0; i < optionsEn.length; i++) {
@@ -88,7 +107,7 @@ class QuestionCreating {
 
       optionsContent.push({
         identifier: identifier,
-        content: optionResult.html, // DIRECT HTML
+        content: optionResult.html, 
         image: optionResult.imagePaths,
       });
     }
@@ -99,7 +118,7 @@ class QuestionCreating {
     if (correctAnswerEn) answers.push(correctAnswerEn);
     answers = answers.filter((ans) => ans !== null && ans !== undefined && ans !== "");
 
-    // --- 5. Process Comprehension (HTML ONLY) ---
+    // --- 5. Process Comprehension ---
     let comprehensionHtml = "";
     let comprehensionImages: string[] = [];
 
@@ -110,11 +129,11 @@ class QuestionCreating {
         exam: examName,
         type: "comprehension",
       });
-      comprehensionHtml = compResult.html; // DIRECT HTML
+      comprehensionHtml = compResult.html; 
       comprehensionImages = compResult.imagePaths;
     }
 
-    // --- 6. Process Explanation (HTML ONLY) ---
+    // --- 6. Process Explanation ---
     let explationHtml = "";
     let explanationImages: string[] = [];
 
@@ -125,11 +144,11 @@ class QuestionCreating {
         exam: examName,
         type: "explanation",
       });
-      explationHtml = expResult.html; // DIRECT HTML
+      explationHtml = expResult.html; 
       explanationImages = expResult.imagePaths;
     }
 
-    console.log(`Processed: ${chapter}`);
+    console.log(`Processed: ${finalChapterName}`);
 
     // --- 7. Return Final Object ---
     return {
@@ -140,15 +159,15 @@ class QuestionCreating {
       postiveMarks: postiveMarks,
       negativeMarks: negativeMarks,
       subject: subject,
-      question: contentHtml, // Saving HTML
+      question: contentHtml, 
       questionImage: questionImages,
-      comprehension: comprehensionHtml, // Saving HTML
+      comprehension: comprehensionHtml, 
       comprehensionImage: comprehensionImages,
       options: optionsContent,
       correctAnswer: answers,
-      explation: explationHtml, // Saving HTML
+      explation: explationHtml, 
       explationImage: explanationImages,
-      chapter: chapter,
+      chapter: finalChapterName, // Using the AI-matched name
     };
   }
 
@@ -157,6 +176,10 @@ class QuestionCreating {
       const results = fullJsonData.results;
       let totalProcessed = 0;
       let globalQuestionCounter = 1;
+
+      // Ensure Search Engine is ready before starting a bulk upload
+      // (It usually inits in server.ts, but this is a safety check)
+      await searchEngine.initialize(); 
 
       for (const subjectBlock of results) {
         const subjectName = subjectBlock._id;
