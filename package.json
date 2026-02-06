@@ -10,21 +10,18 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "tsc",
     "prisma": "npx prisma generate",
-
     "start:prod": "node dist/server.js",
     "start:prod:worker:email": "node dist/worker/emailWorker.js",
     "start:prod:worker:update": "node dist/worker/updateTestDetailsWorker.js",
     "start:prod:worker:watchdog": "node dist/worker/watchdogWorker.js",
     "start:prod:worker:testEvalution": "node dist/worker/testEvalutionWorker.js",
     "start:prod:worker:studentAnalytics": "node dist/worker/studentTestAnalyticsWorker.js",
-
     "dev:api": "npx ts-node src/server.ts",
     "dev:worker:email": "npx ts-node src/worker/emailWorker.ts",
     "dev:worker:update": "npx ts-node src/worker/updateTestDetailsWorker.ts",
     "dev:worker:watchdog": "npx ts-node src/worker/watchdogWorker.ts",
     "dev:worker:testEvalution": "npx ts-node src/worker/testEvalutionWorker.ts",
     "dev:worker:studentAnalytics": "npx ts-node src/worker/studentTestAnalyticsWorker.ts",
-
     "start": "concurrently \"npm run dev:api\" \"npm run dev:worker:email\" \"npm run dev:worker:update\" \"npm run dev:worker:watchdog\" \"npm run dev:worker:testEvalution\" \"npm run dev:worker:studentAnalytics\" --names \"API,EMAIL,UPDATE,WATCH,EVAL,ANALYTICS\" --prefix-colors \"blue,magenta,yellow,green,cyan,red\""
   },
   "dependencies": {
@@ -75,10 +72,10 @@
   "devDependencies": {
     "@types/bcrypt": "^6.0.0",
     "@types/cookie-parser": "^1.4.10",
-    "@types/express": "^5.0.5",
+    "@types/express": "^5.0.6",
     "@types/node": "^24.10.1",
     "@types/node-cron": "^3.0.11",
-    "@types/pg": "^8.15.6",
+    "@types/pg": "^8.16.0",
     "@types/string-similarity": "^4.0.2",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
