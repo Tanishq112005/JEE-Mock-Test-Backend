@@ -22,7 +22,7 @@ const testEvaluationWorker = async () => {
         const port = EVALUATION_WORKER_PORT || 3006; 
 
      
-        app.get("/health", (req:any, res:any) => {
+        app.get("/health", (req: any , res:any) => {
             res.send("Evaluation Worker is Running 🚀");
         });
 

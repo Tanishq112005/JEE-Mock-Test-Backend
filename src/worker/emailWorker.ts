@@ -21,7 +21,7 @@ const startEmailWorker = async () => {
         const port = EMAIL_WORKER_PORT || 3001; 
 
      
-        app.get("/health", (req, res) => {
+        app.get("/health", (req: any , res:any) => {
             res.send("Email Worker is Running 🚀");
         });
 

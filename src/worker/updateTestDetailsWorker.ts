@@ -22,7 +22,7 @@ const startUpdateWorker = async () => {
     
         const port = UPDATE_WORKER_PORT || 3002; 
 
-        app.get("/health", (req, res) => {
+        app.get("/health", (req: any , res:any) => {
             res.send("Update Test Worker is Running 📊");
         });
 

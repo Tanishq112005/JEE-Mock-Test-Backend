@@ -27,7 +27,7 @@ const startWatchdogWorker = async () => {
         const app = express();
         const port = WATCHDOG_PORT || 3003;
 
-        app.get("/health", (req, res) => {
+        app.get("/health", (req: any , res:any) => {
             res.send("Watchdog is guarding 🐕");
         });
 

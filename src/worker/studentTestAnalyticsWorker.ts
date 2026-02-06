@@ -23,7 +23,7 @@ const studentTestAnalyticsWorker = async () => {
         const port = STUDENT_TEST_ANALYTICS_WORKER_PORT || 3006; 
 
      
-        app.get("/health", (req, res) => {
+        app.get("/health", (req: any , res:any) => {
             res.send("Student Test Analytics Worker is Running 🚀");
         });
 
