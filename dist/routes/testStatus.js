@@ -17,4 +17,5 @@ router.post('/update', auth_1.authMiddleware, testStatusController_1.testStatusC
 // 4. Get Last Session Info
 // Frontend calls: /api/test/lastTestDetails?paperId=...
 router.get('/lastTestDetails', auth_1.authMiddleware, testStatusController_1.testStatusController.LastTestDetails);
+router.post('/submitTest', auth_1.authMiddleware, testStatusController_1.testStatusController.submitTest);
 exports.testStatusRoutes = router;

@@ -5,23 +5,26 @@ const question_db_1 = require("../repositories/question.db");
 const imageService_1 = require("./imageService");
 const client_1 = require("@prisma/client");
 const crypto_1 = require("crypto");
-const chapterNameService_1 = require("./chapterNameService");
+const similarity_1 = require("../utils/similarity"); // <-- ADDED: Your new Hybrid Engine
 class QuestionCreating {
     constructor() { }
     async htmlContentQuestions(payload) {
         let typeOfQuestion = payload.type;
         const postiveMarks = payload.marks;
         const negativeMarks = payload.negMarks;
-        const chapterGroup = payload.chapterGroup;
+        // Raw inputs from the file/payload
+        const chapterGroup = payload.chapterGroup || "";
         const chapterName = payload.chapter;
         const subjectName = payload.subject;
+        // Normalize Subject
         let subject;
-        if (subjectName === "chemistry")
+        if (subjectName.toLowerCase() === "chemistry")
             subject = "Chemistry";
-        else if (subjectName === "mathematics")
+        else if (subjectName.toLowerCase() === "mathematics")
             subject = "Mathematics";
         else
             subject = "Physics";
+        // ... (Question Type Logic remains the same) ...
         if (payload.question.en.comprehension != null) {
             typeOfQuestion = "comprehension";
         }
@@ -51,11 +54,28 @@ class QuestionCreating {
         const explanationEn = payload.question.en.explanation;
         const examName = payload.exam;
         const idOfquestion = (0, crypto_1.randomUUID)();
-        const chapter = await (0, chapterNameService_1.findBestChapter)({
-            chapter: chapterName,
-            chapterGroup: chapterGroup,
-            subject: subject,
-        });
+        // =========================================================
+        // 🧠 INTELLIGENT CHAPTER MAPPING (Hybrid Search)
+        // =========================================================
+        // 1. Construct a rich query string
+        // e.g. "Chemistry Thermodynamics Physical Chemistry"
+        const searchQuery = `${subject} ${chapterName} ${chapterGroup}`;
+        // 2. Ask the Search Engine
+        // It uses Vector Similarity (Meaning) + Keyword Matching (Precision)
+        const searchResults = await similarity_1.searchEngine.findChapter(searchQuery);
+        let finalChapterName = chapterName; // Default fallback
+        if (searchResults.length > 0) {
+            // We take the top result. 
+            // You can use .slug if you want the ID, or .name for the official title.
+            finalChapterName = searchResults[0].name;
+            // Optional: Log confidence to verify it's working
+            console.log(`🔍 Mapped "${chapterName}" -> "${finalChapterName}" (Score: ${searchResults[0].score.toFixed(2)})`);
+        }
+        else {
+            console.warn(`⚠️ Could not map chapter: "${chapterName}". Using raw value.`);
+        }
+        // =========================================================
+        // ... (Image Processing logic remains the same) ...
         const questionResult = await imageService_1.imageUpload.imageConverstion({
             id: idOfquestion,
             content: contentEn,
@@ -77,7 +97,7 @@ class QuestionCreating {
             });
             optionsContent.push({
                 identifier: identifier,
-                content: optionResult.html, // DIRECT HTML
+                content: optionResult.html,
                 image: optionResult.imagePaths,
             });
         }
@@ -88,7 +108,7 @@ class QuestionCreating {
         if (correctAnswerEn)
             answers.push(correctAnswerEn);
         answers = answers.filter((ans) => ans !== null && ans !== undefined && ans !== "");
-        // --- 5. Process Comprehension (HTML ONLY) ---
+        // --- 5. Process Comprehension ---
         let comprehensionHtml = "";
         let comprehensionImages = [];
         if (comprehensionEn) {
@@ -98,10 +118,10 @@ class QuestionCreating {
                 exam: examName,
                 type: "comprehension",
             });
-            comprehensionHtml = compResult.html; // DIRECT HTML
+            comprehensionHtml = compResult.html;
             comprehensionImages = compResult.imagePaths;
         }
-        // --- 6. Process Explanation (HTML ONLY) ---
+        // --- 6. Process Explanation ---
         let explationHtml = "";
         let explanationImages = [];
         if (explanationEn) {
@@ -111,10 +131,10 @@ class QuestionCreating {
                 exam: examName,
                 type: "explanation",
             });
-            explationHtml = expResult.html; // DIRECT HTML
+            explationHtml = expResult.html;
             explanationImages = expResult.imagePaths;
         }
-        console.log(`Processed: ${chapter}`);
+        console.log(`Processed: ${finalChapterName}`);
         // --- 7. Return Final Object ---
         return {
             id: idOfquestion,
@@ -124,15 +144,15 @@ class QuestionCreating {
             postiveMarks: postiveMarks,
             negativeMarks: negativeMarks,
             subject: subject,
-            question: contentHtml, // Saving HTML
+            question: contentHtml,
             questionImage: questionImages,
-            comprehension: comprehensionHtml, // Saving HTML
+            comprehension: comprehensionHtml,
             comprehensionImage: comprehensionImages,
             options: optionsContent,
             correctAnswer: answers,
-            explation: explationHtml, // Saving HTML
+            explation: explationHtml,
             explationImage: explanationImages,
-            chapter: chapter,
+            chapter: finalChapterName, // Using the AI-matched name
         };
     }
     async uploadBulkQuestions(fullJsonData, paperId) {
@@ -140,6 +160,9 @@ class QuestionCreating {
             const results = fullJsonData.results;
             let totalProcessed = 0;
             let globalQuestionCounter = 1;
+            // Ensure Search Engine is ready before starting a bulk upload
+            // (It usually inits in server.ts, but this is a safety check)
+            await similarity_1.searchEngine.initialize();
             for (const subjectBlock of results) {
                 const subjectName = subjectBlock._id;
                 const questionsArray = subjectBlock.questions;

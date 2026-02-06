@@ -73,6 +73,8 @@ class AuthController {
             await this.redis.del(key);
             await user_db_1.user.changingIsVerifiedStatus(email);
             const informationOfUser = await user_db_1.user.checkingUserPresent(email);
+            // creating the student right now always 
+            await user_db_1.user.creatingStudent(informationOfUser.id);
             const payload = { id: informationOfUser.id, email: informationOfUser.email, name: informationOfUser.name, type: informationOfUser.type };
             const accessToken = (0, jwtToken_1.generateAccessToken)(payload);
             const refreshToken = (0, jwtToken_1.generateRefershToken)({ id: informationOfUser.id }, "1d");

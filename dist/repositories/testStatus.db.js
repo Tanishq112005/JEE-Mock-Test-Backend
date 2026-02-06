@@ -16,7 +16,7 @@ class TestStatus {
         try {
             const existingTests = await this.gettingAllTestDetails(userId, paperId);
             const latestTest = existingTests[0];
-            if (latestTest && !latestTest.paperOver) {
+            if (latestTest && (latestTest.status === 'IN_PROGRESS' || latestTest.status == 'PAUSED')) {
                 // await this.db.testQuestionAttemptStatus.deleteMany({ where: { testStatusId: latestTest.id } });
                 await this.db.testStatus.delete({
                     where: { id: latestTest.id }
@@ -46,7 +46,7 @@ class TestStatus {
             if (!currentTestStatus) {
                 throw new Error("Test Session not found");
             }
-            if (currentTestStatus.userId !== userId) {
+            if (currentTestStatus.studentId !== userId) {
                 throw new Error("Unauthorized access to this test session");
             }
             // 2. Fetch User Attempts
@@ -113,8 +113,7 @@ class TestStatus {
                     activeSection: currentTestStatus.activeSection,
                     activeQuestionId: currentTestStatus.activeQuestionId,
                     status: currentTestStatus.status,
-                    startTime: currentTestStatus.created_at,
-                    paperOver: currentTestStatus.paperOver
+                    startTime: currentTestStatus.created_at
                 },
                 paper: rawPaperData.paperDetails,
                 Physics: processedPhysics,
@@ -135,12 +134,11 @@ class TestStatus {
     async startingNewTest(userId, paperId, created_at, time) {
         return await this.db.testStatus.create({
             data: {
-                userId,
+                studentId: userId,
                 paperId,
                 status: client_1.TestState.IN_PROGRESS,
                 created_at,
                 updated_at: created_at,
-                paperOver: false,
                 timeLeft: time
             }
         });
@@ -153,7 +151,8 @@ class TestStatus {
     }
     async gettingAllTestDetails(userId, paperId) {
         return await this.db.testStatus.findMany({
-            where: { paperId, userId },
+            where: { paperId: paperId,
+                studentId: userId },
             orderBy: { created_at: 'desc' }
         });
     }
@@ -252,20 +251,168 @@ class TestStatus {
     // =================================================================
     async submitTest(testStatusId) {
         try {
-            const completedTest = await this.db.testStatus.update({
+            console.log(`📝 Starting Evaluation for Test: ${testStatusId}`);
+            // 1. Fetch ALL necessary data to grade the test
+            // We need: User Attempts, Question Correct Answers, Paper Marking Schemes
+            const testContext = await this.db.testStatus.findUnique({
                 where: { id: testStatusId },
-                data: {
-                    status: client_1.TestState.COMPLETED,
-                    paperOver: true,
-                    updated_at: new Date()
+                include: {
+                    testQuestionStatus: {
+                        include: {
+                            questions: true // Contains correctAnswer, type, etc.
+                        }
+                    },
+                    papers: {
+                        include: {
+                            markingSchemes: true // Contains Partial Marking Rules
+                        }
+                    }
                 }
             });
-            return { message: "Test Submitted Successfully", testId: completedTest.id };
+            if (!testContext)
+                throw new Error("Test Session not found");
+            // 2. Create a Map for Marking Schemes (Type -> Scheme) for O(1) access
+            const schemeMap = new Map();
+            testContext.papers.markingSchemes.forEach(scheme => {
+                schemeMap.set(scheme.questionType, scheme);
+            });
+            // 3. Evaluate Each Question
+            const evaluationUpdates = [];
+            for (const attempt of testContext.testQuestionStatus) {
+                // Skip if not answered
+                if (attempt.status !== client_1.AttemptStatus.answered && attempt.status !== client_1.AttemptStatus.markedForReview) {
+                    continue;
+                }
+                const question = attempt.questions;
+                const userAns = attempt.userAnswer; // Array of strings
+                const correctAns = question.correctAnswer; // Array of strings
+                // Get Marking Rules (Question specific overrides OR Paper defaults)
+                const scheme = schemeMap.get(question.type);
+                // Defaults
+                let pos = scheme?.positiveMarks || 4;
+                let neg = scheme?.negativeMarks || -1;
+                // Overrides (if defined on the specific question)
+                if (question.positiveMarks !== 0)
+                    pos = question.positiveMarks;
+                if (question.negativeMarks !== 0)
+                    neg = question.negativeMarks;
+                // --- CALCULATION LOGIC ---
+                let marks = 0;
+                let isCorrect = false;
+                // Handle Bonus Questions (Free Marks)
+                if (question.isBonus) {
+                    marks = pos;
+                    isCorrect = true;
+                }
+                else {
+                    // Call the Logic Helper
+                    const result = this.calculateMarks(question.type, userAns, correctAns, pos, neg, scheme // Pass full scheme for partial rules
+                    );
+                    marks = result.marks;
+                    isCorrect = result.isFullCorrect;
+                }
+                // Prepare DB Update
+                evaluationUpdates.push(this.db.testQuestionAttemptStatus.update({
+                    where: { id: attempt.id },
+                    data: {
+                        marksObtained: marks,
+                        isCorrect: isCorrect,
+                        // Ensure status is finalized
+                        status: client_1.AttemptStatus.answered
+                    }
+                }));
+            }
+            // 4. Transaction: Save Grades & Close Test
+            await this.db.$transaction([
+                ...evaluationUpdates,
+                this.db.testStatus.update({
+                    where: { id: testStatusId },
+                    data: {
+                        status: client_1.TestState.COMPLETED,
+                        updated_at: new Date()
+                    }
+                })
+            ]);
+            console.log(`✅ Grading Complete. Updated ${evaluationUpdates.length} attempts.`);
+            return {
+                message: "Test Submitted & Graded Successfully",
+                testId: testStatusId
+            };
         }
         catch (err) {
-            console.error("Error submitting test:", err);
+            console.error("Error evaluating test:", err);
             throw err;
         }
+    }
+    /**
+     * CORE GRADING ALGORITHM
+     * Handles Single, Integer, and Complex Partial Marking
+     */
+    calculateMarks(type, userAns, correctAns, pos, neg, scheme) {
+        // A. Basic Matching (Integer, Single Choice)
+        if (type === client_1.questionType.Integer || type === client_1.questionType.SingleCorrect || type === client_1.questionType.ComprehensionSingleCorrect || type === client_1.questionType.ComprehensionInteger) {
+            // Sort to ensure ["A"] matches ["A"]
+            const isMatch = this.arraysEqual(userAns, correctAns);
+            if (isMatch)
+                return { marks: pos, isFullCorrect: true };
+            return { marks: neg, isFullCorrect: false }; // Wrong answer
+        }
+        // B. Multi-Correct (The Beast)
+        if (type === client_1.questionType.MultiCorrect || type === client_1.questionType.ComprehensionMultiCorrect) {
+            // 1. Check for ANY wrong option
+            // If user selected even ONE option that isn't in correctAns -> Negative Marks
+            const hasWrongOption = userAns.some(ans => !correctAns.includes(ans));
+            if (hasWrongOption) {
+                return { marks: neg, isFullCorrect: false };
+            }
+            // 2. Exact Match (All Correct Options Selected)
+            if (userAns.length === correctAns.length) {
+                return { marks: pos, isFullCorrect: true };
+            }
+            // 3. Partial Marking Logic
+            // If we are here, user selected SOME correct options and NO wrong options.
+            if (!scheme || !scheme.isPartial) {
+                // If partial marking is OFF -> 0 marks (not negative, just 0 usually, or negative depending on strictness)
+                // Standard JEE Main behavior for Multi: No partial -> 0 if incomplete? 
+                // Let's assume 0 for incomplete if strict.
+                return { marks: 0, isFullCorrect: false };
+            }
+            // Logic Switch based on Rule Type
+            const rule = scheme.ruleType;
+            if (rule === client_1.PartialMarkingRule.LINEAR) {
+                // Old JEE Style: +1 for each correct option selected
+                return {
+                    marks: userAns.length * scheme.partialMarks, // e.g., 2 options * 1 mark = +2
+                    isFullCorrect: false
+                };
+            }
+            if (rule === client_1.PartialMarkingRule.STEP_WISE) {
+                // JEE Advanced 2024 Style:
+                // Correct: A, B, C, D (+4)
+                // User: A, B, C (Missed 1) -> +3
+                // User: A, B (Missed 2) -> +2
+                // User: A (Missed 3) -> +1 (Only if allowed, usually it stops at +2)
+                const missedCount = correctAns.length - userAns.length;
+                if (missedCount === 1)
+                    return { marks: 3, isFullCorrect: false }; // Missed 1 option
+                if (missedCount === 2)
+                    return { marks: 2, isFullCorrect: false }; // Missed 2 options
+                // If missed 3 or more (e.g. only picked 1 out of 4), usually 0 or +1 depending on year.
+                // Assuming +1 for now as a fallback for "some correctness"
+                return { marks: 1, isFullCorrect: false };
+            }
+            // Fallback
+            return { marks: 0, isFullCorrect: false };
+        }
+        return { marks: 0, isFullCorrect: false };
+    }
+    // Helper: Compare two arrays regardless of order
+    arraysEqual(a, b) {
+        if (a.length !== b.length)
+            return false;
+        const sortedA = [...a].sort();
+        const sortedB = [...b].sort();
+        return sortedA.every((val, index) => val === sortedB[index]);
     }
     // =================================================================
     // 5. WATCHDOG
@@ -276,8 +423,7 @@ class TestStatus {
             const result = await this.db.testStatus.updateMany({
                 where: {
                     status: client_1.TestState.IN_PROGRESS,
-                    updated_at: { lt: cutoffTime },
-                    paperOver: false
+                    updated_at: { lt: cutoffTime }
                 },
                 data: {
                     status: client_1.TestState.PAUSED

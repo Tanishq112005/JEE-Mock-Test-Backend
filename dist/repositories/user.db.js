@@ -132,5 +132,17 @@ class User {
             throw err;
         }
     }
+    async creatingStudent(userId) {
+        try {
+            const studentProfile = await this.db.studentProfile.create({
+                data: {
+                    user_id: userId
+                }
+            });
+        }
+        catch (err) {
+            throw err;
+        }
+    }
 }
 exports.user = new User(database_1.database);

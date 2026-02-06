@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.seedDatabase = void 0;
 const chapter_db_1 = require("../repositories/chapter.db"); // Adjust path to your repository instance
 const chapter_1 = require("../utils/chapter"); // Adjust path to your data file
 const seedDatabase = async () => {
@@ -33,8 +34,9 @@ const seedDatabase = async () => {
     }
     console.log("\n\n✅ Syllabus upload process completed!");
 };
+exports.seedDatabase = seedDatabase;
 // Execute the function
-seedDatabase()
+(0, exports.seedDatabase)()
     .catch((e) => {
     console.error("Fatal Error:", e);
     process.exit(1);
