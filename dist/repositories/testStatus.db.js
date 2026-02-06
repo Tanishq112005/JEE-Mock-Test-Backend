@@ -299,6 +299,7 @@ class TestStatus {
                 // --- CALCULATION LOGIC ---
                 let marks = 0;
                 let isCorrect = false;
+                const deduction = -Math.abs(neg);
                 // Handle Bonus Questions (Free Marks)
                 if (question.isBonus) {
                     marks = pos;
@@ -306,7 +307,7 @@ class TestStatus {
                 }
                 else {
                     // Call the Logic Helper
-                    const result = this.calculateMarks(question.type, userAns, correctAns, pos, neg, scheme // Pass full scheme for partial rules
+                    const result = this.calculateMarks(question.type, userAns, correctAns, pos, deduction, scheme // Pass full scheme for partial rules
                     );
                     marks = result.marks;
                     isCorrect = result.isFullCorrect;

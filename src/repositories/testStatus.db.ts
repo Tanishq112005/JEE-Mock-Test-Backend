@@ -332,11 +332,11 @@ class TestStatus {
 
                 // Get Marking Rules (Question specific overrides OR Paper defaults)
                 const scheme = schemeMap.get(question.type);
-                
+              
                 // Defaults
                 let pos = scheme?.positiveMarks || 4;
                 let neg = scheme?.negativeMarks || -1;
-                
+               
                 // Overrides (if defined on the specific question)
                 if (question.positiveMarks !== 0) pos = question.positiveMarks;
                 if (question.negativeMarks !== 0) neg = question.negativeMarks;
@@ -344,12 +344,14 @@ class TestStatus {
                 // --- CALCULATION LOGIC ---
                 let marks = 0;
                 let isCorrect = false;
-
+                 const deduction = -Math.abs(neg);
                 // Handle Bonus Questions (Free Marks)
                 if (question.isBonus) {
                     marks = pos;
                     isCorrect = true;
                 } 
+
+                
                 else {
                     // Call the Logic Helper
                     const result = this.calculateMarks(
@@ -357,7 +359,7 @@ class TestStatus {
                         userAns, 
                         correctAns, 
                         pos, 
-                        neg, 
+                        deduction, 
                         scheme // Pass full scheme for partial rules
                     );
                     marks = result.marks;
