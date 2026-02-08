@@ -18,6 +18,7 @@ import { rabbitMQClient } from "./rabbitmq/connection/rabbitmq-connection";
 
 import { searchEngine } from "./utils/similarity";            // 2. Hybrid Search Engine
 import { seedDatabase } from "./scripts/seedChapter";
+import { emailRoutes } from "./routes/email";
 
 const app = express();
 const port = PORT || 3000;
@@ -56,6 +57,8 @@ app.use('/api/chapter', chapterRoutes);
 app.use('/api/paper', paperRoutes);
 app.use('/api/question', questionRoutes);
 app.use('/api/testStatus', testStatusRoutes);
+app.use('/api/email' , emailRoutes);
+
 
 // --- SEARCH API (For Frontend Autocomplete) ---
 app.post("/api/search/chapter", async (req: Request, res: Response): Promise<any> => {

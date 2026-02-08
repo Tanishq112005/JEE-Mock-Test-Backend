@@ -8,6 +8,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+   schemas  = ["public", "email"]
 }
 
 // ==========================================
@@ -17,23 +18,31 @@ datasource db {
 enum UserType {
   Student
   Developer
+
+    @@schema("public")
 }
 
 enum ExamName {
   JEE_MAIN
   JEE_ADVANCED
+
+    @@schema("public")
 }
 
 enum SubjectName {
   Physics
   Chemistry
   Mathematics
+
+    @@schema("public")
 }
 
 enum Study_mode {
   online
   offline
   self
+
+    @@schema("public")
 }
 
 enum AttemptStatus {
@@ -41,12 +50,16 @@ enum AttemptStatus {
   notAnswered
   markedForReview
   visited
+
+    @@schema("public")
 }
 
 enum TestState {
   IN_PROGRESS
   PAUSED
   COMPLETED
+
+    @@schema("public")
 }
 
 enum questionType {
@@ -56,11 +69,15 @@ enum questionType {
   ComprehensionSingleCorrect
   ComprehensionMultiCorrect
   ComprehensionInteger
+
+    @@schema("public")
 }
 
 enum ExamMode {
   online
   offline
+
+    @@schema("public")
 }
 
 enum Shift {
@@ -68,12 +85,16 @@ enum Shift {
   Evening
   Paper_1
   Paper_2
+
+    @@schema("public")
 }
 
 enum PartialMarkingRule {
   NONE              // No partial marking (JEE Main)
   LINEAR            // +1 for each correct option (Old JEE Adv)
   STEP_WISE         // +3 if one missed, +2 if two missed (New JEE Adv)
+
+    @@schema("public")
 }
 
 
@@ -87,6 +108,8 @@ enum Day {
   Friday
   Saturday
   Sunday
+
+    @@schema("public")
 }
 
 
@@ -103,6 +126,9 @@ enum Month {
   October
   November
  December
+
+
+   @@schema("public")
 }
 // ==========================================
 // 1. USER MANAGEMENT
@@ -119,6 +145,8 @@ model user {
   created_at      DateTime        @default(now())
   is_verified     Boolean
   student_profile studentProfile?
+
+    @@schema("public")
 }
 
 model studentProfile {
@@ -151,6 +179,9 @@ model studentProfile {
   created_at         DateTime   @default(now())
   updated_at         DateTime   @updatedAt
   user               user       @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+
+    @@schema("public")
 }
 
 // ==========================================
@@ -161,6 +192,9 @@ model exam {
   id     String   @id @default(uuid())
   name   ExamName @unique
   papers papers[]
+
+
+    @@schema("public")
 }
 
 model subjects {
@@ -171,6 +205,9 @@ model subjects {
   
   // For Analytics
   subjectAnalytics SubjectAnalytics[]
+
+
+    @@schema("public")
 }
 
 model chapters {
@@ -188,6 +225,9 @@ model chapters {
   questions        questions[]
   chapterAnalytics ChapterAnalytics[]
   subjects         subjects           @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+
+    @@schema("public")
 }
 
 // ==========================================
@@ -222,6 +262,8 @@ model papers {
   markingSchemes    paperMarkingScheme[]
 
   @@unique([examId, year, shift])
+
+    @@schema("public")
 }
 
 model paperMarkingScheme {
@@ -241,6 +283,8 @@ model paperMarkingScheme {
   paper            papers             @relation(fields: [paperId], references: [id], onDelete: Cascade)
 
   @@unique([paperId, questionType])
+
+    @@schema("public")
 }
 
 // ==========================================
@@ -291,6 +335,9 @@ model questions {
   
   // Active pointer
   activeInTests      testStatus[]   @relation("ActiveQuestion")
+
+
+    @@schema("public")
 }
 
 model options {
@@ -310,6 +357,9 @@ model options {
   optionDimage String[]
   
   questions    questions @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+
+    @@schema("public")
 }
 
 model solution {
@@ -319,6 +369,9 @@ model solution {
   videoUrl   String?
   image      String[]
   question   questions @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+
+    @@schema("public")
 }
 
 // ==========================================
@@ -349,6 +402,9 @@ model testStatus {
   summary            TestAttemptSummary?
 
   @@unique([paperId, created_at])
+
+
+    @@schema("public")
 }
 
 model testQuestionAttemptStatus {
@@ -371,6 +427,8 @@ model testQuestionAttemptStatus {
   questions     questions     @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
   @@unique([questionId, testStatusId])
+
+    @@schema("public")
 }
 
 model chapterWiseQuestionAttemptStatus {
@@ -392,6 +450,8 @@ model chapterWiseQuestionAttemptStatus {
   user           studentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@index([studentId, questionId, created_at])
+
+    @@schema("public")
 }
 
 // ==========================================
@@ -411,6 +471,8 @@ model StudentOverallAnalytics {
   totalTimeSpent   Int            @default(0)
   
   student          studentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+    @@schema("public")
 }
 
 // SUBJECT STATS
@@ -429,6 +491,8 @@ model SubjectAnalytics {
   subject          subjects       @relation(fields: [subjectId], references: [id], onDelete: Cascade)
 
   @@unique([studentId, subjectId])
+
+    @@schema("public")
 }
 
 // CHAPTER STATS (Split Practice vs Test)
@@ -452,6 +516,8 @@ model ChapterAnalytics {
   chapter          chapters       @relation(fields: [chapterId], references: [id], onDelete: Cascade)
 
   @@unique([studentId, chapterId])
+
+    @@schema("public")
 }
 
 // FORMAT STATS
@@ -471,6 +537,8 @@ model QuestionTypeAnalytics {
   student          studentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@unique([studentId, type])
+
+    @@schema("public")
 }
 
 // EXAM FOCUS (Main vs Advanced)
@@ -486,6 +554,9 @@ model ExamAnalytics {
   student          studentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@unique([studentId, examName])
+
+
+    @@schema("public")
 }
 
 // TEST SNAPSHOTS
@@ -506,6 +577,9 @@ model TestAttemptSummary {
   testStatus       testStatus     @relation(fields: [testStatusId], references: [id], onDelete: Cascade)
   student          studentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
   created_at       DateTime       @default(now())
+
+
+    @@schema("public")
 }
 
 // GLOBAL DATA
@@ -523,6 +597,9 @@ model QuestionGlobalStats {
   difficultyRating Float          @default(0.0) // 0-10
   
   question         questions      @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+
+    @@schema("public")
 }
 
 // ==========================================
@@ -539,4 +616,15 @@ model bookmarkedQuestion {
   user       studentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@unique([studentId, questionId])
+
+    @@schema("public")
+}
+
+
+
+model Email {
+  id    String @id @default(uuid())
+  email String @unique
+
+  @@schema("email")
 }

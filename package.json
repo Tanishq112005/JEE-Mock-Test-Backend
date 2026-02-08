@@ -16,13 +16,15 @@
     "start:prod:worker:watchdog": "node dist/worker/watchdogWorker.js",
     "start:prod:worker:testEvalution": "node dist/worker/testEvalutionWorker.js",
     "start:prod:worker:studentAnalytics": "node dist/worker/studentTestAnalyticsWorker.js",
+    "start:prod:worker:emailAdding": "node dist/worker/emailAddingWorker.js",
     "dev:api": "npx ts-node src/server.ts",
     "dev:worker:email": "npx ts-node src/worker/emailWorker.ts",
     "dev:worker:update": "npx ts-node src/worker/updateTestDetailsWorker.ts",
     "dev:worker:watchdog": "npx ts-node src/worker/watchdogWorker.ts",
     "dev:worker:testEvalution": "npx ts-node src/worker/testEvalutionWorker.ts",
     "dev:worker:studentAnalytics": "npx ts-node src/worker/studentTestAnalyticsWorker.ts",
-    "start": "concurrently \"npm run dev:api\" \"npm run dev:worker:email\" \"npm run dev:worker:update\" \"npm run dev:worker:watchdog\" \"npm run dev:worker:testEvalution\" \"npm run dev:worker:studentAnalytics\" --names \"API,EMAIL,UPDATE,WATCH,EVAL,ANALYTICS\" --prefix-colors \"blue,magenta,yellow,green,cyan,red\""
+    "dev:worker:emailAdding": "npx ts-node src/worker/emailAddingWorker.ts",
+    "start": "concurrently \"npm run dev:api\" \"npm run dev:worker:email\" \"npm run dev:worker:update\" \"npm run dev:worker:watchdog\" \"npm run dev:worker:testEvalution\"  \"npm run dev:worker:studentAnalytics\" \"npm run dev:worker:emailAdding\" --names \"API,EMAIL,UPDATE,WATCH,EVAL,ANALYTICS,EAMILADDING\" --prefix-colors \"blue,magenta,yellow,green,cyan,red,black\""
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.958.0",
