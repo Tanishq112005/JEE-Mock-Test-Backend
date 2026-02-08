@@ -19,6 +19,7 @@ const testStatus_1 = require("./routes/testStatus");
 // --- SERVICES & JOBS ---
 const rabbitmq_connection_1 = require("./rabbitmq/connection/rabbitmq-connection");
 const similarity_1 = require("./utils/similarity"); // 2. Hybrid Search Engine
+const email_1 = require("./routes/email");
 const app = (0, express_1.default)();
 const port = env_1.PORT || 3000;
 // ==========================================
@@ -52,6 +53,7 @@ app.use('/api/chapter', chapter_1.chapterRoutes);
 app.use('/api/paper', paper_1.paperRoutes);
 app.use('/api/question', question_1.questionRoutes);
 app.use('/api/testStatus', testStatus_1.testStatusRoutes);
+app.use('/api/email', email_1.emailRoutes);
 // --- SEARCH API (For Frontend Autocomplete) ---
 app.post("/api/search/chapter", async (req, res) => {
     try {
