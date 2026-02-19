@@ -159,6 +159,9 @@ class TestStatus {
     // =================================================================
     // 3. UPDATING TEST DETAILS
     // =================================================================
+    // =================================================================
+    // 3. UPDATING TEST DETAILS
+    // =================================================================
     async updatingTestDetails(updateDetails) {
         try {
             const testId = updateDetails.testId;
@@ -170,14 +173,13 @@ class TestStatus {
                 console.warn(`⚠️ Skipped: TestID ${testId} not found.`);
                 return null;
             }
+            // Extract studentId from the verified test session
+            const studentId = existingTest.studentId;
             // 🛑 2. THE CRITICAL FIX: FILTERING
-            // Only update questions that have data worth saving.
-            // This reduces the load from ~75 queries to ~1-3 queries.
-            const activeQuestions = updateDetails.questionStatus.filter((q) => q.questionId === updateDetails.activeQuestionId || // Always update the current question
-                q.isVisited === true || // Update if user visited it
-                q.status === 'answered' || // Update if answered
-                q.status === 'markedForReview' // Update if marked
-            );
+            const activeQuestions = updateDetails.questionStatus.filter((q) => q.questionId === updateDetails.activeQuestionId ||
+                q.isVisited === true ||
+                q.status === 'answered' ||
+                q.status === 'markedForReview');
             // 3. TRANSACTION
             const result = await this.db.$transaction(async (tx) => {
                 // A. Update Parent
@@ -191,7 +193,7 @@ class TestStatus {
                         status: updateDetails.state
                     }
                 });
-                // B. Upsert ONLY Active Questions (Using the filtered list)
+                // B. Upsert ONLY Active Questions
                 const questionPromises = activeQuestions.map((q) => {
                     let formattedAnswer = [];
                     // Answer formatting logic...
@@ -219,9 +221,12 @@ class TestStatus {
                         create: {
                             testStatusId: testId,
                             questionId: q.questionId,
+                            studentId: studentId, // ✅ Added missing studentId
                             timeSpent: q.timeSpent || 0,
                             userAnswer: formattedAnswer,
                             status: q.status,
+                            isVisited: q.isVisited || false, // ✅ Added for completeness
+                            markedForReview: q.markedForReview || false // ✅ Added for completeness
                         },
                         update: {
                             timeSpent: q.timeSpent || 0,
@@ -246,14 +251,8 @@ class TestStatus {
             throw err;
         }
     }
-    // =================================================================
-    // 4. SUBMIT TEST
-    // =================================================================
-    async submitTest(testStatusId) {
+    async gettingTestDetails(testStatusId) {
         try {
-            console.log(`📝 Starting Evaluation for Test: ${testStatusId}`);
-            // 1. Fetch ALL necessary data to grade the test
-            // We need: User Attempts, Question Correct Answers, Paper Marking Schemes
             const testContext = await this.db.testStatus.findUnique({
                 where: { id: testStatusId },
                 include: {
@@ -269,151 +268,11 @@ class TestStatus {
                     }
                 }
             });
-            if (!testContext)
-                throw new Error("Test Session not found");
-            // 2. Create a Map for Marking Schemes (Type -> Scheme) for O(1) access
-            const schemeMap = new Map();
-            testContext.papers.markingSchemes.forEach(scheme => {
-                schemeMap.set(scheme.questionType, scheme);
-            });
-            // 3. Evaluate Each Question
-            const evaluationUpdates = [];
-            for (const attempt of testContext.testQuestionStatus) {
-                // Skip if not answered
-                if (attempt.status !== client_1.AttemptStatus.answered && attempt.status !== client_1.AttemptStatus.markedForReview) {
-                    continue;
-                }
-                const question = attempt.questions;
-                const userAns = attempt.userAnswer; // Array of strings
-                const correctAns = question.correctAnswer; // Array of strings
-                // Get Marking Rules (Question specific overrides OR Paper defaults)
-                const scheme = schemeMap.get(question.type);
-                // Defaults
-                let pos = scheme?.positiveMarks || 4;
-                let neg = scheme?.negativeMarks || -1;
-                // Overrides (if defined on the specific question)
-                if (question.positiveMarks !== 0)
-                    pos = question.positiveMarks;
-                if (question.negativeMarks !== 0)
-                    neg = question.negativeMarks;
-                // --- CALCULATION LOGIC ---
-                let marks = 0;
-                let isCorrect = false;
-                const deduction = -Math.abs(neg);
-                // Handle Bonus Questions (Free Marks)
-                if (question.isBonus) {
-                    marks = pos;
-                    isCorrect = true;
-                }
-                else {
-                    // Call the Logic Helper
-                    const result = this.calculateMarks(question.type, userAns, correctAns, pos, deduction, scheme // Pass full scheme for partial rules
-                    );
-                    marks = result.marks;
-                    isCorrect = result.isFullCorrect;
-                }
-                // Prepare DB Update
-                evaluationUpdates.push(this.db.testQuestionAttemptStatus.update({
-                    where: { id: attempt.id },
-                    data: {
-                        marksObtained: marks,
-                        isCorrect: isCorrect,
-                        // Ensure status is finalized
-                        status: client_1.AttemptStatus.answered
-                    }
-                }));
-            }
-            // 4. Transaction: Save Grades & Close Test
-            await this.db.$transaction([
-                ...evaluationUpdates,
-                this.db.testStatus.update({
-                    where: { id: testStatusId },
-                    data: {
-                        status: client_1.TestState.COMPLETED,
-                        updated_at: new Date()
-                    }
-                })
-            ]);
-            console.log(`✅ Grading Complete. Updated ${evaluationUpdates.length} attempts.`);
-            return {
-                message: "Test Submitted & Graded Successfully",
-                testId: testStatusId
-            };
+            return testContext;
         }
         catch (err) {
-            console.error("Error evaluating test:", err);
             throw err;
         }
-    }
-    /**
-     * CORE GRADING ALGORITHM
-     * Handles Single, Integer, and Complex Partial Marking
-     */
-    calculateMarks(type, userAns, correctAns, pos, neg, scheme) {
-        // A. Basic Matching (Integer, Single Choice)
-        if (type === client_1.questionType.Integer || type === client_1.questionType.SingleCorrect || type === client_1.questionType.ComprehensionSingleCorrect || type === client_1.questionType.ComprehensionInteger) {
-            // Sort to ensure ["A"] matches ["A"]
-            const isMatch = this.arraysEqual(userAns, correctAns);
-            if (isMatch)
-                return { marks: pos, isFullCorrect: true };
-            return { marks: neg, isFullCorrect: false }; // Wrong answer
-        }
-        // B. Multi-Correct (The Beast)
-        if (type === client_1.questionType.MultiCorrect || type === client_1.questionType.ComprehensionMultiCorrect) {
-            // 1. Check for ANY wrong option
-            // If user selected even ONE option that isn't in correctAns -> Negative Marks
-            const hasWrongOption = userAns.some(ans => !correctAns.includes(ans));
-            if (hasWrongOption) {
-                return { marks: neg, isFullCorrect: false };
-            }
-            // 2. Exact Match (All Correct Options Selected)
-            if (userAns.length === correctAns.length) {
-                return { marks: pos, isFullCorrect: true };
-            }
-            // 3. Partial Marking Logic
-            // If we are here, user selected SOME correct options and NO wrong options.
-            if (!scheme || !scheme.isPartial) {
-                // If partial marking is OFF -> 0 marks (not negative, just 0 usually, or negative depending on strictness)
-                // Standard JEE Main behavior for Multi: No partial -> 0 if incomplete? 
-                // Let's assume 0 for incomplete if strict.
-                return { marks: 0, isFullCorrect: false };
-            }
-            // Logic Switch based on Rule Type
-            const rule = scheme.ruleType;
-            if (rule === client_1.PartialMarkingRule.LINEAR) {
-                // Old JEE Style: +1 for each correct option selected
-                return {
-                    marks: userAns.length * scheme.partialMarks, // e.g., 2 options * 1 mark = +2
-                    isFullCorrect: false
-                };
-            }
-            if (rule === client_1.PartialMarkingRule.STEP_WISE) {
-                // JEE Advanced 2024 Style:
-                // Correct: A, B, C, D (+4)
-                // User: A, B, C (Missed 1) -> +3
-                // User: A, B (Missed 2) -> +2
-                // User: A (Missed 3) -> +1 (Only if allowed, usually it stops at +2)
-                const missedCount = correctAns.length - userAns.length;
-                if (missedCount === 1)
-                    return { marks: 3, isFullCorrect: false }; // Missed 1 option
-                if (missedCount === 2)
-                    return { marks: 2, isFullCorrect: false }; // Missed 2 options
-                // If missed 3 or more (e.g. only picked 1 out of 4), usually 0 or +1 depending on year.
-                // Assuming +1 for now as a fallback for "some correctness"
-                return { marks: 1, isFullCorrect: false };
-            }
-            // Fallback
-            return { marks: 0, isFullCorrect: false };
-        }
-        return { marks: 0, isFullCorrect: false };
-    }
-    // Helper: Compare two arrays regardless of order
-    arraysEqual(a, b) {
-        if (a.length !== b.length)
-            return false;
-        const sortedA = [...a].sort();
-        const sortedB = [...b].sort();
-        return sortedA.every((val, index) => val === sortedB[index]);
     }
     // =================================================================
     // 5. WATCHDOG

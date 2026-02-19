@@ -1,7 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.StudentTestAnanlyticsConsumer = void 0;
-const analytics_db_1 = require("../../repositories/analytics.db");
 class StudentTestAnanlyticsConsumer {
     connection;
     constructor(connection) {
@@ -30,7 +29,7 @@ class StudentTestAnanlyticsConsumer {
                     const data = JSON.parse(msg.content.toString());
                     console.log(`📥 Processing Student Test Analytics Update for User: ${data.userId}`);
                     // --- ACTUAL WORKER LOGIC ---
-                    await analytics_db_1.analytics.processTestSubmission(data);
+                    // await analytics.processTestSubmission(data) ; 
                     // ---------------------------
                     channel.ack(msg);
                     console.log("✅ Update The Student Test Analytics  Evaluated SuccessFully");

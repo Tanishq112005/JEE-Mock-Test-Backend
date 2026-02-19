@@ -435,6 +435,27 @@ class Question {
             throw error;
         }
     }
+    async gettingQuestionsInformation(paperId) {
+        try {
+            const paperDetails = await this.db.questions.findMany({
+                where: {
+                    paperId: paperId
+                },
+                include: {
+                    subjects: true,
+                    chapters: true,
+                    papers: {
+                        include: {
+                            exam: true
+                        }
+                    }
+                }
+            });
+            return paperDetails;
+        }
+        catch (err) {
+        }
+    }
     async gettingQuestionForChapter(chapterId, userId) {
         try {
             // in this we will take the question and also with the attempt status from the test attempt and the chapter wise attempt 
@@ -457,6 +478,37 @@ class Question {
                     options: true,
                 }
             });
+        }
+        catch (err) {
+            throw err;
+        }
+    }
+    async questionStatus(questionId, userId) {
+        try {
+            const testAttemptQuestion = await this.db.testQuestionAttemptStatus.findMany({
+                where: {
+                    studentId: userId,
+                    questionId: questionId,
+                    isAnalyzed: true
+                },
+                orderBy: {
+                    updated_at: 'desc'
+                }
+            });
+            const chapterWiseQuestion = await this.db.chapterWiseQuestionAttemptStatus.findMany({
+                where: {
+                    studentId: userId,
+                    questionId: questionId,
+                    isAnalyzed: true
+                },
+                orderBy: {
+                    created_at: 'desc'
+                }
+            });
+            return {
+                testData: testAttemptQuestion,
+                chapterData: chapterWiseQuestion
+            };
         }
         catch (err) {
             throw err;

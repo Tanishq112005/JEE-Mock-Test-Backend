@@ -32,7 +32,7 @@ class UpdateFinalEvaluationConsumer {
                     console.log(`📥 Processing Test Update for User: ${data.userId}`);
                     // --- ACTUAL WORKER LOGIC ---
                     await testStatus_db_1.testStatus.updatingTestDetails(data);
-                    await testStatus_db_1.testStatus.submitTest(data.testId);
+                    // await testStatus.submitTest(data.testId) ; 
                     await studentTestAnalytics_producer_1.studentTestAnalytics.updateData(data.testId);
                     // ---------------------------
                     channel.ack(msg);
