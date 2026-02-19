@@ -4,6 +4,7 @@ import { database } from "../lib/database";
 import { paperDetails, questionDetails } from "../types/paper.types";
 import { exam } from "./exam.db";
 import ApiError from "../utils/ApiError";
+import { P } from "@upstash/redis/zmscore-BjNXmrug";
 
 class Paper {
     private db: PrismaClient;
@@ -30,7 +31,7 @@ class Paper {
                 }
             })
 
-            return newPaper.id ; 
+            return newPaper.id;
         }
         catch (err) {
             throw err;
@@ -96,9 +97,9 @@ class Paper {
 
 
 
-
     async addingDetails(questionInformation: questionDetails) {
         try {
+            // 1. Verify the paper exists
             const paperInformation = await this.db.papers.findUnique({
                 where: {
                     id: questionInformation.paperId,
@@ -106,46 +107,75 @@ class Paper {
             });
 
             if (!paperInformation) {
-                throw new ApiError("Paper not found");
+                throw new ApiError("Paper not found"); // Or your custom error handler
             }
 
-            let multiChoice = paperInformation.totalMultiChoice || 0;
-            let singleChoice = paperInformation.totalSingleChoice || 0;
-            let integer = paperInformation.totalInteger || 0;
-            let paperMarks = paperInformation.totalMarks || 0;
-            const marks =
-                paperMarks + questionInformation.positiveMarks;
+            const transactions = [];
 
-            if (questionInformation.questionType === "Integer" || questionInformation.questionType === "ComprehensionInteger") {
-                integer += 1;
+            // 2. Atomically update totalQuestions and totalMarks on the Paper
+            transactions.push(
+                this.db.papers.update({
+                    where: {
+                        id: questionInformation.paperId,
+                    },
+                    data: {
+                        totalQuestions: { increment: 1 },
+                        totalMarks: { increment: questionInformation.positiveMarks || 0 },
+                    },
+                })
+            );
+
+            // 3. Upsert the Marking Scheme for this specific question type
+            // Upsert ensures we create it if it's the first question of this type, 
+            // or just update it if the scheme already exists for this paper.
+            if (questionInformation.questionType) {
+                transactions.push(
+                    this.db.paperMarkingScheme.upsert({
+                        where: {
+                            paperId_questionType: {
+                                paperId: questionInformation.paperId,
+                                questionType: questionInformation.questionType,
+                            },
+                        },
+                        update: {
+                            // Only update what is actually provided in questionDetails
+                            positiveMarks: questionInformation.positiveMarks,
+                        },
+                        create: {
+                            paperId: questionInformation.paperId,
+                            questionType: questionInformation.questionType,
+                            positiveMarks: questionInformation.positiveMarks,
+
+                            // Hardcode default values since they aren't in questionDetails
+                            negativeMarks: 0,
+                            isPartial: false,
+                        },
+                    })
+                );
             }
 
-            if (questionInformation.questionType === "MultiCorrect" || questionInformation.questionType === "ComprehensionMultiCorrect") {
-                multiChoice += 1;
-            }
+            // 4. Execute all queries in a single transaction
+            await this.db.$transaction(transactions);
 
-            if (
-                questionInformation.questionType === "SingleCorrect" || 
-                questionInformation.questionType === "ComprehensionSingleCorrect"
-            ) {
-                singleChoice += 1;
-            }
-
-         
-            if(questionInformation.questionType)
-            await this.db.papers.update({
-                where: {
-                    id: questionInformation.paperId,
-                },
-                data: {
-                    totalQuestions: (paperInformation.totalQuestions || 0) + 1,
-                    totalMarks: marks,
-                    totalSingleChoice: singleChoice,
-                    totalMultiChoice: multiChoice,
-                    totalInteger: integer,
-                },
-            });
         } catch (err) {
+            throw err;
+        }
+    }
+
+
+
+    async paperMarkingScheme(paperId: string) {
+        try {
+            const paperScheme = await this.db.paperMarkingScheme.findMany({
+                where: {
+                    paperId: paperId
+                }
+            })
+
+
+            return paperScheme;
+        }
+        catch (err: any) {
             throw err;
         }
     }

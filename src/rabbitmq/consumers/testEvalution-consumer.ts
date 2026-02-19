@@ -1,3 +1,4 @@
+
 import { Channel, ConsumeMessage } from "amqplib";
 import { testStatus } from "../../repositories/testStatus.db"; // Make sure this path points to your TestStatus class instance
 import { studentTestAnalytics } from "../producers/studentTestAnalytics-producer";
@@ -41,7 +42,8 @@ export class UpdateFinalEvaluationConsumer {
 
                     // --- ACTUAL WORKER LOGIC ---
                     await testStatus.updatingTestDetails(data);
-                    await testStatus.submitTest(data.testId) ; 
+
+                    // await testStatus.submitTest(data.testId) ; 
                     await studentTestAnalytics.updateData(data.testId) ; 
                     // ---------------------------
 

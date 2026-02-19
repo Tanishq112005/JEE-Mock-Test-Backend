@@ -44,6 +44,7 @@
     "@types/nodemailer": "^7.0.4",
     "@types/sharp": "^0.31.1",
     "@types/turndown": "^5.0.6",
+    "@upstash/redis": "^1.36.2",
     "amqplib": "^0.10.9",
     "axios": "^1.13.2",
     "backblaze-b2": "^1.7.1",

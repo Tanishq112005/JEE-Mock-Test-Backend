@@ -486,7 +486,38 @@ class Question {
       throw error;
     }
   }
-  
+
+
+
+
+
+  async gettingQuestionsInformation(paperId : string){
+      try {
+       
+         const paperDetails = await this.db.questions.findMany({
+          where : {
+            paperId : paperId 
+          }
+           , 
+           include: {
+            subjects : true ,
+            chapters: true,
+            papers : {
+              include : {
+                exam : true
+              }
+            }
+           }
+         })
+
+
+         return paperDetails ; 
+
+      }
+      catch(err : any){
+
+      }
+  }
 
 
 
@@ -525,7 +556,47 @@ class Question {
       throw err ; 
     }
   }
+   
 
+
+
+  async questionStatus (questionId : string , userId : string){
+     try {
+         const testAttemptQuestion = await this.db.testQuestionAttemptStatus.findMany({
+          where : {
+            studentId : userId , 
+            questionId : questionId , 
+            isAnalyzed : true 
+          } ,
+          orderBy : {
+            updated_at : 'desc'
+          }
+         })
+        
+
+         const chapterWiseQuestion = await this.db.chapterWiseQuestionAttemptStatus.findMany({
+          where : {
+            studentId : userId ,
+            questionId : questionId , 
+            isAnalyzed : true
+          } ,
+          orderBy : {
+            created_at : 'desc' 
+          }
+         })
+
+        
+         return {
+          testData : testAttemptQuestion , 
+          chapterData : chapterWiseQuestion 
+         }
+
+
+     }
+     catch(err : any){
+      throw err ; 
+     }
+  }
 
 }
 

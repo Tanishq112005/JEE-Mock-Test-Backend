@@ -1,5 +1,5 @@
 import { Channel, ConsumeMessage } from "amqplib";
-import { analytics } from "../../repositories/analytics.db";
+
 
 
 export class StudentTestAnanlyticsConsumer {
@@ -39,7 +39,7 @@ export class StudentTestAnanlyticsConsumer {
                     console.log(`📥 Processing Student Test Analytics Update for User: ${data.userId}`);
 
                     // --- ACTUAL WORKER LOGIC ---
-                    await analytics.processTestSubmission(data) ; 
+                     // await analytics.processTestSubmission(data) ; 
                     // ---------------------------
 
                     channel.ack(msg);
