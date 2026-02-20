@@ -42,7 +42,9 @@ class ExamController {
     givingExamName = async (req, res) => {
         try {
             const exmaList = await exam_db_1.exam.gettingExam();
-            res.status(200).json(new ApiResponse_1.default("All Exams Present in db are :", exmaList));
+            res
+                .status(200)
+                .json(new ApiResponse_1.default("All Exams Present in db are :", exmaList));
         }
         catch (err) {
             res.status(500).json(new ApiError_1.default("Error in getting the exam", err));

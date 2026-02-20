@@ -29,11 +29,10 @@ class UpdateFinalEvaluationConsumer {
                     return;
                 try {
                     const data = JSON.parse(msg.content.toString());
-                    console.log(`📥 Processing Test Update for User: ${data.userId}`);
+                    console.log(`📥 Processing Test Update for User: ${data.studentId}`);
                     // --- ACTUAL WORKER LOGIC ---
                     await testStatus_db_1.testStatus.updatingTestDetails(data);
-                    // await testStatus.submitTest(data.testId) ; 
-                    await studentTestAnalytics_producer_1.studentTestAnalytics.updateData(data.testId);
+                    await studentTestAnalytics_producer_1.studentTestAnalytics.updateData(data);
                     // ---------------------------
                     channel.ack(msg);
                     console.log("✅ Test Is  Evaluated SuccessFully");

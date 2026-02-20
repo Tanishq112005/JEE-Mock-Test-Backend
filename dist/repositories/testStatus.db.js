@@ -151,14 +151,13 @@ class TestStatus {
     }
     async gettingAllTestDetails(userId, paperId) {
         return await this.db.testStatus.findMany({
-            where: { paperId: paperId,
-                studentId: userId },
+            where: {
+                paperId: paperId,
+                studentId: userId
+            },
             orderBy: { created_at: 'desc' }
         });
     }
-    // =================================================================
-    // 3. UPDATING TEST DETAILS
-    // =================================================================
     // =================================================================
     // 3. UPDATING TEST DETAILS
     // =================================================================
@@ -175,14 +174,16 @@ class TestStatus {
             }
             // Extract studentId from the verified test session
             const studentId = existingTest.studentId;
-            // 🛑 2. THE CRITICAL FIX: FILTERING
-            const activeQuestions = updateDetails.questionStatus.filter((q) => q.questionId === updateDetails.activeQuestionId ||
-                q.isVisited === true ||
-                q.status === 'answered' ||
-                q.status === 'markedForReview');
+            let activeQuestions = [];
+            if (updateDetails.questionStatus && updateDetails.questionStatus.length > 0) {
+                activeQuestions = updateDetails.questionStatus.filter((q) => q.questionId === updateDetails.activeQuestionId ||
+                    q.isVisited === true ||
+                    q.status === 'answered' ||
+                    q.status === 'markedForReview');
+            }
             // 3. TRANSACTION
             const result = await this.db.$transaction(async (tx) => {
-                // A. Update Parent
+                // A. Update Parent (This now runs even if activeQuestions is empty)
                 const updateParent = await tx.testStatus.update({
                     where: { id: testId },
                     data: {

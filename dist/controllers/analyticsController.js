@@ -1,0 +1,60 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.analyticsController = void 0;
+const caching_1 = require("../lib/caching");
+const analytics_db_1 = require("../repositories/analytics.db");
+const reportService_1 = require("../services/reportService");
+const ApiError_1 = __importDefault(require("../utils/ApiError"));
+const ApiResponse_1 = __importDefault(require("../utils/ApiResponse"));
+class AnalyticsController {
+    constructor() { }
+    testAnalytics = async (req, res) => {
+        try {
+            const { testId, created_at } = req.query;
+            const studentId = req.user;
+            if (!testId || !created_at) {
+                return res.status(400).json(new ApiError_1.default("testId and created_at are required"));
+            }
+            // ── Check Redis first ────────────────────────────────────
+            const testData = await caching_1.reddisConfigForCaching.gettingData(`${studentId}:${testId}:${created_at}`);
+            if (testData) {
+                return res.status(200).json(new ApiResponse_1.default("Test data from cache", testData));
+            }
+            // ── Fallback to DB ───────────────────────────────────────
+            const data = await analytics_db_1.analytics.getFullTestSummaryReport(testId, studentId);
+            if (!data) {
+                return res.status(404).json(new ApiError_1.default("Test report not found"));
+            }
+            return res.status(200).json(new ApiResponse_1.default("Test data from DB", data));
+        }
+        catch (err) {
+            return res.status(500).json(new ApiError_1.default("Error in getting the test", err));
+        }
+    };
+    // ── GET /analytics/dashboard ─────────────────────────────────────
+    analyticsData = async (req, res) => {
+        try {
+            const studentId = req.user; // ✅ not req.users
+            const finalDashboard = await reportService_1.reportService.fullDashboard(studentId);
+            return res.status(200).json(new ApiResponse_1.default("Full analytics", finalDashboard));
+        }
+        catch (err) {
+            return res.status(500).json(new ApiError_1.default("Error in getting analytics", err));
+        }
+    };
+    // ── GET /analytics/snapshot ──────────────────────────────────────
+    studentReport = async (req, res) => {
+        try {
+            const studentId = req.user; // ✅ not req.users
+            const studentReport = await reportService_1.reportService.studentSnapshot(studentId);
+            return res.status(200).json(new ApiResponse_1.default("Student report generated", studentReport));
+        }
+        catch (err) {
+            return res.status(500).json(new ApiError_1.default("Error in generating the report", err));
+        }
+    };
+}
+exports.analyticsController = new AnalyticsController();

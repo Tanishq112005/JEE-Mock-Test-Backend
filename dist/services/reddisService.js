@@ -2,31 +2,25 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.reddisService = void 0;
 const caching_1 = require("../lib/caching");
-const testEvaluationService_1 = require("./testEvaluationService");
-const uniqueCountService_1 = require("./uniqueCountService");
 class ReddisService {
-    constructor() {
-    }
+    constructor() { }
     async reddisTestData(studentId) {
         try {
-            // collecting the data of the user for the questions 
             const usersTestData = await caching_1.reddisConfigForCaching.gettingData(`${studentId}:testUpperLayer`);
-            // now getting the user data 
-            let userTestReddis = [];
-            if (usersTestData) {
-                for (let i = 0; i < usersTestData.testId.length; i++) {
-                    const testId = usersTestData.testId[i];
-                    const testData = await caching_1.reddisConfigForCaching.gettingData(`${studentId}:${testId}`);
-                    const finalTestResult = await testEvaluationService_1.testEvaluation.evaluation(testData, studentId);
-                    userTestReddis.push({
-                        testId: testId,
-                        created_at: testData.created_at,
-                        finalTestResult
-                    });
-                }
+            if (!usersTestData || !usersTestData.testId?.length) {
+                return { testData: [] };
             }
+            // ── Fetch all in parallel instead of sequential loop ─────
+            const userTestReddis = await Promise.all(usersTestData.testId.map(async (entry) => {
+                const testData = await caching_1.reddisConfigForCaching.gettingData(`${studentId}:${entry.id}:${entry.created_at}`);
+                return {
+                    testId: entry.id,
+                    created_at: entry.created_at,
+                    testData,
+                };
+            }));
             return {
-                testData: userTestReddis
+                testData: userTestReddis.filter((t) => t.testData != null),
             };
         }
         catch (err) {
@@ -34,20 +28,23 @@ class ReddisService {
             throw err;
         }
     }
-    async reddisChapterWiseData(studentId) {
+    async reddisPraticeWiseData(studentId) {
         try {
-            const usersChapterWiseData = await caching_1.reddisConfigForCaching.gettingData(`${studentId}:chapterUpperLayer`);
-            let userChapterWiseReddis = [];
-            if (usersChapterWiseData) {
-                for (let i = 0; i < usersChapterWiseData.questionId.length; i++) {
-                    const questionId = usersChapterWiseData.questionId[i];
-                    await uniqueCountService_1.questionBitmapRegistry.markAttempted(studentId, questionId);
-                    const questionDetails = await caching_1.reddisConfigForCaching.gettingData(`${studentId}:${questionId}`);
-                    userChapterWiseReddis.push(questionDetails);
-                }
+            const userPraticeWiseData = await caching_1.reddisConfigForCaching.gettingData(`${studentId}:praticeUpperLayer`);
+            if (!userPraticeWiseData || !userPraticeWiseData.praticeStatus?.length) {
+                return { praticeWiseData: [] };
             }
+            // ── Fetch all in parallel instead of sequential loop ─────
+            const userPraticeWiseReddis = await Promise.all(userPraticeWiseData.praticeStatus.map(async (entry) => {
+                const questionData = await caching_1.reddisConfigForCaching.gettingData(`${studentId}:${entry.questionId}:${entry.created_at}`);
+                return {
+                    questionId: entry.questionId,
+                    created_at: entry.created_at,
+                    questionData,
+                };
+            }));
             return {
-                chapterWiseData: userChapterWiseReddis
+                praticeWiseData: userPraticeWiseReddis.filter((q) => q.questionData != null),
             };
         }
         catch (err) {

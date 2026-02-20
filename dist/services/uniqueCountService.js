@@ -1,9 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.questionBitmapRegistry = void 0;
-const client_1 = require("@prisma/client");
 const redis_1 = require("../lib/redis");
-const prisma = new client_1.PrismaClient();
+const database_1 = require("../lib/database");
 // ─── Registry ─────────────────────────────────────────────────────────────────
 /**
  * QuestionBitmapRegistry
@@ -28,8 +27,10 @@ class QuestionBitmapRegistry {
     // Redis keys
     COUNTER_KEY = "questionBitmap:counter"; // current max index
     MAP_HASH_KEY = "questionBitmap:indexMap"; // questionId -> index
-    constructor(redisClient) {
+    db;
+    constructor(redisClient, database) {
         this.redis = redisClient;
+        this.db = database;
     }
     // ── INITIALISATION ──────────────────────────────────────────────────────────
     /**
@@ -44,7 +45,7 @@ class QuestionBitmapRegistry {
             return;
         console.log("[QuestionBitmapRegistry] Loading question index...");
         // 1. Pull all existing questionIds ordered stably
-        const questions = await prisma.questions.findMany({
+        const questions = await this.db.questions.findMany({
             select: { id: true },
             orderBy: { id: "asc" }, // ascending UUID = deterministic order
         });
@@ -241,12 +242,12 @@ class QuestionBitmapRegistry {
     async syncFromDB(studentId) {
         this.ensureLoaded();
         const [testAttempts, chapterAttempts] = await Promise.all([
-            prisma.testQuestionAttemptStatus.findMany({
+            this.db.testQuestionAttemptStatus.findMany({
                 where: { studentId },
                 select: { questionId: true },
                 distinct: ["questionId"],
             }),
-            prisma.chapterWiseQuestionAttemptStatus.findMany({
+            this.db.chapterWiseQuestionAttemptStatus.findMany({
                 where: { studentId },
                 select: { questionId: true },
                 distinct: ["questionId"],
@@ -303,11 +304,11 @@ class QuestionBitmapRegistry {
      */
     async coldStartCheck(studentId, questionId) {
         const [testAttempt, chapterAttempt] = await Promise.all([
-            prisma.testQuestionAttemptStatus.findFirst({
+            this.db.testQuestionAttemptStatus.findFirst({
                 where: { studentId, questionId },
                 select: { id: true },
             }),
-            prisma.chapterWiseQuestionAttemptStatus.findFirst({
+            this.db.chapterWiseQuestionAttemptStatus.findFirst({
                 where: { studentId, questionId },
                 select: { id: true },
             }),
@@ -325,4 +326,4 @@ class QuestionBitmapRegistry {
 }
 // ─── Singleton Export ─────────────────────────────────────────────────────────
 // Instantiate once, share across your app
-exports.questionBitmapRegistry = new QuestionBitmapRegistry(redis_1.redisClient);
+exports.questionBitmapRegistry = new QuestionBitmapRegistry(redis_1.redisClient, database_1.database);

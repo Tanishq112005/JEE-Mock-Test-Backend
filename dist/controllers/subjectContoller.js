@@ -50,6 +50,7 @@ class SubjectController {
             res.status(200).json(new ApiResponse_1.default("All Subject List Is : ", subjectList));
         }
         catch (err) {
+            console.error(err);
             res.status(500).json(new ApiError_1.default("Error in giving the name of all subject from the database", err));
         }
     };

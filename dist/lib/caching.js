@@ -24,5 +24,13 @@ class ReddisConfigForCaching {
             throw err;
         }
     }
+    async deletingData(key) {
+        try {
+            await this.reddis.del(key);
+        }
+        catch (err) {
+            throw err;
+        }
+    }
 }
 exports.reddisConfigForCaching = new ReddisConfigForCaching();

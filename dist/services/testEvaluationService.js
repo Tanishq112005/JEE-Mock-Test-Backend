@@ -5,6 +5,7 @@ const question_db_1 = require("../repositories/question.db");
 const paper_db_1 = require("../repositories/paper.db");
 const answerVerifyService_1 = require("./answerVerifyService");
 const uniqueCountService_1 = require("./uniqueCountService");
+const analytics_db_1 = require("../repositories/analytics.db");
 class TestEvalution {
     constructor() { }
     async evaluation(lastStatus, studentId) {
@@ -173,6 +174,7 @@ class TestEvalution {
                         mathattemptCount++;
                         if (q.verdict === "correct") {
                             await uniqueCountService_1.questionBitmapRegistry.markAttempted(studentId, q.questionId);
+                            await analytics_db_1.analytics.updateStreak(studentId);
                             mathCorrectPositiveMarks += q.marks;
                             mathCorrect++;
                         }
@@ -189,6 +191,7 @@ class TestEvalution {
                         physicsattemptCount++;
                         if (q.verdict === "correct") {
                             await uniqueCountService_1.questionBitmapRegistry.markAttempted(studentId, q.questionId);
+                            await analytics_db_1.analytics.updateStreak(studentId);
                             physicsCorrectPositiveMarks += q.marks;
                             physicsCorrect++;
                         }
@@ -205,6 +208,7 @@ class TestEvalution {
                         chemistryattemptCount++;
                         if (q.verdict === "correct") {
                             await uniqueCountService_1.questionBitmapRegistry.markAttempted(studentId, q.questionId);
+                            await analytics_db_1.analytics.updateStreak(studentId);
                             chemistryCorrectPostiveMarks += q.marks;
                             chemistryCorrect++;
                         }

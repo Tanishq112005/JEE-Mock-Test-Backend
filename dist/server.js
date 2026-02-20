@@ -20,6 +20,8 @@ const testStatus_1 = require("./routes/testStatus");
 const rabbitmq_connection_1 = require("./rabbitmq/connection/rabbitmq-connection");
 const similarity_1 = require("./utils/similarity"); // 2. Hybrid Search Engine
 const email_1 = require("./routes/email");
+const analytics_1 = require("./routes/analytics");
+const uniqueCountService_1 = require("./services/uniqueCountService");
 const app = (0, express_1.default)();
 const port = env_1.PORT || 3000;
 // ==========================================
@@ -54,6 +56,7 @@ app.use('/api/paper', paper_1.paperRoutes);
 app.use('/api/question', question_1.questionRoutes);
 app.use('/api/testStatus', testStatus_1.testStatusRoutes);
 app.use('/api/email', email_1.emailRoutes);
+app.use('/api/analytics', analytics_1.analyticsRoutes);
 // --- SEARCH API (For Frontend Autocomplete) ---
 app.post("/api/search/chapter", async (req, res) => {
     try {
@@ -91,6 +94,7 @@ const startServer = async () => {
         // so the question upload service works instantly.
         console.log("🧠 Initializing Hybrid Search Engine...");
         await similarity_1.searchEngine.initialize();
+        await uniqueCountService_1.questionBitmapRegistry.load();
         // D. Start HTTP Server
         app.listen(port, () => {
             console.log(`🚀 API Server is running on port ${port}`);

@@ -35,12 +35,16 @@ class Subject {
         try {
             const allSubjectInDb = await this.db.subjects.findMany({
                 select: {
-                    name: true
+                    name: true,
+                    totalQuestion: true
                 }
             });
-            let subjectList = [];
+            const subjectList = {};
             for (let i = 0; i < allSubjectInDb.length; i++) {
-                subjectList.push(allSubjectInDb[i].name);
+                subjectList[allSubjectInDb[i].name] = {
+                    name: allSubjectInDb[i].name,
+                    totalQuestion: allSubjectInDb[i].totalQuestion,
+                };
             }
             return subjectList;
         }
