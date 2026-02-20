@@ -2,6 +2,8 @@
 import { Channel, ConsumeMessage } from "amqplib";
 import { testStatus } from "../../repositories/testStatus.db"; // Make sure this path points to your TestStatus class instance
 import { studentTestAnalytics } from "../producers/studentTestAnalytics-producer";
+import { analytics } from "../../repositories/analytics.db";
+
 
 
 export class UpdateFinalEvaluationConsumer {
@@ -38,13 +40,13 @@ export class UpdateFinalEvaluationConsumer {
                 try {
                     const data = JSON.parse(msg.content.toString());
                     
-                    console.log(`📥 Processing Test Update for User: ${data.userId}`);
+                    console.log(`📥 Processing Test Update for User: ${data.studentId}`);
 
                     // --- ACTUAL WORKER LOGIC ---
                     await testStatus.updatingTestDetails(data);
 
-                    // await testStatus.submitTest(data.testId) ; 
-                    await studentTestAnalytics.updateData(data.testId) ; 
+                  
+                    await studentTestAnalytics.updateData(data) ; 
                     // ---------------------------
 
                     channel.ack(msg);

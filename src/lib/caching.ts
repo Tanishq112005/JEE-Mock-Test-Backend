@@ -26,6 +26,14 @@ class ReddisConfigForCaching {
             throw err ; 
         }
     }
+
+     async deletingData(key: string): Promise<void> {
+        try {
+            await this.reddis.del(key);
+        } catch (err) {
+            throw err;
+        }
+    }
 }
 
 

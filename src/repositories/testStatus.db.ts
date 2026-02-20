@@ -32,11 +32,11 @@ class TestStatus {
             }
 
             const newTest = await this.startingNewTest(userId, paperId, new Date(), totalTime);
-            
-            return { 
-                testId: newTest.id, 
-                status: newTest.status, 
-                message: "New Test Started Successfully" 
+
+            return {
+                testId: newTest.id,
+                status: newTest.status,
+                message: "New Test Started Successfully"
             };
 
         } catch (err) {
@@ -71,7 +71,7 @@ class TestStatus {
             // 3. Fetch Raw Questions
             // Structure: { paperDetails, Physics: { MultiCorrect: [], ... }, Chemistry: { ... }, ... }
             const rawPaperData: any = await question.getRawQuestionsForPaper(currentTestStatus.paperId);
-            
+
             if (!rawPaperData) throw new Error("Paper data not found");
 
             // 4. Create Map for O(1) Access
@@ -108,9 +108,9 @@ class TestStatus {
                     const newData: any = {};
                     for (const key in data) {
                         if (key === 'paperDetails') {
-                             newData[key] = data[key]; // Skip processing paper details
+                            newData[key] = data[key]; // Skip processing paper details
                         } else {
-                             newData[key] = mergeAttemptsRecursive(data[key]);
+                            newData[key] = mergeAttemptsRecursive(data[key]);
                         }
                     }
                     return newData;
@@ -157,7 +157,7 @@ class TestStatus {
     private async startingNewTest(userId: string, paperId: string, created_at: Date, time: number) {
         return await this.db.testStatus.create({
             data: {
-                studentId : userId,
+                studentId: userId,
                 paperId,
                 status: TestState.IN_PROGRESS,
                 created_at,
@@ -176,16 +176,16 @@ class TestStatus {
 
     async gettingAllTestDetails(userId: string, paperId: string) {
         return await this.db.testStatus.findMany({
-            where: { paperId : paperId, 
-                studentId : userId },
+            where: {
+                paperId: paperId,
+                studentId: userId
+            },
             orderBy: { created_at: 'desc' }
         });
     }
 
+
     // =================================================================
-    // 3. UPDATING TEST DETAILS
-    // =================================================================
-   // =================================================================
     // 3. UPDATING TEST DETAILS
     // =================================================================
     async updatingTestDetails(updateDetails: updatingDetails) {
@@ -199,24 +199,28 @@ class TestStatus {
 
             if (!existingTest) {
                 console.warn(`⚠️ Skipped: TestID ${testId} not found.`);
-                return null; 
+                return null;
             }
 
             // Extract studentId from the verified test session
-            const studentId = existingTest.studentId; 
+            const studentId = existingTest.studentId;
 
-            // 🛑 2. THE CRITICAL FIX: FILTERING
-            const activeQuestions = updateDetails.questionStatus.filter((q: any) => 
-                q.questionId === updateDetails.activeQuestionId || 
-                q.isVisited === true ||                            
-                q.status === 'answered' ||                         
-                q.status === 'markedForReview'                     
-            );
+          
+            let activeQuestions: any[] = [];
+
+            if (updateDetails.questionStatus && updateDetails.questionStatus.length > 0) {
+                activeQuestions = updateDetails.questionStatus.filter((q: any) =>
+                    q.questionId === updateDetails.activeQuestionId ||
+                    q.isVisited === true ||
+                    q.status === 'answered' ||
+                    q.status === 'markedForReview'
+                );
+            }
 
             // 3. TRANSACTION
             const result = await this.db.$transaction(async (tx) => {
-                
-                // A. Update Parent
+
+                // A. Update Parent (This now runs even if activeQuestions is empty)
                 const updateParent = await tx.testStatus.update({
                     where: { id: testId },
                     data: {
@@ -227,7 +231,6 @@ class TestStatus {
                         status: updateDetails.state
                     }
                 });
-
                 // B. Upsert ONLY Active Questions
                 const questionPromises = activeQuestions.map((q: any) => {
                     let formattedAnswer: string[] = [];
@@ -240,7 +243,7 @@ class TestStatus {
                         formattedAnswer = q.selectedOptionIds.map(String);
                     }
                     else if (q.userAnswer !== null && q.userAnswer !== undefined) {
-                         if (Array.isArray(q.userAnswer)) {
+                        if (Array.isArray(q.userAnswer)) {
                             formattedAnswer = q.userAnswer.map(String);
                         } else {
                             formattedAnswer = [String(q.userAnswer)];
@@ -275,12 +278,12 @@ class TestStatus {
                 });
 
                 await Promise.all(questionPromises);
-                
+
                 return updateParent;
 
             }, {
-                maxWait: 5000, 
-                timeout: 20000 
+                maxWait: 5000,
+                timeout: 20000
             });
 
             console.log(`✅ Success! Updated ${activeQuestions.length} questions.`);
@@ -293,9 +296,9 @@ class TestStatus {
     }
 
 
-    async gettingTestDetails(testStatusId : string){
+    async gettingTestDetails(testStatusId: string) {
         try {
-          const testContext = await this.db.testStatus.findUnique({
+            const testContext = await this.db.testStatus.findUnique({
                 where: { id: testStatusId },
                 include: {
                     testQuestionStatus: {
@@ -306,20 +309,20 @@ class TestStatus {
                     papers: {
                         include: {
                             markingSchemes: true // Contains Partial Marking Rules
-                        } 
+                        }
                     }
                 }
             });
 
-            return testContext ; 
+            return testContext;
         }
-        catch(err : any){
-            throw err ; 
+        catch (err: any) {
+            throw err;
         }
 
-        
+
     }
-    
+
 
 
     // =================================================================

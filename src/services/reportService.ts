@@ -1,8 +1,16 @@
+import { PrismaClient } from "@prisma/client";
+import { database } from "../lib/database";
 import { analytics } from "../repositories/analytics.db";
+import { subject } from "../repositories/subject.db";
 import { reddisService } from "./reddisService";
+import { questionBitmapRegistry } from "./uniqueCountService";
 
 class ReportService {
-    constructor() { }
+    private db: PrismaClient;
+
+    constructor(database: PrismaClient) {
+        this.db = database;
+    }
 
     // ==========================================
     // HELPERS
@@ -27,17 +35,18 @@ class ReportService {
             const reddisTestData = await reddisService.reddisTestData(studentId);
             const testWiseData   = await analytics.testWiseData(studentId);
 
+            // ✅ Fix 3 — was item.finalTestResult, correct field is item.testData
             const reddisArray = reddisTestData.testData.map((item: any) => ({
                 id:               item.testId,
-                exam:             item.finalTestResult.exam,
+                exam:             item.testData.exam,
                 created_at:       new Date(item.created_at),
                 source:           'reddis',
-                math:             item.finalTestResult.math,
-                physics:          item.finalTestResult.physics,
-                chemistry:        item.finalTestResult.chemistry,
-                overAllAnalytics: item.finalTestResult.overall,
-                questionWise:     item.finalTestResult.questionTypes,
-                chapterWise:      item.finalTestResult.chapterWise ?? [],
+                math:             item.testData.math,
+                physics:          item.testData.physics,
+                chemistry:        item.testData.chemistry,
+                overAllAnalytics: item.testData.overall,
+                questionWise:     item.testData.questionTypes,
+                chapterWise:      item.testData.chapterWise ?? [],
             }));
 
             const testWiseArray = testWiseData.map((item: any) => ({
@@ -46,15 +55,15 @@ class ReportService {
                 source:           'testWise',
                 exam:             item.exam,
                 paperMeta: {
-                    year:           item.testStatus?.papers?.year           ?? null,
-                    month:          item.testStatus?.papers?.month          ?? null,
-                    day:            item.testStatus?.papers?.day            ?? null,
-                    date:           item.testStatus?.papers?.date           ?? null,
-                    shift:          item.testStatus?.papers?.shift          ?? null,
-                    mode:           item.testStatus?.papers?.mode           ?? null,
-                    totalMarks:     item.testStatus?.papers?.totalMarks     ?? null,
-                    totalDuration:  item.testStatus?.papers?.totalDuration  ?? null,
-                    totalQuestions: item.testStatus?.papers?.totalQuestions ?? null,
+                    year:           item.paperMeta?.year           ?? null,
+                    month:          item.paperMeta?.month          ?? null,
+                    day:            item.paperMeta?.day            ?? null,
+                    date:           item.paperMeta?.date           ?? null,
+                    shift:          item.paperMeta?.shift          ?? null,
+                    mode:           item.paperMeta?.mode           ?? null,
+                    totalMarks:     item.paperMeta?.totalMarks     ?? null,
+                    totalDuration:  item.paperMeta?.totalDuration  ?? null,
+                    totalQuestions: item.paperMeta?.totalQuestions ?? null,
                 },
                 math:             item.math,
                 physics:          item.physics,
@@ -203,7 +212,6 @@ class ReportService {
 
     // ==========================================
     // CHAPTER ANALYTICS BUILDER
-    // DB cumulative (ChapterAnalytics) + Redis only
     // ==========================================
 
     private buildChapterAnalytics(
@@ -214,13 +222,11 @@ class ReportService {
         const calcAcc = (earned: number, max: number) =>
             max > 0 ? parseFloat(((earned / max) * 100).toFixed(2)) : 0;
 
-        // ── Step 1: Build map from DB cumulative ChapterAnalytics ──
         const chapterMap: Record<string, any> = {};
 
         for (const ch of dbChapterAnalytics) {
             chapterMap[ch.chapterId] = {
                 chapterId: ch.chapterId,
-
                 practiceJeeMain: {
                     attempts:    ch.practiceJeeMainAttempts,
                     timeSpent:   ch.practiceJeeMainTimeSpent,
@@ -261,19 +267,16 @@ class ReportService {
                     partial:     ch.testJeeAdvancedPartial,
                     accuracy:    calcAcc(ch.testJeeAdvancedMarksEarned, ch.testJeeAdvancedMaxPossible),
                 },
-
                 redisContribution: null,
             };
         }
 
-        // ── Step 2: Merge Redis chapter data on top ──
         for (const rCh of reddisChapterWise) {
             if (examFilter && rCh.examName !== examFilter) continue;
 
             const isJeeMain     = rCh.examName === 'JEE_MAIN';
             const isJeeAdvanced = rCh.examName === 'JEE_ADVANCED';
 
-            // ✅ Chapter only exists in Redis — initialize it
             if (!chapterMap[rCh.chapterId]) {
                 chapterMap[rCh.chapterId] = {
                     chapterId:           rCh.chapterId,
@@ -286,15 +289,9 @@ class ReportService {
             }
 
             const ch      = chapterMap[rCh.chapterId];
-            const section = isJeeMain
-                ? ch.testJeeMain
-                : isJeeAdvanced
-                    ? ch.testJeeAdvanced
-                    : null;
-
+            const section = isJeeMain ? ch.testJeeMain : isJeeAdvanced ? ch.testJeeAdvanced : null;
             if (!section) continue;
 
-            // ✅ Add Redis on top of DB cumulative
             section.attempts    += rCh.attempt       ?? 0;
             section.timeSpent   += rCh.timeTaken     ?? 0;
             section.marksEarned += rCh.marks         ?? 0;
@@ -304,17 +301,10 @@ class ReportService {
             section.partial     += rCh.partial       ?? 0;
             section.accuracy     = calcAcc(section.marksEarned, section.maxPossible);
 
-            // ✅ Track Redis contribution separately
             if (!ch.redisContribution) {
                 ch.redisContribution = {
-                    examName:    rCh.examName,
-                    attempt:     0,
-                    correct:     0,
-                    wrong:       0,
-                    partial:     0,
-                    marks:       0,
-                    maxPossible: 0,
-                    timeTaken:   0,
+                    examName: rCh.examName, attempt: 0, correct: 0, wrong: 0,
+                    partial: 0, marks: 0, maxPossible: 0, timeTaken: 0,
                 };
             }
             ch.redisContribution.attempt     += rCh.attempt       ?? 0;
@@ -326,13 +316,10 @@ class ReportService {
             ch.redisContribution.timeTaken   += rCh.timeTaken     ?? 0;
         }
 
-        // ── Step 3: Filter by examFilter if provided ──
         let chapters = Object.values(chapterMap);
         if (examFilter) {
             chapters = chapters.filter((ch) => {
-                const section = examFilter === 'JEE_MAIN'
-                    ? ch.testJeeMain
-                    : ch.testJeeAdvanced;
+                const section = examFilter === 'JEE_MAIN' ? ch.testJeeMain : ch.testJeeAdvanced;
                 return section.attempts > 0 || section.marksEarned > 0;
             });
         }
@@ -444,18 +431,12 @@ class ReportService {
             const allTestData = await this.allTestResult(studentId);
             if (allTestData.length === 0) return null;
 
-            const [last3, last5, last10] = await Promise.all([
-                Promise.resolve(this.buildReport(allTestData, 3)),
-                Promise.resolve(this.buildReport(allTestData, 5)),
-                Promise.resolve(this.buildReport(allTestData, 10)),
-            ]);
+            // ✅ Fix 4 — buildReport is synchronous, no need for Promise.all + Promise.resolve
+            const last3  = this.buildReport(allTestData, 3);
+            const last5  = this.buildReport(allTestData, 5);
+            const last10 = this.buildReport(allTestData, 10);
 
-            return {
-                studentId,
-                last3,
-                last5,
-                last10,
-            };
+            return { studentId, last3, last5, last10 };
 
         } catch (err: any) {
             console.error(err);
@@ -465,25 +446,22 @@ class ReportService {
 
     // ==========================================
     // PUBLIC: chapterReport
-    // ChapterAnalytics (DB cumulative) + Redis only
     // ==========================================
 
     async chapterReport(studentId: string, examFilter?: 'JEE_MAIN' | 'JEE_ADVANCED') {
         try {
-            // ✅ Only 2 sources — parallel fetch
             const [dbChapterAnalytics, reddisData] = await Promise.all([
                 analytics.chapterWiseAnalytics(studentId),
                 reddisService.reddisTestData(studentId),
             ]);
 
-            // ✅ Flatten Redis chapter data from all unsynced tests
             const reddisChapterWise: any[] = [];
             for (const test of reddisData.testData ?? []) {
-                const chapterWise = test.finalTestResult?.chapterWise ?? [];
+                const chapterWise = test.testData?.chapterWise ?? [];
                 for (const ch of chapterWise) {
                     reddisChapterWise.push({
                         ...ch,
-                        examName:  test.finalTestResult?.exam,
+                        examName:  test.testData.exam,
                         testId:    test.testId,
                         createdAt: test.created_at,
                     });
@@ -508,6 +486,330 @@ class ReportService {
             throw err;
         }
     }
+
+    // ==========================================
+    // PUBLIC: fullDashboard
+    // ==========================================
+
+    async fullDashboard(studentId: string, lastNPerGroup: number = 10) {
+        try {
+            const allTestData = await this.allTestResult(studentId);
+
+            if (allTestData.length === 0) {
+                return {
+                    studentId,
+                    generatedAt: new Date(),
+                    report:     null,
+                    lastNTests: { last3: null, last5: null, last10: null },
+                    allTests:   [],
+                };
+            }
+
+            // ✅ Fix 4 — synchronous calls, no Promise.all needed
+            const report = this.buildReport(allTestData, lastNPerGroup);
+            const last3  = this.buildReport(allTestData, 3);
+            const last5  = this.buildReport(allTestData, 5);
+            const last10 = this.buildReport(allTestData, 10);
+
+            return {
+                studentId,
+                generatedAt: new Date(),
+                report,
+                lastNTests: { last3, last5, last10 },
+                allTests:   allTestData,
+            };
+
+        } catch (err: any) {
+            console.error(err);
+            throw err;
+        }
+    }
+
+    // ==========================================
+    // PUBLIC: practiceReport
+    // ==========================================
+
+    async practiceReport(studentId: string) {
+        try {
+            const [
+                overallAnalytics,
+                subjectAnalytics,
+                examAnalytics,
+                questionTypeAnalytics,
+                redisPracticeData,
+            ] = await Promise.all([
+                analytics.studentOverAllAnalytics(studentId),
+                analytics.subjectAnanlytics(studentId),
+                analytics.examWiseAnalytics(studentId),
+                analytics.questionWiseAnalytics(studentId),
+                reddisService.reddisPraticeWiseData(studentId),
+            ]);
+
+            const calcAcc = (earned: number, max: number) =>
+                max > 0 ? parseFloat(((earned / max) * 100).toFixed(2)) : 0;
+
+            // ✅ Fix 2 — unwrap questionData so all field accesses work directly
+            const redisQuestions: any[] = (redisPracticeData.praticeWiseData ?? [])
+                .filter((q: any) => q?.questionData != null)
+                .map((q: any) => q.questionData);
+
+            // ── Overall ──────────────────────────────────────────────
+            const overall = overallAnalytics;  // ✅ findUnique returns object directly
+
+            const redisOverall = redisQuestions.reduce(
+                (acc, q) => {
+                    acc.attempts    += 1;
+                    acc.timeSpent   += q.timeSpent     ?? 0;
+                    acc.marksEarned += q.marks         ?? 0;
+                    acc.maxPossible += q.positiveMarks ?? 0;
+                    return acc;
+                },
+                { attempts: 0, timeSpent: 0, marksEarned: 0, maxPossible: 0 },
+            );
+
+            const overallReport = {
+                totalAttempts:    (overall?.practiceAttempts    ?? 0) + redisOverall.attempts,
+                totalTimeSpent:   (overall?.practiceTimeSpent   ?? 0) + redisOverall.timeSpent,
+                totalMarksEarned: (overall?.practiceMarksEarned ?? 0) + redisOverall.marksEarned,
+                totalMaxPossible: (overall?.practiceMaxPossible ?? 0) + redisOverall.maxPossible,
+                accuracy: calcAcc(
+                    (overall?.practiceMarksEarned ?? 0) + redisOverall.marksEarned,
+                    (overall?.practiceMaxPossible ?? 0) + redisOverall.maxPossible,
+                ),
+                avgTimePerQuestion: (() => {
+                    const totalAttempts = (overall?.practiceAttempts ?? 0) + redisOverall.attempts;
+                    const totalTime     = (overall?.practiceTimeSpent ?? 0) + redisOverall.timeSpent;
+                    return totalAttempts > 0
+                        ? parseFloat((totalTime / totalAttempts).toFixed(2))
+                        : 0;
+                })(),
+            };
+
+            // ── Subject wise ─────────────────────────────────────────
+            const subjectMap: Record<string, any> = {};
+
+            for (const s of subjectAnalytics) {
+                subjectMap[(s as any).subjectId] = {
+                    subjectId:   (s as any).subjectId,
+                    attempts:    (s as any).practiceAttempts,
+                    timeSpent:   (s as any).practiceTimeSpent,
+                    marksEarned: (s as any).practiceMarksEarned,
+                    maxPossible: (s as any).practiceMaxPossible,
+                };
+            }
+
+            for (const q of redisQuestions) {
+                if (!q?.subjectId) continue;
+                if (!subjectMap[q.subjectId]) {
+                    subjectMap[q.subjectId] = {
+                        subjectId: q.subjectId, attempts: 0, timeSpent: 0, marksEarned: 0, maxPossible: 0,
+                    };
+                }
+                const s = subjectMap[q.subjectId];
+                s.attempts    += 1;
+                s.timeSpent   += q.timeSpent     ?? 0;
+                s.marksEarned += q.marks         ?? 0;
+                s.maxPossible += q.positiveMarks ?? 0;
+            }
+
+            const subjectReport = Object.values(subjectMap).map((s: any) => ({
+                subjectId:          s.subjectId,
+                attempts:           s.attempts,
+                timeSpent:          s.timeSpent,
+                marksEarned:        s.marksEarned,
+                maxPossible:        s.maxPossible,
+                accuracy:           calcAcc(s.marksEarned, s.maxPossible),
+                avgTimePerQuestion: s.attempts > 0
+                    ? parseFloat((s.timeSpent / s.attempts).toFixed(2))
+                    : 0,
+            }));
+
+            // ── Question type wise ───────────────────────────────────
+            const qtMap: Record<string, any> = {};
+
+            for (const qt of questionTypeAnalytics) {
+                qtMap[(qt as any).questioType] = {
+                    questionType: (qt as any).questioType,
+                    attempts:     (qt as any).practiceAttempts,
+                    timeSpent:    (qt as any).practiceTimeSpent,
+                    marksEarned:  (qt as any).practiceMarksEarned,
+                    maxPossible:  (qt as any).practiceMaxPossible,
+                };
+            }
+
+            for (const q of redisQuestions) {
+                if (!q?.type) continue;
+                if (!qtMap[q.type]) {
+                    qtMap[q.type] = {
+                        questionType: q.type, attempts: 0, timeSpent: 0, marksEarned: 0, maxPossible: 0,
+                    };
+                }
+                const qt = qtMap[q.type];
+                qt.attempts    += 1;
+                qt.timeSpent   += q.timeSpent     ?? 0;
+                qt.marksEarned += q.marks         ?? 0;
+                qt.maxPossible += q.positiveMarks ?? 0;
+            }
+
+            const questionTypeReport = Object.values(qtMap).map((qt: any) => ({
+                questionType:       qt.questionType,
+                attempts:           qt.attempts,
+                timeSpent:          qt.timeSpent,
+                marksEarned:        qt.marksEarned,
+                maxPossible:        qt.maxPossible,
+                accuracy:           calcAcc(qt.marksEarned, qt.maxPossible),
+                avgTimePerQuestion: qt.attempts > 0
+                    ? parseFloat((qt.timeSpent / qt.attempts).toFixed(2))
+                    : 0,
+            }));
+
+            // ── Exam wise ────────────────────────────────────────────
+            const examMap: Record<string, any> = {};
+
+            for (const e of examAnalytics) {
+                examMap[(e as any).examName] = {
+                    examName:    (e as any).examName,
+                    attempts:    (e as any).practiceAttempts,
+                    timeSpent:   (e as any).practiceTimeSpent,
+                    marksEarned: (e as any).practiceMarksEarned,
+                    maxPossible: (e as any).practiceMaxPossible,
+                };
+            }
+
+            for (const q of redisQuestions) {
+                if (!q?.examName) continue;
+                if (!examMap[q.examName]) {
+                    examMap[q.examName] = {
+                        examName: q.examName, attempts: 0, timeSpent: 0, marksEarned: 0, maxPossible: 0,
+                    };
+                }
+                const e = examMap[q.examName];
+                e.attempts    += 1;
+                e.timeSpent   += q.timeSpent     ?? 0;
+                e.marksEarned += q.marks         ?? 0;
+                e.maxPossible += q.positiveMarks ?? 0;
+            }
+
+            const examReport = Object.values(examMap).map((e: any) => ({
+                examName:           e.examName,
+                attempts:           e.attempts,
+                timeSpent:          e.timeSpent,
+                marksEarned:        e.marksEarned,
+                maxPossible:        e.maxPossible,
+                accuracy:           calcAcc(e.marksEarned, e.maxPossible),
+                avgTimePerQuestion: e.attempts > 0
+                    ? parseFloat((e.timeSpent / e.attempts).toFixed(2))
+                    : 0,
+            }));
+
+            return {
+                studentId,
+                generatedAt:   new Date(),
+                overall:       overallReport,
+                subjects:      subjectReport,
+                questionTypes: questionTypeReport,
+                exams:         examReport,
+            };
+
+        } catch (err: any) {
+            console.error(err);
+            throw err;
+        }
+    }
+
+    // ==========================================
+    // PUBLIC: studentSnapshot
+    // ==========================================
+
+    async studentSnapshot(studentId: string) {
+        try {
+            const [
+                allTestData,
+                practiceData,
+                attemptedQuestions,
+                subjectTotals,
+            ] = await Promise.all([
+                this.allTestResult(studentId),
+                this.practiceReport(studentId),
+                questionBitmapRegistry.getAttemptedQuestionIds(studentId),
+                subject.readingAllSubjects(),
+            ]);
+
+            const calcAcc = (earned: number, max: number) =>
+                max > 0 ? parseFloat(((earned / max) * 100).toFixed(2)) : 0;
+
+            // ── Subject wise unique count ─────────────────────────────
+            const subjectWiseUnique: Record<string, any> = {
+                Mathematics: { uniqueAttempted: 0, totalQuestions: subjectTotals['Mathematics']?.totalQuestion ?? 0 },
+                Physics:     { uniqueAttempted: 0, totalQuestions: subjectTotals['Physics']?.totalQuestion     ?? 0 },
+                Chemistry:   { uniqueAttempted: 0, totalQuestions: subjectTotals['Chemistry']?.totalQuestion   ?? 0 },
+            };
+
+            if (attemptedQuestions.questionIds.length > 0) {
+                const questionSubjects = await this.db.questions.findMany({
+                    where:  { id: { in: attemptedQuestions.questionIds } },
+                    select: { subjects: { select: { name: true } } },
+                });
+
+                for (const q of questionSubjects) {
+                    const name = q.subjects.name;
+                    if (subjectWiseUnique[name] !== undefined) {
+                        subjectWiseUnique[name].uniqueAttempted++;
+                    }
+                }
+            }
+
+            // ── Last 5 tests ──────────────────────────────────────────
+            const last5Tests = allTestData.slice(0, 5).map((t: any) => ({
+                testId:    t.id,
+                examName:  t.exam,
+                source:    t.source,
+                createdAt: t.created_at,
+                marks:     t.overAllAnalytics?.marks    ?? t.overAllAnalytics?.totalScore ?? 0,
+                maxMarks:  t.overAllAnalytics?.maxMarks ?? t.overAllAnalytics?.maxScore   ?? 0,
+                accuracy:  calcAcc(
+                    t.overAllAnalytics?.marks    ?? t.overAllAnalytics?.totalScore ?? 0,
+                    t.overAllAnalytics?.maxMarks ?? t.overAllAnalytics?.maxScore   ?? 0,
+                ),
+                timeTaken: t.overAllAnalytics?.timeTaken ?? 0,
+                subjects: {
+                    math:      t.math ? {
+                        marks:    t.math.marks   ?? 0,
+                        correct:  t.math.correct ?? 0,
+                        wrong:    t.math.wrong   ?? 0,
+                        accuracy: calcAcc(t.math.marks ?? 0, t.math.totalQuestions ?? 0),
+                    } : null,
+                    physics:   t.physics ? {
+                        marks:    t.physics.marks   ?? 0,
+                        correct:  t.physics.correct ?? 0,
+                        wrong:    t.physics.wrong   ?? 0,
+                        accuracy: calcAcc(t.physics.marks ?? 0, t.physics.totalQuestions ?? 0),
+                    } : null,
+                    chemistry: t.chemistry ? {
+                        marks:    t.chemistry.marks   ?? 0,
+                        correct:  t.chemistry.correct ?? 0,
+                        wrong:    t.chemistry.wrong   ?? 0,
+                        accuracy: calcAcc(t.chemistry.marks ?? 0, t.chemistry.totalQuestions ?? 0),
+                    } : null,
+                },
+            }));
+
+            return {
+                studentId,
+                generatedAt: new Date(),
+                last5Tests,
+                practice: practiceData,
+                uniqueQuestionsAttempted: {
+                    total:       attemptedQuestions.totalUnique,
+                    subjectWise: subjectWiseUnique,
+                },
+            };
+
+        } catch (err: any) {
+            console.error(err);
+            throw err;
+        }
+    }
 }
 
-export const reportService = new ReportService();
+export const reportService = new ReportService(database);

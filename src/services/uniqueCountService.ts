@@ -1,8 +1,10 @@
-import { PrismaClient } from "@prisma/client";
+
 import { createClient, RedisClientType } from "redis";
 import { redisClient } from "../lib/redis";
+import { database } from "../lib/database";
+import { PrismaClient } from "@prisma/client";
 
-const prisma = new PrismaClient();
+
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -44,9 +46,10 @@ class QuestionBitmapRegistry {
   // Redis keys
   private readonly COUNTER_KEY = "questionBitmap:counter"; // current max index
   private readonly MAP_HASH_KEY = "questionBitmap:indexMap"; // questionId -> index
-
-  constructor(redisClient: RedisClientType) {
+  private db : PrismaClient ;
+  constructor(redisClient: RedisClientType , database : PrismaClient) {
     this.redis = redisClient;
+    this.db = database ;
   }
 
   // ── INITIALISATION ──────────────────────────────────────────────────────────
@@ -64,7 +67,7 @@ class QuestionBitmapRegistry {
     console.log("[QuestionBitmapRegistry] Loading question index...");
 
     // 1. Pull all existing questionIds ordered stably
-    const questions = await prisma.questions.findMany({
+    const questions = await this.db.questions.findMany({
       select: { id: true },
       orderBy: { id: "asc" }, // ascending UUID = deterministic order
     });
@@ -326,12 +329,12 @@ class QuestionBitmapRegistry {
     this.ensureLoaded();
 
     const [testAttempts, chapterAttempts] = await Promise.all([
-      prisma.testQuestionAttemptStatus.findMany({
+      this.db.testQuestionAttemptStatus.findMany({
         where: { studentId },
         select: { questionId: true },
         distinct: ["questionId"],
       }),
-      prisma.chapterWiseQuestionAttemptStatus.findMany({
+      this.db.chapterWiseQuestionAttemptStatus.findMany({
         where: { studentId },
         select: { questionId: true },
         distinct: ["questionId"],
@@ -409,11 +412,11 @@ class QuestionBitmapRegistry {
     questionId: string
   ): Promise<boolean> {
     const [testAttempt, chapterAttempt] = await Promise.all([
-      prisma.testQuestionAttemptStatus.findFirst({
+      this.db.testQuestionAttemptStatus.findFirst({
         where: { studentId, questionId },
         select: { id: true },
       }),
-      prisma.chapterWiseQuestionAttemptStatus.findFirst({
+      this.db.chapterWiseQuestionAttemptStatus.findFirst({
         where: { studentId, questionId },
         select: { id: true },
       }),
@@ -436,4 +439,4 @@ class QuestionBitmapRegistry {
 // ─── Singleton Export ─────────────────────────────────────────────────────────
 // Instantiate once, share across your app
 
-export const questionBitmapRegistry = new QuestionBitmapRegistry(redisClient) ; 
+export const questionBitmapRegistry = new QuestionBitmapRegistry(redisClient , database) ; 

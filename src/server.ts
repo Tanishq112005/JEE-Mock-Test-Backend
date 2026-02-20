@@ -19,6 +19,8 @@ import { rabbitMQClient } from "./rabbitmq/connection/rabbitmq-connection";
 import { searchEngine } from "./utils/similarity";            // 2. Hybrid Search Engine
 import { seedDatabase } from "./scripts/seedChapter";
 import { emailRoutes } from "./routes/email";
+import { analyticsRoutes } from "./routes/analytics";
+import { questionBitmapRegistry } from "./services/uniqueCountService";
 
 const app = express();
 const port = PORT || 3000;
@@ -58,6 +60,7 @@ app.use('/api/paper', paperRoutes);
 app.use('/api/question', questionRoutes);
 app.use('/api/testStatus', testStatusRoutes);
 app.use('/api/email' , emailRoutes);
+app.use('/api/analytics' , analyticsRoutes) ; 
 
 
 // --- SEARCH API (For Frontend Autocomplete) ---
@@ -100,7 +103,7 @@ const startServer = async () => {
         // so the question upload service works instantly.
         console.log("🧠 Initializing Hybrid Search Engine...");
         await searchEngine.initialize(); 
-       
+          await questionBitmapRegistry.load();
         
 
         // D. Start HTTP Server

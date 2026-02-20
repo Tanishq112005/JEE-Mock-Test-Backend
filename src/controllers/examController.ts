@@ -38,17 +38,16 @@ class ExamController {
   };
 
   // getting all the exam
-  public givingExamName = async(req : Request , res : Response) => {
+  public givingExamName = async (req: Request, res: Response) => {
     try {
-        const exmaList : string[] = await exam.gettingExam() ; 
-        res.status(200).json(new ApiResponse("All Exams Present in db are :" , exmaList));
+      const exmaList: string[] = await exam.gettingExam();
+      res
+        .status(200)
+        .json(new ApiResponse("All Exams Present in db are :", exmaList));
+    } catch (err: any) {
+      res.status(500).json(new ApiError("Error in getting the exam", err));
     }
-    catch(err : any){
-        res.status(500).json(new ApiError("Error in getting the exam", err));
-    }
-  } 
+  };
 }
 
-
-
-export const examController = new ExamController() ; 
+export const examController = new ExamController();

@@ -58,13 +58,15 @@ export class SubjectController {
   // giving all the subject name
    public givingSubjectName = async (req : Request , res : Response) => {
      try {
-        const subjectList : string[]  = await subject.readingAllSubjects() ; 
+        const subjectList   = await subject.readingAllSubjects() ; 
         res.status(200).json(
           new ApiResponse("All Subject List Is : " , subjectList) 
         )
      }
      catch(err : any){
+      console.error(err) ; 
       res.status(500).json(
+        
         new ApiError("Error in giving the name of all subject from the database" , err) 
       )
      }

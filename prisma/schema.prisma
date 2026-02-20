@@ -170,7 +170,7 @@ model exam {
 model subjects {
   id               String             @id @default(uuid())
   name             SubjectName        @unique
-  totalQuestion    BigInt             @default(0)
+  totalQuestion    Int             @default(0)
   chapters         chapters[]
   questions        questions[]
   subjectAnalytics SubjectAnalytics[]

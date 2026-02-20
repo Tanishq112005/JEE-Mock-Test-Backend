@@ -10,6 +10,9 @@ import { AttemptStatus } from "@prisma/client";
 import { questionDetails } from "../types/paper.types";
 import { detailsFromFrontend, questionDetailsFromFrontend } from "../types/update.types";
 import { testEvaluationProducer } from "../rabbitmq/producers/testEvalution-producer";
+import { testEvaluation } from "../services/testEvaluationService";
+import { reddisConfigForCaching } from "../lib/caching";
+import {cachingDataTestUpperLayer, insideTestId } from "../types/caching.types";
 
 class TestStatusController {
     constructor(){
@@ -160,69 +163,78 @@ class TestStatusController {
 
     
     // submitting the test 
-    public submitTest = async(req : any , res : any) => {
-        const {testId , paperId , timeLeft , created_at , timeStamp , state , activeSection , activeQuestionId , questionsById }  : detailsFromFrontend = req.body ;
-        const userId = req.user ; 
+    public submitTest = async (req: any, res: any) => {
+    const { testId, paperId, timeLeft, created_at, timeStamp, state, activeSection, activeQuestionId, questionsById }: detailsFromFrontend = req.body;
+    const userId = req.user;
 
-      
-            try {
-            const questionStatusArray = Object.values(questionsById || {}).map((q: questionDetailsFromFrontend) => {
-               
-               
-                
-                if(q.status == AttemptStatus.answered){
-                return {
-                    isVisited : q.isVisited , 
-                    markedForReview : q.markedForReview , 
-                    questionId: q.questionId,
-                    userAnswer: q.userAnswer ,  
-                    timeSpent: q.timeSpentSeconds || 0,
-                    status : AttemptStatus.answered
-                };
-            }
-                else {
-                   return {
-                    isVisited : q.isVisited , 
-                    markedForReview : q.markedForReview , 
-                    questionId: q.questionId,
-                    userAnswer: q.userAnswer ,  
-                    timeSpent: q.timeSpentSeconds || 0,
-                    status : AttemptStatus.notAnswered
-                };
-                }
-            
-            });
+    try {
+        const questionStatusArray = Object.values(questionsById || {}).map((q: questionDetailsFromFrontend) => ({
+            isVisited:       q.isVisited,
+            markedForReview: q.markedForReview,
+            questionId:      q.questionId,
+            userAnswer:      q.userAnswer,
+            timeSpent:       q.timeSpentSeconds || 0,
+            status:          q.status === AttemptStatus.answered
+                                ? AttemptStatus.answered
+                                : AttemptStatus.notAnswered,
+        }));
 
-            const details : updatingDetails = {
-                testId : testId , 
-                userId : userId , 
-                paperId : paperId , 
-                timeLeft : timeLeft , 
-                activeQuestionId : activeQuestionId , 
-                activeSection : activeSection , 
-                created_at : created_at ,
-                timeStamp : timeStamp , 
-                state : state ,
-                questionStatus : questionStatusArray
-            }
+        const details: updatingDetails = {
+            testId,
+            userId,
+            paperId,
+            timeLeft,
+            activeQuestionId,
+            activeSection,
+            created_at,
+            timeStamp,
+            state,
+            questionStatus: questionStatusArray,
+        };
 
-            // sending in the queue 
-            const pushingInQueue = await testEvaluationProducer.evaluateTheData(details); 
-            
-            return res.status(200).json(
-                new ApiResponse(
-                    "Pushed in queue" 
-                )
-            )
+        // ── 1. Evaluate the test ─────────────────────────────────────
+        const testEvaluate = await testEvaluation.evaluation(details, userId);
+
+        // ── 2. Update Redis upper layer (with null guard) ────────────
+        let gettingUserUpperLayer: cachingDataTestUpperLayer =
+            await reddisConfigForCaching.gettingData(`${userId}:testUpperLayer`);
+
+        if (!gettingUserUpperLayer) {
+            gettingUserUpperLayer = { testId: [] };
         }
-        catch(err : any){
-            res.status(500).json(
-                new ApiError(
-                    "Error in submitting the test" , err
-                )
-            )
-        }
+
+        const dataToInsert: insideTestId = { id: testId, created_at };
+        gettingUserUpperLayer.testId.push(dataToInsert);
+
+        // ── 3. Persist to Redis (both keys in parallel) ──────────────
+        await Promise.all([
+            reddisConfigForCaching.settingData(
+                `${userId}:testUpperLayer`,   // ✅ consistent key (was typo 'testUppLayer')
+                gettingUserUpperLayer,         // ✅ full updated object, not just new entry
+            ),
+            reddisConfigForCaching.settingData(
+                `${userId}:${testId}:${created_at}`,
+                testEvaluate,
+            ),
+        ]);
+
+        // ── 4. Send to queue — worker handles DB persistence ─────────
+        await testEvaluationProducer.evaluateTheData({
+            testId : testId , 
+            studentId : userId , 
+            report : testEvaluate
+        });
+
+        return res.status(200).json(
+            new ApiResponse("Test submitted successfully", testEvaluate)
+        );
+
+    } catch (err: any) {
+        return res.status(500).json(
+            new ApiError("Error in submitting the test", err)
+        );
     }
+};
 
 }
 

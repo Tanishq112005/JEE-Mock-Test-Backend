@@ -4,6 +4,7 @@ import { questionUpdateDetails, updatingDetails } from "../types/testStatus.type
 import { paper } from "../repositories/paper.db";
 import { AnswerVerifyService } from "./answerVerifyService";
 import { questionBitmapRegistry } from "./uniqueCountService";
+import { analytics } from "../repositories/analytics.db";
 
 interface QuestionTypeStat {
     totalQuestions: number;
@@ -221,6 +222,7 @@ class TestEvalution {
                         mathattemptCount++;
                         if (q.verdict === "correct") {
                             await questionBitmapRegistry.markAttempted(studentId, q.questionId);
+                            await analytics.updateStreak(studentId);
                             mathCorrectPositiveMarks += q.marks;
                             mathCorrect++;
                         } else if (q.verdict === "partial") {
@@ -234,6 +236,7 @@ class TestEvalution {
                         physicsattemptCount++;
                         if (q.verdict === "correct") {
                             await questionBitmapRegistry.markAttempted(studentId, q.questionId);
+                            await analytics.updateStreak(studentId);
                             physicsCorrectPositiveMarks += q.marks;
                             physicsCorrect++;
                         } else if (q.verdict === "partial") {
@@ -247,6 +250,7 @@ class TestEvalution {
                         chemistryattemptCount++;
                         if (q.verdict === "correct") {
                             await questionBitmapRegistry.markAttempted(studentId, q.questionId);
+                            await analytics.updateStreak(studentId);
                             chemistryCorrectPostiveMarks += q.marks;
                             chemistryCorrect++;
                         } else if (q.verdict === "partial") {
