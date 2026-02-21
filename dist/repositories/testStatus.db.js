@@ -163,92 +163,74 @@ class TestStatus {
     // =================================================================
     async updatingTestDetails(updateDetails) {
         try {
-            const testId = updateDetails.testId;
-            // 1. SAFETY CHECK
             const existingTest = await this.db.testStatus.findUnique({
-                where: { id: testId }
+                where: { id: updateDetails.testId }
             });
             if (!existingTest) {
-                console.warn(`⚠️ Skipped: TestID ${testId} not found.`);
+                console.warn(`⚠️ Skipped: TestID ${updateDetails.testId} not found.`);
                 return null;
             }
-            // Extract studentId from the verified test session
             const studentId = existingTest.studentId;
-            let activeQuestions = [];
-            if (updateDetails.questionStatus && updateDetails.questionStatus.length > 0) {
-                activeQuestions = updateDetails.questionStatus.filter((q) => q.questionId === updateDetails.activeQuestionId ||
-                    q.isVisited === true ||
-                    q.status === 'answered' ||
-                    q.status === 'markedForReview');
-            }
-            // 3. TRANSACTION
-            const result = await this.db.$transaction(async (tx) => {
-                // A. Update Parent (This now runs even if activeQuestions is empty)
-                const updateParent = await tx.testStatus.update({
-                    where: { id: testId },
+            await this.db.$transaction(async (tx) => {
+                // ── Update parent test state ─────────────────────────────
+                await tx.testStatus.update({
+                    where: { id: updateDetails.testId },
                     data: {
                         timeLeft: updateDetails.timeLeft,
                         activeSection: updateDetails.activeSection,
                         activeQuestionId: updateDetails.activeQuestionId,
                         updated_at: new Date(),
-                        status: updateDetails.state
-                    }
+                        status: updateDetails.state,
+                    },
                 });
-                // B. Upsert ONLY Active Questions
-                const questionPromises = activeQuestions.map((q) => {
-                    let formattedAnswer = [];
-                    // Answer formatting logic...
-                    if (q.numericAnswer !== null && q.numericAnswer !== undefined && q.numericAnswer !== '') {
-                        formattedAnswer.push(String(q.numericAnswer));
-                    }
-                    else if (q.selectedOptionIds !== null && Array.isArray(q.selectedOptionIds) && q.selectedOptionIds.length > 0) {
-                        formattedAnswer = q.selectedOptionIds.map(String);
-                    }
-                    else if (q.userAnswer !== null && q.userAnswer !== undefined) {
-                        if (Array.isArray(q.userAnswer)) {
-                            formattedAnswer = q.userAnswer.map(String);
+                // ── Upsert all questions from frontend ───────────────────
+                if (updateDetails.questionStatus?.length > 0) {
+                    await Promise.all(updateDetails.questionStatus.map((q) => {
+                        let formattedAnswer = [];
+                        if (q.numericAnswer !== null && q.numericAnswer !== undefined && q.numericAnswer !== '') {
+                            formattedAnswer.push(String(q.numericAnswer));
                         }
-                        else {
-                            formattedAnswer = [String(q.userAnswer)];
+                        else if (Array.isArray(q.selectedOptionIds) && q.selectedOptionIds.length > 0) {
+                            formattedAnswer = q.selectedOptionIds.map(String);
                         }
-                    }
-                    return tx.testQuestionAttemptStatus.upsert({
-                        where: {
-                            questionId_testStatusId: {
+                        else if (q.userAnswer !== null && q.userAnswer !== undefined) {
+                            formattedAnswer = Array.isArray(q.userAnswer)
+                                ? q.userAnswer.map(String)
+                                : [String(q.userAnswer)];
+                        }
+                        return tx.testQuestionAttemptStatus.upsert({
+                            where: {
+                                questionId_testStatusId: {
+                                    questionId: q.questionId,
+                                    testStatusId: updateDetails.testId,
+                                },
+                            },
+                            create: {
+                                testStatusId: updateDetails.testId,
                                 questionId: q.questionId,
-                                testStatusId: testId
-                            }
-                        },
-                        create: {
-                            testStatusId: testId,
-                            questionId: q.questionId,
-                            studentId: studentId, // ✅ Added missing studentId
-                            timeSpent: q.timeSpent || 0,
-                            userAnswer: formattedAnswer,
-                            status: q.status,
-                            isVisited: q.isVisited || false, // ✅ Added for completeness
-                            markedForReview: q.markedForReview || false // ✅ Added for completeness
-                        },
-                        update: {
-                            timeSpent: q.timeSpent || 0,
-                            userAnswer: formattedAnswer,
-                            status: q.status,
-                            isVisited: q.isVisited,
-                            markedForReview: q.markedForReview
-                        }
-                    });
-                });
-                await Promise.all(questionPromises);
-                return updateParent;
-            }, {
-                maxWait: 5000,
-                timeout: 20000
-            });
-            console.log(`✅ Success! Updated ${activeQuestions.length} questions.`);
-            return result;
+                                studentId,
+                                timeSpent: q.timeSpent || 0,
+                                userAnswer: formattedAnswer,
+                                status: q.status || 'notAnswered',
+                                isVisited: q.isVisited || false,
+                                markedForReview: q.markedForReview || false,
+                            },
+                            update: {
+                                timeSpent: q.timeSpent || 0,
+                                userAnswer: formattedAnswer,
+                                status: q.status || 'notAnswered',
+                                isVisited: q.isVisited || false,
+                                markedForReview: q.markedForReview || false,
+                            },
+                        });
+                    }));
+                }
+            }, { maxWait: 5000, timeout: 20000 });
+            console.log(`✅ Updated ${updateDetails.questionStatus?.length ?? 0} questions for test ${updateDetails.testId}`);
+            return true;
         }
         catch (err) {
-            console.error("❌ Transaction Failed:", err);
+            console.error("❌ updatingTestDetails failed:", err);
             throw err;
         }
     }
@@ -272,6 +254,74 @@ class TestStatus {
             return testContext;
         }
         catch (err) {
+            throw err;
+        }
+    }
+    // finalSumbmitTest 
+    async finalSubmitTest(testId, studentId, created_at, evaluationReport) {
+        try {
+            const existingTest = await this.db.testStatus.findUnique({
+                where: { id: testId },
+            });
+            if (!existingTest)
+                throw new Error(`TestID ${testId} not found`);
+            // ── Pull finalVerdict from the full report ───────────────────
+            const finalVerdict = evaluationReport.finalVerdict ?? [];
+            await this.db.$transaction(async (tx) => {
+                // ── 1. Mark testStatus as COMPLETED ─────────────────────
+                await tx.testStatus.update({
+                    where: { id: testId },
+                    data: {
+                        status: 'COMPLETED',
+                        updated_at: new Date(),
+                    },
+                });
+                // ── 2. Upsert every question with full evaluation data ───
+                await Promise.all(finalVerdict.map((q) => {
+                    const isCorrect = q.verdict === 'correct';
+                    return tx.testQuestionAttemptStatus.upsert({
+                        where: {
+                            questionId_testStatusId: {
+                                questionId: q.questionId,
+                                testStatusId: testId,
+                            },
+                        },
+                        create: {
+                            testStatusId: testId,
+                            questionId: q.questionId,
+                            studentId,
+                            timeSpent: q.timeSpent || 0,
+                            userAnswer: q.userAnswer || [],
+                            status: q.isVisited
+                                ? (q.userAnswer?.length > 0 ? 'answered' : 'visited')
+                                : 'notAnswered',
+                            isVisited: q.isVisited || false,
+                            markedForReview: q.markedForReview || false,
+                            isCorrect: isCorrect,
+                            marksObtained: q.marks || 0,
+                            isAnalyzed: true,
+                        },
+                        update: {
+                            timeSpent: q.timeSpent || 0,
+                            userAnswer: q.userAnswer || [],
+                            status: q.isVisited
+                                ? (q.userAnswer?.length > 0 ? 'answered' : 'visited')
+                                : 'notAnswered',
+                            isVisited: q.isVisited || false,
+                            markedForReview: q.markedForReview || false,
+                            isCorrect: isCorrect,
+                            marksObtained: q.marks || 0,
+                            isAnalyzed: true,
+                            updated_at: new Date(),
+                        },
+                    });
+                }));
+            }, { maxWait: 10000, timeout: 30000 });
+            console.log(`✅ finalSubmitTest complete — ${finalVerdict.length} questions saved for test ${testId}`);
+            return true;
+        }
+        catch (err) {
+            console.error("❌ finalSubmitTest failed:", err);
             throw err;
         }
     }

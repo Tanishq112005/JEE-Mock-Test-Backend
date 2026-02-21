@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.StudentTestAnanlyticsConsumer = void 0;
 const analytics_db_1 = require("../../repositories/analytics.db");
+const caching_1 = require("../../lib/caching");
 class StudentTestAnanlyticsConsumer {
     connection;
     constructor(connection) {
@@ -30,6 +31,7 @@ class StudentTestAnanlyticsConsumer {
                     const data = JSON.parse(msg.content.toString());
                     console.log(`📥 Processing Student Test Analytics Update for User: ${data.studentId}`);
                     await analytics_db_1.analytics.persistTestAnalytics(data.testId, data.studentId, data.report);
+                    await caching_1.reddisConfigForCaching.deletingData(`${data.studentId}:${data.testId}:${data.created_at}`);
                     channel.ack(msg);
                     console.log("✅ Update The Student Test Analytics  Evaluated SuccessFully");
                 }
