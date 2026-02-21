@@ -32,6 +32,11 @@ class StudentTestAnanlyticsConsumer {
                     console.log(`📥 Processing Student Test Analytics Update for User: ${data.studentId}`);
                     await analytics_db_1.analytics.persistTestAnalytics(data.testId, data.studentId, data.report);
                     await caching_1.reddisConfigForCaching.deletingData(`${data.studentId}:${data.testId}:${data.created_at}`);
+                    const upperLayer = await caching_1.reddisConfigForCaching.gettingData(`${data.studentId}:testUpperLayer`);
+                    if (upperLayer?.testId?.length) {
+                        upperLayer.testId = upperLayer.testId.filter((entry) => entry.id !== data.testId);
+                        await caching_1.reddisConfigForCaching.settingData(`${data.studentId}:testUpperLayer`, upperLayer);
+                    }
                     channel.ack(msg);
                     console.log("✅ Update The Student Test Analytics  Evaluated SuccessFully");
                 }

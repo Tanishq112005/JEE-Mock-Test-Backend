@@ -31,7 +31,7 @@ class UpdateFinalEvaluationConsumer {
                     const data = JSON.parse(msg.content.toString());
                     console.log(`📥 Processing Test Update for User: ${data.studentId}`);
                     // --- ACTUAL WORKER LOGIC ---
-                    await testStatus_db_1.testStatus.finalSubmitTest(data.testId, data.studentId, data.created_at, data);
+                    await testStatus_db_1.testStatus.finalSubmitTest(data.testId, data.studentId, data.created_at, data.report);
                     await studentTestAnalytics_producer_1.studentTestAnalytics.updateData(data);
                     // ---------------------------
                     channel.ack(msg);

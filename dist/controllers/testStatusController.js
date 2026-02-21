@@ -142,18 +142,21 @@ class TestStatusController {
             if (!gettingUserUpperLayer) {
                 gettingUserUpperLayer = { testId: [] };
             }
-            const dataToInsert = { id: testId, created_at };
+            const dataToInsert = { id: testId, created_at: String(created_at) };
             gettingUserUpperLayer.testId.push(dataToInsert);
             // ── 3. Persist to Redis (both keys in parallel) ──────────────
             await Promise.all([
                 caching_1.reddisConfigForCaching.settingData(`${userId}:testUpperLayer`, // ✅ consistent key (was typo 'testUppLayer')
                 gettingUserUpperLayer),
-                caching_1.reddisConfigForCaching.settingData(`${userId}:${testId}:${created_at}`, testEvaluate),
+                caching_1.reddisConfigForCaching.settingData(`${userId}:${testId}:${String(created_at)}`, testEvaluate),
             ]);
             // ── 4. Send to queue — worker handles DB persistence ─────────
+            const created_at_string = String(created_at);
+            console.log("CONTROLLER created_at_string:", created_at_string);
             await testEvalution_producer_1.testEvaluationProducer.evaluateTheData({
                 testId: testId,
                 studentId: userId,
+                created_at: created_at_string,
                 report: testEvaluate
             });
             return res.status(200).json(new ApiResponse_1.default("Test submitted successfully", testEvaluate));
