@@ -1,5 +1,6 @@
 import { Channel, ConsumeMessage } from "amqplib";
 import { analytics } from "../../repositories/analytics.db";
+import { reddisConfigForCaching } from "../../lib/caching";
 
 
 
@@ -40,6 +41,7 @@ export class StudentTestAnanlyticsConsumer {
                     console.log(`📥 Processing Student Test Analytics Update for User: ${data.studentId}`);
 
                        await analytics.persistTestAnalytics(data.testId , data.studentId , data.report) ; 
+                       await reddisConfigForCaching.deletingData(`${data.studentId}:${data.testId}:${data.created_at}`) ; 
 
                     channel.ack(msg);
                     console.log("✅ Update The Student Test Analytics  Evaluated SuccessFully");
