@@ -191,7 +191,7 @@ class TestStatusController {
             state,
             questionStatus: questionStatusArray,
         };
-
+      
         // ── 1. Evaluate the test ─────────────────────────────────────
         const testEvaluate = await testEvaluation.evaluation(details, userId);
 
@@ -203,7 +203,7 @@ class TestStatusController {
             gettingUserUpperLayer = { testId: [] };
         }
 
-        const dataToInsert: insideTestId = { id: testId, created_at };
+        const dataToInsert: insideTestId = { id: testId,  created_at: String(created_at)};
         gettingUserUpperLayer.testId.push(dataToInsert);
 
         // ── 3. Persist to Redis (both keys in parallel) ──────────────
@@ -213,15 +213,18 @@ class TestStatusController {
                 gettingUserUpperLayer,         // ✅ full updated object, not just new entry
             ),
             reddisConfigForCaching.settingData(
-                `${userId}:${testId}:${created_at}`,
+                `${userId}:${testId}:${String(created_at)}`,
                 testEvaluate,
             ),
         ]);
 
         // ── 4. Send to queue — worker handles DB persistence ─────────
+        const created_at_string = String(created_at) ; 
+        console.log("CONTROLLER created_at_string:", created_at_string); 
         await testEvaluationProducer.evaluateTheData({
             testId : testId , 
             studentId : userId , 
+            created_at : created_at_string , 
             report : testEvaluate
         });
 

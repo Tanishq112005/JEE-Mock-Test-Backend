@@ -8,7 +8,7 @@ export  interface cachingDataTestUpperLayer {
 
 export interface insideTestId {
     id : string , 
-    created_at : Date
+    created_at : string
 }
 
 

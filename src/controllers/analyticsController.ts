@@ -84,7 +84,7 @@ class AnalyticsController {
             return res.status(500).json(
                 new ApiError("Error in generating the report", err)
             );
-        }
+        }   
     };
 }
 

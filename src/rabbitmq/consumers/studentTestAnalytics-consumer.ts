@@ -1,6 +1,7 @@
 import { Channel, ConsumeMessage } from "amqplib";
 import { analytics } from "../../repositories/analytics.db";
 import { reddisConfigForCaching } from "../../lib/caching";
+import { cachingDataTestUpperLayer } from "../../types/caching.types";
 
 
 
@@ -37,19 +38,36 @@ export class StudentTestAnanlyticsConsumer {
 
                 try {
                     const data = JSON.parse(msg.content.toString());
-                    
-                    console.log(`📥 Processing Student Test Analytics Update for User: ${data.studentId}`);
 
-                       await analytics.persistTestAnalytics(data.testId , data.studentId , data.report) ; 
-                       await reddisConfigForCaching.deletingData(`${data.studentId}:${data.testId}:${data.created_at}`) ; 
+                    console.log(`📥 Processing Student Test Analytics Update for User: ${data.studentId}`);
+  
+                    await analytics.persistTestAnalytics(data.testId, data.studentId, data.report);
+                   
+                    await reddisConfigForCaching.deletingData(
+                        `${data.studentId}:${data.testId}:${data.created_at}`
+                    );
+
+                    const upperLayer: cachingDataTestUpperLayer =
+                        await reddisConfigForCaching.gettingData(`${data.studentId}:testUpperLayer`);
+
+                    if (upperLayer?.testId?.length) {
+                        upperLayer.testId = upperLayer.testId.filter(
+                            (entry: any) => entry.id !== data.testId
+                        );
+                        await reddisConfigForCaching.settingData(
+                            `${data.studentId}:testUpperLayer`,
+                            upperLayer
+                        );
+                    }
+
 
                     channel.ack(msg);
                     console.log("✅ Update The Student Test Analytics  Evaluated SuccessFully");
 
                 } catch (err) {
                     console.error("❌ Processing failed for  Student Test Analytics :", err);
-                    
-    
+
+
                     channel.nack(msg, false, false);
                 }
             });

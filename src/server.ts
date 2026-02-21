@@ -51,6 +51,7 @@ app.use("/health", function (req: Request, res: Response) {
 
 // ==========================================
 // 3. API ROUTES
+
 // ==========================================
 app.use('/api/auth', authRoutes);
 app.use('/api/subject', subjectRoutes);
@@ -61,7 +62,6 @@ app.use('/api/question', questionRoutes);
 app.use('/api/testStatus', testStatusRoutes);
 app.use('/api/email' , emailRoutes);
 app.use('/api/analytics' , analyticsRoutes) ; 
-
 
 // --- SEARCH API (For Frontend Autocomplete) ---
 app.post("/api/search/chapter", async (req: Request, res: Response): Promise<any> => {

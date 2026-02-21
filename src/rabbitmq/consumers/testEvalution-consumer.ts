@@ -43,11 +43,11 @@ export class UpdateFinalEvaluationConsumer {
                     console.log(`📥 Processing Test Update for User: ${data.studentId}`);
 
                     // --- ACTUAL WORKER LOGIC ---
-                    await testStatus.finalSubmitTest(data.testId , data.studentId , data.created_at , data);
-                  
+                    await testStatus.finalSubmitTest(data.testId , data.studentId , data.created_at , data.report);
+                   
                     await studentTestAnalytics.updateData(data) ; 
                     // ---------------------------
-
+                  
                     channel.ack(msg);
                     console.log("✅ Test Is  Evaluated SuccessFully");
 

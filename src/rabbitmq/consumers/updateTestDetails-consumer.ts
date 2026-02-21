@@ -39,6 +39,7 @@ export class UpdateTestDetailsConsumer {
                     console.log(`📥 Processing Test Update for User: ${data.userId}`);
 
                     // --- ACTUAL WORKER LOGIC ---
+                    
                     await testStatus.updatingTestDetails(data);
                     // ---------------------------
 
