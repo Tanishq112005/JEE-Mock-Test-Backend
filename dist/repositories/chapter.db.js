@@ -89,6 +89,7 @@ class Chapter {
                 },
                 distinct: ["group"],
             });
+            // Transform [{ group: "Mechanics" }, { group: "Optics" }] -> ["Mechanics", "Optics"]
             return groups.map((item) => item.group);
         }
         catch (err) {
