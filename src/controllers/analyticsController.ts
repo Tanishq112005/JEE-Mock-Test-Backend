@@ -20,7 +20,7 @@ class AnalyticsController {
                 );
             }
 
-            // ── Check Redis first ────────────────────────────────────
+          
             const testData = await reddisConfigForCaching.gettingData(
                 `${studentId}:${testId}:${created_at}`
             );
@@ -31,7 +31,7 @@ class AnalyticsController {
                 );
             }
 
-            // ── Fallback to DB ───────────────────────────────────────
+           
             const data = await analytics.getFullTestSummaryReport(testId, studentId);
 
             if (!data) {
@@ -51,10 +51,10 @@ class AnalyticsController {
         }
     };
 
-    // ── GET /analytics/dashboard ─────────────────────────────────────
-    public analyticsData = async (req: any, res: any) => {   // ✅ renamed — 'analytics' clashes with the import
+    
+    public analyticsData = async (req: any, res: any) => {   
         try {
-            const studentId = req.user;                       // ✅ not req.users
+            const studentId = req.user;                     
 
             const finalDashboard = await reportService.fullDashboard(studentId);
 
@@ -69,10 +69,10 @@ class AnalyticsController {
         }
     };
 
-    // ── GET /analytics/snapshot ──────────────────────────────────────
+    
     public studentReport = async (req: any, res: any) => {
         try {
-            const studentId = req.user;                       // ✅ not req.users
+            const studentId = req.user;                      
 
             const studentReport = await reportService.studentSnapshot(studentId);
 

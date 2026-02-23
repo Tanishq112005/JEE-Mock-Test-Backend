@@ -14,7 +14,7 @@ import { testEvaluation } from "../services/testEvaluationService";
 import { reddisConfigForCaching } from "../lib/caching";
 import {cachingDataTestUpperLayer, insideTestId } from "../types/caching.types";
 
-class TestStatusController {
+class TestController {
     constructor(){
 
     }
@@ -192,10 +192,10 @@ class TestStatusController {
             questionStatus: questionStatusArray,
         };
       
-        // ── 1. Evaluate the test ─────────────────────────────────────
+       
         const testEvaluate = await testEvaluation.evaluation(details, userId);
 
-        // ── 2. Update Redis upper layer (with null guard) ────────────
+        
         let gettingUserUpperLayer: cachingDataTestUpperLayer =
             await reddisConfigForCaching.gettingData(`${userId}:testUpperLayer`);
 
@@ -206,11 +206,11 @@ class TestStatusController {
         const dataToInsert: insideTestId = { id: testId,  created_at: String(created_at)};
         gettingUserUpperLayer.testId.push(dataToInsert);
 
-        // ── 3. Persist to Redis (both keys in parallel) ──────────────
+        
         await Promise.all([
             reddisConfigForCaching.settingData(
-                `${userId}:testUpperLayer`,   // ✅ consistent key (was typo 'testUppLayer')
-                gettingUserUpperLayer,         // ✅ full updated object, not just new entry
+                `${userId}:testUpperLayer`,   
+                gettingUserUpperLayer,         
             ),
             reddisConfigForCaching.settingData(
                 `${userId}:${testId}:${String(created_at)}`,
@@ -218,7 +218,7 @@ class TestStatusController {
             ),
         ]);
 
-        // ── 4. Send to queue — worker handles DB persistence ─────────
+       
         const created_at_string = String(created_at) ; 
         console.log("CONTROLLER created_at_string:", created_at_string); 
         await testEvaluationProducer.evaluateTheData({
@@ -242,4 +242,4 @@ class TestStatusController {
 }
 
 
-export const testStatusController = new TestStatusController() ; 
+export const testController = new TestController() ; 

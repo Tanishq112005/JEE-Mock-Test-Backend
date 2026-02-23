@@ -99,10 +99,10 @@ class Chapter {
         select: {
           group: true,
         },
-        distinct: ["group"], // <--- Validates only unique group names are returned
+        distinct: ["group"], 
       });
 
-      // Transform [{ group: "Mechanics" }, { group: "Optics" }] -> ["Mechanics", "Optics"]
+     
       return groups.map((item) => item.group);
     } catch (err) {
       throw err;

@@ -15,14 +15,11 @@ export const authMiddleware = async (req: any, res: any, next: any) => {
 
     console.log("DEBUG [Middleware] Decoded Token:", decoded);
 
-    // --- FIX START ---
-    // If verifyAccessToken returns a string (like "jwt expired") or null, reject it.
+    
     if (!decoded || typeof decoded === "string" || !decoded.id) {
        throw new Error("Invalid Token Content");
     }
-    // --- FIX END ---
-
-    // Now we know decoded is a valid object
+    
     req.user = decoded.id; 
     req.type  = decoded.type;
     
