@@ -18,12 +18,10 @@ class AnalyticsController {
             if (!testId || !created_at) {
                 return res.status(400).json(new ApiError_1.default("testId and created_at are required"));
             }
-            // ── Check Redis first ────────────────────────────────────
             const testData = await caching_1.reddisConfigForCaching.gettingData(`${studentId}:${testId}:${created_at}`);
             if (testData) {
                 return res.status(200).json(new ApiResponse_1.default("Test data from cache", testData));
             }
-            // ── Fallback to DB ───────────────────────────────────────
             const data = await analytics_db_1.analytics.getFullTestSummaryReport(testId, studentId);
             if (!data) {
                 return res.status(404).json(new ApiError_1.default("Test report not found"));
@@ -34,10 +32,9 @@ class AnalyticsController {
             return res.status(500).json(new ApiError_1.default("Error in getting the test", err));
         }
     };
-    // ── GET /analytics/dashboard ─────────────────────────────────────
     analyticsData = async (req, res) => {
         try {
-            const studentId = req.user; // ✅ not req.users
+            const studentId = req.user;
             const finalDashboard = await reportService_1.reportService.fullDashboard(studentId);
             return res.status(200).json(new ApiResponse_1.default("Full analytics", finalDashboard));
         }
@@ -45,10 +42,9 @@ class AnalyticsController {
             return res.status(500).json(new ApiError_1.default("Error in getting analytics", err));
         }
     };
-    // ── GET /analytics/snapshot ──────────────────────────────────────
     studentReport = async (req, res) => {
         try {
-            const studentId = req.user; // ✅ not req.users
+            const studentId = req.user;
             const studentReport = await reportService_1.reportService.studentSnapshot(studentId);
             return res.status(200).json(new ApiResponse_1.default("Student report generated", studentReport));
         }
