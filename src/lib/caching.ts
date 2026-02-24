@@ -1,5 +1,5 @@
 import { Redis } from '@upstash/redis'
-import { UPSTASH_REDIS_REST_TOKEN_CACHING, UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_URL_CACHING } from '../config/env';
+import { UPSTASH_REDIS_REST_TOKEN, UPSTASH_REDIS_REST_TOKEN_CACHING, UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_URL_CACHING } from '../config/env';
 
 class ReddisConfigForCaching {
     private reddisAnalytics : any ; 
@@ -7,7 +7,7 @@ class ReddisConfigForCaching {
     constructor(){
       this.reddisAnalytics = new Redis({
       url: UPSTASH_REDIS_REST_URL,
-      token: UPSTASH_REDIS_REST_URL,
+      token: UPSTASH_REDIS_REST_TOKEN,
 })  
      
       this.reddisTestData  = new Redis({
