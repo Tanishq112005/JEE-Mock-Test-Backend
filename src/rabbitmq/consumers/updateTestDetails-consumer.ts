@@ -1,6 +1,6 @@
 import { Channel, ConsumeMessage } from "amqplib";
-import { testStatus } from "../../repositories/testStatus.db"; // Make sure this path points to your TestStatus class instance
-
+import { testStatus } from "../../repositories/testStatus.db";
+import { reddisService } from "../../services/reddisService";
 
 export class UpdateTestDetailsConsumer {
     private connection: any;
@@ -39,9 +39,11 @@ export class UpdateTestDetailsConsumer {
                     console.log(`📥 Processing Test Update for User: ${data.userId}`);
 
                     // --- ACTUAL WORKER LOGIC ---
-                    
                     await testStatus.updatingTestDetails(data);
                     // ---------------------------
+
+                    // ── DB confirmed — now safe to delete from Redis ───
+                    await reddisService.deleteTestUpdateData(data.userId, data.testId);
 
                     channel.ack(msg);
                     console.log("✅ Test Data Updated Successfully");
@@ -51,6 +53,7 @@ export class UpdateTestDetailsConsumer {
                     
                     // NACK: false, false -> This rejects the message and DROPS it (does not requeue)
                     // If you want to retry later, change the second 'false' to 'true'
+                    // Redis is NOT deleted on failure — cache stays intact for frontend
                     channel.nack(msg, false, false);
                 }
             });

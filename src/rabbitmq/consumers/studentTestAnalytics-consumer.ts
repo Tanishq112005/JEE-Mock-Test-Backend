@@ -43,18 +43,18 @@ export class StudentTestAnanlyticsConsumer {
   
                     await analytics.persistTestAnalytics(data.testId, data.studentId, data.report);
                    
-                    await reddisConfigForCaching.deletingData(
+                    await reddisConfigForCaching.deletingAnanlyticsData(
                         `${data.studentId}:${data.testId}:${data.created_at}`
                     );
 
                     const upperLayer: cachingDataTestUpperLayer =
-                        await reddisConfigForCaching.gettingData(`${data.studentId}:testUpperLayer`);
+                        await reddisConfigForCaching.gettingAnanlyticsData(`${data.studentId}:testUpperLayer`);
 
                     if (upperLayer?.testId?.length) {
                         upperLayer.testId = upperLayer.testId.filter(
                             (entry: any) => entry.id !== data.testId
                         );
-                        await reddisConfigForCaching.settingData(
+                        await reddisConfigForCaching.settingAnanlyticsData(
                             `${data.studentId}:testUpperLayer`,
                             upperLayer
                         );

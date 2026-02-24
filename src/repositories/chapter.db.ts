@@ -16,7 +16,7 @@ class Chapter {
 
   // ---------------- ADD CHAPTER ----------------
   public addingChapter = async (payload: chapterInform) => {
-     console.log("REPO PAYLOAD:", payload);
+    console.log("REPO PAYLOAD:", payload);
     const subjectInformation = await this.db.subjects.findUnique({
       where: {
         name: payload.subject as SubjectName,
@@ -33,9 +33,9 @@ class Chapter {
         class: payload.classNumber,
         chapterNumber: payload.chapterNumber,
         subjectId: subjectInformation.id,
-        isJeeAdvanced : payload.isJeeAdvanced , 
-        isJeeMain : payload.isJeeMain ,
-        group : payload.group
+        isJeeAdvanced: payload.isJeeAdvanced,
+        isJeeMain: payload.isJeeMain,
+        group: payload.group,
       },
     });
   };
@@ -63,7 +63,7 @@ class Chapter {
       };
     }
 
-   if (payload.group) {
+    if (payload.group) {
       whereCondition.group = payload.group;
     }
 
@@ -76,19 +76,19 @@ class Chapter {
         id: true,
         name: true,
         chapterNumber: true,
-        group : true ,
+        group: true,
         class: true,
         subjects: {
           select: {
             id: true,
             name: true,
-          }
+          },
         },
       },
     });
   };
 
- public gettingGroup = async (subjectName: string) => {
+  public gettingGroup = async (subjectName: string) => {
     try {
       const groups = await this.db.chapters.findMany({
         where: {
@@ -99,7 +99,7 @@ class Chapter {
         select: {
           group: true,
         },
-        distinct: ["group"], 
+        distinct: ["group"],
       });
 
       // Transform [{ group: "Mechanics" }, { group: "Optics" }] -> ["Mechanics", "Optics"]
@@ -109,20 +109,17 @@ class Chapter {
     }
   };
 
-
-  
   public gettingChapterId = async (chapterName: string): Promise<chapters> => {
-  const chapter = await this.db.chapters.findUnique({
-    where: { name: chapterName },
-  });
+    const chapter = await this.db.chapters.findUnique({
+      where: { name: chapterName },
+    });
 
-  if (!chapter) {
-    throw new ApiError("Chapter not found");
-  }
+    if (!chapter) {
+      throw new ApiError("Chapter not found");
+    }
 
-  return chapter;
-};
-
+    return chapter;
+  };
 }
 
 export const chapter = new Chapter(database);

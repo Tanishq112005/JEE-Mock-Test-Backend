@@ -1,4 +1,9 @@
-import { chapters, PrismaClient, SubjectName, questionType } from "@prisma/client";
+import {
+  chapters,
+  PrismaClient,
+  SubjectName,
+  questionType,
+} from "@prisma/client";
 import { database } from "../lib/database";
 import { questionParameters } from "../types/questions.types";
 import { paper } from "./paper.db";
@@ -30,7 +35,10 @@ class Question {
   // ---------------------------------------------------------
   // 2. Helper: Inject Signed URLs (CONVERTS MARKDOWN TO HTML IMG)
   // ---------------------------------------------------------
-  private injectUrlsIntoHtml(content: string | null, signedUrls: string[]): string {
+  private injectUrlsIntoHtml(
+    content: string | null,
+    signedUrls: string[],
+  ): string {
     if (!content) return "";
     if (!signedUrls || signedUrls.length === 0) return content;
 
@@ -40,17 +48,23 @@ class Question {
       const placeholder = `image_${index}`;
 
       // Regex to match Markdown image syntax: ![alt text](image_0)
-      const markdownImgRegex = new RegExp(`!\\[(.*?)\\]\\(${placeholder}\\)`, 'g');
+      const markdownImgRegex = new RegExp(
+        `!\\[(.*?)\\]\\(${placeholder}\\)`,
+        "g",
+      );
 
       if (markdownImgRegex.test(updatedContent)) {
         // REPLACE Markdown with HTML <img> tag
-        updatedContent = updatedContent.replace(markdownImgRegex, (match, altText) => {
-          const cleanAlt = altText || `image_${index}`;
-          return `<img src="${url}" alt="${cleanAlt}" style="max-width:100%; height:auto; display:block; margin: 10px auto;" />`;
-        });
+        updatedContent = updatedContent.replace(
+          markdownImgRegex,
+          (match, altText) => {
+            const cleanAlt = altText || `image_${index}`;
+            return `<img src="${url}" alt="${cleanAlt}" style="max-width:100%; height:auto; display:block; margin: 10px auto;" />`;
+          },
+        );
       } else {
         // FALLBACK: If it was already HTML or just the text, replace simple placeholder
-        const simpleRegex = new RegExp(placeholder, 'g');
+        const simpleRegex = new RegExp(placeholder, "g");
         updatedContent = updatedContent.replace(simpleRegex, url);
       }
     });
@@ -96,7 +110,8 @@ class Question {
       }
     });
 
-    const sorter = (a: any, b: any) => (a.questionNumber || 0) - (b.questionNumber || 0);
+    const sorter = (a: any, b: any) =>
+      (a.questionNumber || 0) - (b.questionNumber || 0);
     sections.MultiCorrect.sort(sorter);
     sections.SingleCorrect.sort(sorter);
     sections.Integer.sort(sorter);
@@ -107,7 +122,11 @@ class Question {
   // ---------------------------------------------------------
   // 4. Add Single Question
   // ---------------------------------------------------------
-  async addingSingleQuestion(questionData: questionParameters, paperId: string, questionNumber: number) {
+  async addingSingleQuestion(
+    questionData: questionParameters,
+    paperId: string,
+    questionNumber: number,
+  ) {
     try {
       const updationPayload: questionDetails = {
         positiveMarks: questionData.postiveMarks,
@@ -115,7 +134,9 @@ class Question {
         paperId: paperId,
       };
       await paper.addingDetails(updationPayload);
-      const chapterInformation: chapters = await chapter.gettingChapterId(questionData.chapter);
+      const chapterInformation: chapters = await chapter.gettingChapterId(
+        questionData.chapter,
+      );
 
       await this.db.questions.create({
         data: {
@@ -135,18 +156,20 @@ class Question {
           subjectId: chapterInformation.subjectId,
           class: chapterInformation.class,
           questionNumber: questionNumber,
-          options: questionData.options ? {
-            create: {
-              optionAtext: questionData.options[0]?.content ?? "",
-              optionAimage: questionData.options[0]?.image ?? [],
-              optionBtext: questionData.options[1]?.content ?? "",
-              optionBimage: questionData.options[1]?.image ?? [],
-              optionCtext: questionData.options[2]?.content ?? "",
-              optionCimage: questionData.options[2]?.image ?? [],
-              optionDtext: questionData.options[3]?.content ?? "",
-              optionDimage: questionData.options[3]?.image ?? [],
-            }
-          } : undefined,
+          options: questionData.options
+            ? {
+                create: {
+                  optionAtext: questionData.options[0]?.content ?? "",
+                  optionAimage: questionData.options[0]?.image ?? [],
+                  optionBtext: questionData.options[1]?.content ?? "",
+                  optionBimage: questionData.options[1]?.image ?? [],
+                  optionCtext: questionData.options[2]?.content ?? "",
+                  optionCimage: questionData.options[2]?.image ?? [],
+                  optionDtext: questionData.options[3]?.content ?? "",
+                  optionDimage: questionData.options[3]?.image ?? [],
+                },
+              }
+            : undefined,
           solution: {
             create: {
               text: questionData.explation,
@@ -162,10 +185,11 @@ class Question {
 
   async deletingQuestion(questionId: string) {
     try {
-      await this.db.questions.delete({ where: { id: questionId } })
-    } catch (err) { throw err; }
+      await this.db.questions.delete({ where: { id: questionId } });
+    } catch (err) {
+      throw err;
+    }
   }
-
 
   // =================================================================
   // 5. GET QUESTIONS (RETURNS ENCRYPTED)
@@ -175,7 +199,7 @@ class Question {
     chapterId?: string,
     paperId?: string,
     questionId?: string,
-    subject?: SubjectName
+    subject?: SubjectName,
   ) {
     try {
       const whereQuery: any = {};
@@ -192,13 +216,22 @@ class Question {
           solution: true,
           subjects: { select: { name: true } },
           chapters: {
-            select: { name: true, isJeeAdvanced: true, isJeeMain: true, chapterNumber: true }
+            select: {
+              name: true,
+              isJeeAdvanced: true,
+              isJeeMain: true,
+              chapterNumber: true,
+            },
           },
           papers: {
             select: {
-              mode: true, shift: true, date: true, month: true, year: true,
-              exam: { select: { name: true } }
-            }
+              mode: true,
+              shift: true,
+              date: true,
+              month: true,
+              year: true,
+              exam: { select: { name: true } },
+            },
           },
         },
         orderBy: { papers: { year: "desc" } },
@@ -215,8 +248,14 @@ class Question {
           const signedQuestionImages = this.signUrlArray(q.image);
           const signedCompImages = this.signUrlArray(q.comprehensionImage);
 
-          const finalQuestionHtml = this.injectUrlsIntoHtml(q.content, signedQuestionImages);
-          const finalCompHtml = this.injectUrlsIntoHtml(q.comprehensionContent, signedCompImages);
+          const finalQuestionHtml = this.injectUrlsIntoHtml(
+            q.content,
+            signedQuestionImages,
+          );
+          const finalCompHtml = this.injectUrlsIntoHtml(
+            q.comprehensionContent,
+            signedCompImages,
+          );
 
           let processedOptions = null;
           if (q.options) {
@@ -227,10 +266,22 @@ class Question {
 
             processedOptions = {
               ...q.options,
-              optionAtext: this.injectUrlsIntoHtml(q.options.optionAtext, optAImgs),
-              optionBtext: this.injectUrlsIntoHtml(q.options.optionBtext, optBImgs),
-              optionCtext: this.injectUrlsIntoHtml(q.options.optionCtext, optCImgs),
-              optionDtext: this.injectUrlsIntoHtml(q.options.optionDtext, optDImgs),
+              optionAtext: this.injectUrlsIntoHtml(
+                q.options.optionAtext,
+                optAImgs,
+              ),
+              optionBtext: this.injectUrlsIntoHtml(
+                q.options.optionBtext,
+                optBImgs,
+              ),
+              optionCtext: this.injectUrlsIntoHtml(
+                q.options.optionCtext,
+                optCImgs,
+              ),
+              optionDtext: this.injectUrlsIntoHtml(
+                q.options.optionDtext,
+                optDImgs,
+              ),
               optionAimage: undefined,
               optionBimage: undefined,
               optionCimage: undefined,
@@ -256,20 +307,24 @@ class Question {
             chapter: chapterName,
             exam: examName,
             paperTitle: q.papers?.year ? `${examName} ${q.papers.year}` : null,
-            isJeeMain, isJeeAdvanced,
+            isJeeMain,
+            isJeeAdvanced,
 
-            subjects: undefined, chapters: undefined, papers: undefined,
-            paperId: undefined, subjectId: undefined, chapterId: undefined,
+            subjects: undefined,
+            chapters: undefined,
+            papers: undefined,
+            paperId: undefined,
+            subjectId: undefined,
+            chapterId: undefined,
             image: undefined,
             comprehensionImage: undefined,
             options: processedOptions,
             solution: processedSolution,
           };
-        })
+        }),
       );
 
       return encryptPayload(processedQuestions);
-
     } catch (err) {
       console.error("Error fetching questions:", err);
       throw err;
@@ -291,7 +346,7 @@ class Question {
               solution: true,
               subjects: { select: { name: true } },
               chapters: {
-                select: { name: true, isJeeAdvanced: true, isJeeMain: true }
+                select: { name: true, isJeeAdvanced: true, isJeeMain: true },
               },
             },
           },
@@ -310,8 +365,14 @@ class Question {
           const signedQuestionImages = this.signUrlArray(q.image);
           const signedCompImages = this.signUrlArray(q.comprehensionImage);
 
-          const finalQuestionHtml = this.injectUrlsIntoHtml(q.content, signedQuestionImages);
-          const finalCompHtml = this.injectUrlsIntoHtml(q.comprehensionContent, signedCompImages);
+          const finalQuestionHtml = this.injectUrlsIntoHtml(
+            q.content,
+            signedQuestionImages,
+          );
+          const finalCompHtml = this.injectUrlsIntoHtml(
+            q.comprehensionContent,
+            signedCompImages,
+          );
 
           let processedOptions = null;
           if (q.options) {
@@ -322,115 +383,22 @@ class Question {
 
             processedOptions = {
               ...q.options,
-              optionAtext: this.injectUrlsIntoHtml(q.options.optionAtext, optAImgs),
-              optionBtext: this.injectUrlsIntoHtml(q.options.optionBtext, optBImgs),
-              optionCtext: this.injectUrlsIntoHtml(q.options.optionCtext, optCImgs),
-              optionDtext: this.injectUrlsIntoHtml(q.options.optionDtext, optDImgs),
-              optionAimage: undefined,
-              optionBimage: undefined,
-              optionCimage: undefined,
-              optionDimage: undefined,
-            };
-          }
-
-          let processedSolution = null;
-          if (q.solution) {
-            const solImages = this.signUrlArray(q.solution.image);
-            processedSolution = {
-              ...q.solution,
-              text: this.injectUrlsIntoHtml(q.solution.text, solImages),
-              image: undefined,
-            };
-          }
-
-          return {
-            ...q,
-            content: finalQuestionHtml,
-            comprehensionContent: finalCompHtml,
-            subject: subjectName,
-            chapter: chapterName,
-            isJeeMain, isJeeAdvanced,
-            subjects: undefined, chapters: undefined,
-            paperId: undefined, subjectId: undefined, chapterId: undefined,
-            image: undefined,
-            comprehensionImage: undefined,
-
-            options: processedOptions,
-            solution: processedSolution,
-          };
-        })
-      );
-
-      const physicsRaw = processedQuestions.filter((q: any) => q.subject === SubjectName.Physics || q.subject === "Physics");
-      const chemistryRaw = processedQuestions.filter((q: any) => q.subject === SubjectName.Chemistry || q.subject === "Chemistry");
-      const mathematicsRaw = processedQuestions.filter((q: any) => q.subject === SubjectName.Mathematics || q.subject === "Mathematics");
-
-      return encryptPayload({
-        ...paperRaw,
-        exam: paperRaw.exam?.name,
-        questions: undefined,
-        Physics: this.groupAndSortBySection(physicsRaw),
-        Chemistry: this.groupAndSortBySection(chemistryRaw),
-        Mathematics: this.groupAndSortBySection(mathematicsRaw),
-      });
-
-    } catch (error) {
-      console.error("Error fetching paper questions:", error);
-      throw error;
-    }
-  }
-
-  // =================================================================
-  // 7. GET RAW QUESTIONS BY PAPER ID
-  // =================================================================
-  async getRawQuestionsForPaper(paperId: string) {
-    try {
-      const paperRaw = await this.db.papers.findUnique({
-        where: { id: paperId },
-        include: {
-          exam: { select: { name: true } },
-          questions: {
-            include: {
-              options: true,
-              solution: true,
-              subjects: { select: { name: true } },
-              chapters: {
-                select: { name: true, isJeeAdvanced: true, isJeeMain: true }
-              },
-            },
-            orderBy: { id: 'asc' }
-          },
-        },
-      });
-
-      if (!paperRaw) return null;
-
-      const processedQuestions = await Promise.all(
-        paperRaw.questions.map(async (q) => {
-          const subjectName = q.subjects?.name || null;
-          const chapterName = q.chapters?.name || null;
-          const isJeeMain = q.chapters?.isJeeMain ?? false;
-          const isJeeAdvanced = q.chapters?.isJeeAdvanced ?? false;
-
-          const signedQuestionImages = this.signUrlArray(q.image);
-          const signedCompImages = this.signUrlArray(q.comprehensionImage);
-
-          const finalQuestionHtml = this.injectUrlsIntoHtml(q.content, signedQuestionImages);
-          const finalCompHtml = this.injectUrlsIntoHtml(q.comprehensionContent, signedCompImages);
-
-          let processedOptions = null;
-          if (q.options) {
-            const optAImgs = this.signUrlArray(q.options.optionAimage);
-            const optBImgs = this.signUrlArray(q.options.optionBimage);
-            const optCImgs = this.signUrlArray(q.options.optionCimage);
-            const optDImgs = this.signUrlArray(q.options.optionDimage);
-
-            processedOptions = {
-              ...q.options,
-              optionAtext: this.injectUrlsIntoHtml(q.options.optionAtext, optAImgs),
-              optionBtext: this.injectUrlsIntoHtml(q.options.optionBtext, optBImgs),
-              optionCtext: this.injectUrlsIntoHtml(q.options.optionCtext, optCImgs),
-              optionDtext: this.injectUrlsIntoHtml(q.options.optionDtext, optDImgs),
+              optionAtext: this.injectUrlsIntoHtml(
+                q.options.optionAtext,
+                optAImgs,
+              ),
+              optionBtext: this.injectUrlsIntoHtml(
+                q.options.optionBtext,
+                optBImgs,
+              ),
+              optionCtext: this.injectUrlsIntoHtml(
+                q.options.optionCtext,
+                optCImgs,
+              ),
+              optionDtext: this.injectUrlsIntoHtml(
+                q.options.optionDtext,
+                optDImgs,
+              ),
               optionAimage: undefined,
               optionBimage: undefined,
               optionCimage: undefined,
@@ -456,7 +424,146 @@ class Question {
             chapter: chapterName,
             isJeeMain,
             isJeeAdvanced,
-            subjects: undefined, chapters: undefined, paperId: undefined, subjectId: undefined, chapterId: undefined,
+            subjects: undefined,
+            chapters: undefined,
+            paperId: undefined,
+            subjectId: undefined,
+            chapterId: undefined,
+            image: undefined,
+            comprehensionImage: undefined,
+
+            options: processedOptions,
+            solution: processedSolution,
+          };
+        }),
+      );
+
+      const physicsRaw = processedQuestions.filter(
+        (q: any) =>
+          q.subject === SubjectName.Physics || q.subject === "Physics",
+      );
+      const chemistryRaw = processedQuestions.filter(
+        (q: any) =>
+          q.subject === SubjectName.Chemistry || q.subject === "Chemistry",
+      );
+      const mathematicsRaw = processedQuestions.filter(
+        (q: any) =>
+          q.subject === SubjectName.Mathematics || q.subject === "Mathematics",
+      );
+
+      return encryptPayload({
+        ...paperRaw,
+        exam: paperRaw.exam?.name,
+        questions: undefined,
+        Physics: this.groupAndSortBySection(physicsRaw),
+        Chemistry: this.groupAndSortBySection(chemistryRaw),
+        Mathematics: this.groupAndSortBySection(mathematicsRaw),
+      });
+    } catch (error) {
+      console.error("Error fetching paper questions:", error);
+      throw error;
+    }
+  }
+
+  // =================================================================
+  // 7. GET RAW QUESTIONS BY PAPER ID
+  // =================================================================
+  async getRawQuestionsForPaper(paperId: string) {
+    try {
+      const paperRaw = await this.db.papers.findUnique({
+        where: { id: paperId },
+        include: {
+          exam: { select: { name: true } },
+          questions: {
+            include: {
+              options: true,
+              solution: true,
+              subjects: { select: { name: true } },
+              chapters: {
+                select: { name: true, isJeeAdvanced: true, isJeeMain: true },
+              },
+            },
+            orderBy: { id: "asc" },
+          },
+        },
+      });
+
+      if (!paperRaw) return null;
+
+      const processedQuestions = await Promise.all(
+        paperRaw.questions.map(async (q) => {
+          const subjectName = q.subjects?.name || null;
+          const chapterName = q.chapters?.name || null;
+          const isJeeMain = q.chapters?.isJeeMain ?? false;
+          const isJeeAdvanced = q.chapters?.isJeeAdvanced ?? false;
+
+          const signedQuestionImages = this.signUrlArray(q.image);
+          const signedCompImages = this.signUrlArray(q.comprehensionImage);
+
+          const finalQuestionHtml = this.injectUrlsIntoHtml(
+            q.content,
+            signedQuestionImages,
+          );
+          const finalCompHtml = this.injectUrlsIntoHtml(
+            q.comprehensionContent,
+            signedCompImages,
+          );
+
+          let processedOptions = null;
+          if (q.options) {
+            const optAImgs = this.signUrlArray(q.options.optionAimage);
+            const optBImgs = this.signUrlArray(q.options.optionBimage);
+            const optCImgs = this.signUrlArray(q.options.optionCimage);
+            const optDImgs = this.signUrlArray(q.options.optionDimage);
+
+            processedOptions = {
+              ...q.options,
+              optionAtext: this.injectUrlsIntoHtml(
+                q.options.optionAtext,
+                optAImgs,
+              ),
+              optionBtext: this.injectUrlsIntoHtml(
+                q.options.optionBtext,
+                optBImgs,
+              ),
+              optionCtext: this.injectUrlsIntoHtml(
+                q.options.optionCtext,
+                optCImgs,
+              ),
+              optionDtext: this.injectUrlsIntoHtml(
+                q.options.optionDtext,
+                optDImgs,
+              ),
+              optionAimage: undefined,
+              optionBimage: undefined,
+              optionCimage: undefined,
+              optionDimage: undefined,
+            };
+          }
+
+          let processedSolution = null;
+          if (q.solution) {
+            const solImages = this.signUrlArray(q.solution.image);
+            processedSolution = {
+              ...q.solution,
+              text: this.injectUrlsIntoHtml(q.solution.text, solImages),
+              image: undefined,
+            };
+          }
+
+          return {
+            ...q,
+            content: finalQuestionHtml,
+            comprehensionContent: finalCompHtml,
+            subject: subjectName,
+            chapter: chapterName,
+            isJeeMain,
+            isJeeAdvanced,
+            subjects: undefined,
+            chapters: undefined,
+            paperId: undefined,
+            subjectId: undefined,
+            chapterId: undefined,
             image: undefined,
             comprehensionImage: undefined,
 
@@ -464,140 +571,121 @@ class Question {
             options: processedOptions,
             solution: processedSolution,
           };
-        })
+        }),
       );
 
-      const physicsRaw = processedQuestions.filter((q: any) => q.subject === SubjectName.Physics || q.subject === "Physics");
-      const chemistryRaw = processedQuestions.filter((q: any) => q.subject === SubjectName.Chemistry || q.subject === "Chemistry");
-      const mathematicsRaw = processedQuestions.filter((q: any) => q.subject === SubjectName.Mathematics || q.subject === "Mathematics");
+      const physicsRaw = processedQuestions.filter(
+        (q: any) =>
+          q.subject === SubjectName.Physics || q.subject === "Physics",
+      );
+      const chemistryRaw = processedQuestions.filter(
+        (q: any) =>
+          q.subject === SubjectName.Chemistry || q.subject === "Chemistry",
+      );
+      const mathematicsRaw = processedQuestions.filter(
+        (q: any) =>
+          q.subject === SubjectName.Mathematics || q.subject === "Mathematics",
+      );
 
       return {
         paperDetails: {
           ...paperRaw,
-          questions: undefined
+          questions: undefined,
         },
         Physics: this.groupAndSortBySection(physicsRaw),
         Chemistry: this.groupAndSortBySection(chemistryRaw),
-        Mathematics: this.groupAndSortBySection(mathematicsRaw)
+        Mathematics: this.groupAndSortBySection(mathematicsRaw),
       };
-
     } catch (error) {
       console.error("Error fetching raw paper questions:", error);
       throw error;
     }
   }
 
+  async gettingQuestionsInformation(paperId: string) {
+    try {
+      const paperDetails = await this.db.questions.findMany({
+        where: {
+          paperId: paperId,
+        },
+        include: {
+          subjects: true,
+          chapters: true,
+          papers: {
+            include: {
+              exam: true,
+            },
+          },
+        },
+      });
 
-
-
-
-  async gettingQuestionsInformation(paperId : string){
-      try {
-       
-         const paperDetails = await this.db.questions.findMany({
-          where : {
-            paperId : paperId 
-          }
-           , 
-           include: {
-            subjects : true ,
-            chapters: true,
-            papers : {
-              include : {
-                exam : true
-              }
-            }
-           }
-         })
-
-
-         return paperDetails ; 
-
-      }
-      catch(err : any){
-
-      }
+      return paperDetails;
+    } catch (err: any) {}
   }
 
-
-
-  async gettingQuestionForChapter (chapterId : string , userId : string) {
+  async gettingQuestionForChapter(chapterId: string, userId: string) {
     try {
-        
-      // in this we will take the question and also with the attempt status from the test attempt and the chapter wise attempt 
+      // in this we will take the question and also with the attempt status from the test attempt and the chapter wise attempt
 
       const chapterWiseRawDetails = await this.db.questions.findMany({
-        where : {
-          chapterId : chapterId 
-        } , 
-        include : {
-          bookmarkedBy : {
-            where : {
-              studentId : userId
-            }
-          } ,
-          chapterWiseAttempts : {
-            where : {
-              studentId : userId 
-            }
-          }, 
-         
-          solution : true , 
-          options : true ,
-          
-        }  
-      }) ;
+        where: {
+          chapterId: chapterId,
+        },
+        include: {
+          bookmarkedBy: {
+            where: {
+              studentId: userId,
+            },
+          },
+          chapterWiseAttempts: {
+            where: {
+              studentId: userId,
+            },
+          },
 
-
-
-     
-    }
-    catch(err : any){
-      throw err ; 
+          solution: true,
+          options: true,
+        },
+      });
+    } catch (err: any) {
+      throw err;
     }
   }
-   
 
+  async questionStatus(questionId: string, userId: string) {
+    try {
+      const testAttemptQuestion =
+        await this.db.testQuestionAttemptStatus.findMany({
+          where: {
+            studentId: userId,
+            questionId: questionId,
+            isAnalyzed: true,
+          },
+          orderBy: {
+            updated_at: "desc",
+          },
+        });
 
+      const chapterWiseQuestion =
+        await this.db.chapterWiseQuestionAttemptStatus.findMany({
+          where: {
+            studentId: userId,
+            questionId: questionId,
+            isAnalyzed: true,
+          },
+          orderBy: {
+            created_at: "desc",
+          },
+        });
 
-  async questionStatus (questionId : string , userId : string){
-     try {
-         const testAttemptQuestion = await this.db.testQuestionAttemptStatus.findMany({
-          where : {
-            studentId : userId , 
-            questionId : questionId , 
-            isAnalyzed : true 
-          } ,
-          orderBy : {
-            updated_at : 'desc'
-          }
-         })
-        
-
-         const chapterWiseQuestion = await this.db.chapterWiseQuestionAttemptStatus.findMany({
-          where : {
-            studentId : userId ,
-            questionId : questionId , 
-            isAnalyzed : true
-          } ,
-          orderBy : {
-            created_at : 'desc' 
-          }
-         })
-
-        
-         return {
-          testData : testAttemptQuestion , 
-          chapterData : chapterWiseQuestion 
-         }
-
-
-     }
-     catch(err : any){
-      throw err ; 
-     }
+      return {
+        testData: testAttemptQuestion,
+        chapterData: chapterWiseQuestion,
+      };
+    } catch (err: any) {
+      throw err;
+    }
   }
-
 }
 
 export const question = new Question(database);

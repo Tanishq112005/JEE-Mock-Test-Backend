@@ -1,15 +1,26 @@
 import { Redis } from '@upstash/redis'
+import { UPSTASH_REDIS_REST_TOKEN_CACHING, UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_URL_CACHING } from '../config/env';
 
 class ReddisConfigForCaching {
-    private reddis : any ; 
+    private reddisAnalytics : any ; 
+    private reddisTestData : any ; 
     constructor(){
-      this.reddis = Redis.fromEnv() ; 
+      this.reddisAnalytics = new Redis({
+      url: UPSTASH_REDIS_REST_URL,
+      token: UPSTASH_REDIS_REST_URL,
+})  
+     
+      this.reddisTestData  = new Redis({
+        url : UPSTASH_REDIS_REST_URL_CACHING , 
+        token : UPSTASH_REDIS_REST_TOKEN_CACHING
+      })
+
     }
 
 
-    async settingData(key : any , data : any){
+    async settingAnanlyticsData(key : any , data : any){
         try {
-           await this.reddis.set(key , data) ; 
+           await this.reddisAnalytics.set(key , data) ; 
         }
         catch(err : any){
             throw err ; 
@@ -17,9 +28,9 @@ class ReddisConfigForCaching {
     }
 
 
-    async gettingData(key : any){
+    async gettingAnanlyticsData(key : any){
         try {
-           const data = await this.reddis.get(key) ; 
+           const data = await this.reddisAnalytics.get(key) ; 
            return data ; 
         }
         catch(err : any){
@@ -27,9 +38,38 @@ class ReddisConfigForCaching {
         }
     }
 
-     async deletingData(key: string): Promise<void> {
+     async deletingAnanlyticsData(key: string): Promise<void> {
         try {
-            await this.reddis.del(key);
+            await this.reddisAnalytics.del(key);
+        } catch (err) {
+            throw err;
+        }
+    }
+
+
+    async settingTestData(key : any , data : any) {
+        try {
+           await this.reddisTestData.set(key , data) ; 
+        }
+        catch(err : any){
+            throw err ; 
+        }
+    }
+
+    
+    async gettingTestData(key : any){
+        try {
+           const data = await this.reddisTestData.get(key) ; 
+           return data ; 
+        }
+        catch(err : any){
+            throw err ; 
+        }
+    }
+
+     async deletingTestData(key: string): Promise<void> {
+        try {
+            await this.reddisTestData.del(key);
         } catch (err) {
             throw err;
         }

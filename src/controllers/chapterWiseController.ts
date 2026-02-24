@@ -55,7 +55,7 @@ class ChapterWiseController {
 
         // ── 3. Update Redis upper layer (with null guard) ────────────
         let gettingUpperPractice: cachingDataPraticeUpperLayer =
-            await reddisConfigForCaching.gettingData(`${studentId}:praticeUpperLayer`);
+            await reddisConfigForCaching.gettingAnanlyticsData(`${studentId}:praticeUpperLayer`);
 
         if (!gettingUpperPractice) {
             gettingUpperPractice = { praticeStatus: [] };
@@ -65,11 +65,11 @@ class ChapterWiseController {
 
         // ── 4. Save to Redis (both keys in parallel) ─────────────────
         await Promise.all([
-            reddisConfigForCaching.settingData(
+            reddisConfigForCaching.settingAnanlyticsData(
                 `${studentId}:praticeUpperLayer`,
                 gettingUpperPractice,             // ✅ full updated object
             ),
-            reddisConfigForCaching.settingData(
+            reddisConfigForCaching.settingAnanlyticsData(
                 `${studentId}:${questionId}:${created_at}`,
                 evaluatedQuestion,                // ✅ full evaluation result
             ),

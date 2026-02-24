@@ -21,7 +21,7 @@ class AnalyticsController {
             }
 
           
-            const testData = await reddisConfigForCaching.gettingData(
+            const testData = await reddisConfigForCaching.gettingAnanlyticsData(
                 `${studentId}:${testId}:${created_at}`
             );
 
