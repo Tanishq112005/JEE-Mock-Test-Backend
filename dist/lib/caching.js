@@ -9,7 +9,7 @@ class ReddisConfigForCaching {
     constructor() {
         this.reddisAnalytics = new redis_1.Redis({
             url: env_1.UPSTASH_REDIS_REST_URL,
-            token: env_1.UPSTASH_REDIS_REST_URL,
+            token: env_1.UPSTASH_REDIS_REST_TOKEN,
         });
         this.reddisTestData = new redis_1.Redis({
             url: env_1.UPSTASH_REDIS_REST_URL_CACHING,
