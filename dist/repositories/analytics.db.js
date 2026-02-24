@@ -232,7 +232,11 @@ class Analytics {
     writeTestChapterSnapshots(tx, testStatusId, studentId, examName, chapterWise) {
         return chapterWise.map((ch) => tx.testChapterAnalytics.upsert({
             where: {
-                studentId_chapterId_testStatusId: { studentId, chapterId: ch.chapterId, testStatusId },
+                studentId_chapterId_testStatusId: {
+                    studentId,
+                    chapterId: ch.chapterId,
+                    testStatusId,
+                },
             },
             create: {
                 studentId,
@@ -319,8 +323,17 @@ class Analytics {
                 : {};
             return tx.chapterAnalytics.upsert({
                 where: { studentId_chapterId: { studentId, chapterId: ch.chapterId } },
-                create: { studentId, chapterId: ch.chapterId, ...jeeMainCreate, ...jeeAdvancedCreate },
-                update: { ...jeeMainIncrement, ...jeeAdvancedIncrement, updated_at: new Date() },
+                create: {
+                    studentId,
+                    chapterId: ch.chapterId,
+                    ...jeeMainCreate,
+                    ...jeeAdvancedCreate,
+                },
+                update: {
+                    ...jeeMainIncrement,
+                    ...jeeAdvancedIncrement,
+                    updated_at: new Date(),
+                },
             });
         });
     }
@@ -472,11 +485,11 @@ class Analytics {
         for (const s of subjects) {
             subjectIdMap[s.name] = s.id;
         }
-        const mathematicsId = subjectIdMap['Mathematics'];
-        const physicsId = subjectIdMap['Physics'];
-        const chemistryId = subjectIdMap['Chemistry'];
+        const mathematicsId = subjectIdMap["Mathematics"];
+        const physicsId = subjectIdMap["Physics"];
+        const chemistryId = subjectIdMap["Chemistry"];
         if (!mathematicsId || !physicsId || !chemistryId) {
-            throw new Error('One or more subjects not found in DB');
+            throw new Error("One or more subjects not found in DB");
         }
         const subjectMap = {
             Mathematics: { subjectId: mathematicsId, stats: math },
@@ -498,7 +511,7 @@ class Analytics {
             });
         }, {
             maxWait: 5000, // Time to wait to acquire the transaction lock (default 2000ms)
-            timeout: 30000 // Increase timeout to 30 seconds (default is 5000ms)
+            timeout: 30000, // Increase timeout to 30 seconds (default is 5000ms)
         });
     }
     // ══════════════════════════════════════════
@@ -544,19 +557,21 @@ class Analytics {
             const math = getSub("Mathematics");
             const physics = getSub("Physics");
             const chemistry = getSub("Chemistry");
-            const buildSubjectStat = (s) => s ? {
-                totalQuestions: s.totalQuestions,
-                attempt: s.attempted,
-                marks: s.marks,
-                timeTaken: s.timeTaken,
-                positiveMarks: s.positiveMarks,
-                paritalMarks: s.partialMarks,
-                negativeMarks: s.negativeMarks,
-                correct: s.correct,
-                partial: s.partial,
-                wrong: s.wrong,
-                accuracy: s.accuracy,
-            } : null;
+            const buildSubjectStat = (s) => s
+                ? {
+                    totalQuestions: s.totalQuestions,
+                    attempt: s.attempted,
+                    marks: s.marks,
+                    timeTaken: s.timeTaken,
+                    positiveMarks: s.positiveMarks,
+                    paritalMarks: s.partialMarks,
+                    negativeMarks: s.negativeMarks,
+                    correct: s.correct,
+                    partial: s.partial,
+                    wrong: s.wrong,
+                    accuracy: s.accuracy,
+                }
+                : null;
             // ── Question type results ────────────────────────────────────────
             const questionTypes = {};
             testSummary.questionTypeResults.forEach((qt) => {
@@ -603,7 +618,11 @@ class Analytics {
                 timeSpent: q.timeSpent,
                 markedForReview: q.markedForReview,
                 userAnswer: q.userAnswer,
-                verdict: q.isCorrect ? "correct" : q.marksObtained > 0 ? "partial" : "wrong",
+                verdict: q.isCorrect
+                    ? "correct"
+                    : q.marksObtained > 0
+                        ? "partial"
+                        : "wrong",
                 marks: q.marksObtained,
             }));
             // ── Paper meta ───────────────────────────────────────────────────
@@ -619,10 +638,18 @@ class Analytics {
                 physics: physicsStats,
                 chemistry: chemistryStats,
                 overall: {
-                    totalQuestions: (math?.totalQuestions ?? 0) + (physics?.totalQuestions ?? 0) + (chemistry?.totalQuestions ?? 0),
-                    totalAttempted: (math?.attempted ?? 0) + (physics?.attempted ?? 0) + (chemistry?.attempted ?? 0),
-                    totalCorrect: (math?.correct ?? 0) + (physics?.correct ?? 0) + (chemistry?.correct ?? 0),
-                    totalPartial: (math?.partial ?? 0) + (physics?.partial ?? 0) + (chemistry?.partial ?? 0),
+                    totalQuestions: (math?.totalQuestions ?? 0) +
+                        (physics?.totalQuestions ?? 0) +
+                        (chemistry?.totalQuestions ?? 0),
+                    totalAttempted: (math?.attempted ?? 0) +
+                        (physics?.attempted ?? 0) +
+                        (chemistry?.attempted ?? 0),
+                    totalCorrect: (math?.correct ?? 0) +
+                        (physics?.correct ?? 0) +
+                        (chemistry?.correct ?? 0),
+                    totalPartial: (math?.partial ?? 0) +
+                        (physics?.partial ?? 0) +
+                        (chemistry?.partial ?? 0),
                     overallAccuracy: testSummary.accuracy,
                     totalTimeTaken: testSummary.timeTaken,
                     averageTimePerQuestion: testSummary.avgTimePerQ,
@@ -697,51 +724,65 @@ class Analytics {
         const isPartial = verdict === "partial";
         const isJeeMain = examName === "JEE_MAIN";
         const isJeeAdvanced = examName === "JEE_ADVANCED";
-        const jeeMainCreate = isJeeMain ? {
-            practiceJeeMainAttempts: 1,
-            practiceJeeMainTimeSpent: timeSpent,
-            practiceJeeMainMarksEarned: marks,
-            practiceJeeMainMaxPossible: maxMarks,
-            practiceJeeMainCorrect: isCorrect ? 1 : 0,
-            practiceJeeMainWrong: isWrong ? 1 : 0,
-            practiceJeeMainPartial: isPartial ? 1 : 0,
-        } : {};
-        const jeeAdvancedCreate = isJeeAdvanced ? {
-            practiceJeeAdvancedAttempts: 1,
-            practiceJeeAdvancedTimeSpent: timeSpent,
-            practiceJeeAdvancedMarksEarned: marks,
-            practiceJeeAdvancedMaxPossible: maxMarks,
-            practiceJeeAdvancedCorrect: isCorrect ? 1 : 0,
-            practiceJeeAdvancedWrong: isWrong ? 1 : 0,
-            practiceJeeAdvancedPartial: isPartial ? 1 : 0,
-        } : {};
-        const jeeMainUpdate = isJeeMain ? {
-            practiceJeeMainAttempts: { increment: 1 },
-            practiceJeeMainTimeSpent: { increment: timeSpent },
-            practiceJeeMainMarksEarned: { increment: marks },
-            practiceJeeMainMaxPossible: { increment: maxMarks },
-            practiceJeeMainCorrect: { increment: isCorrect ? 1 : 0 },
-            practiceJeeMainWrong: { increment: isWrong ? 1 : 0 },
-            practiceJeeMainPartial: { increment: isPartial ? 1 : 0 },
-        } : {};
-        const jeeAdvancedUpdate = isJeeAdvanced ? {
-            practiceJeeAdvancedAttempts: { increment: 1 },
-            practiceJeeAdvancedTimeSpent: { increment: timeSpent },
-            practiceJeeAdvancedMarksEarned: { increment: marks },
-            practiceJeeAdvancedMaxPossible: { increment: maxMarks },
-            practiceJeeAdvancedCorrect: { increment: isCorrect ? 1 : 0 },
-            practiceJeeAdvancedWrong: { increment: isWrong ? 1 : 0 },
-            practiceJeeAdvancedPartial: { increment: isPartial ? 1 : 0 },
-        } : {};
+        const jeeMainCreate = isJeeMain
+            ? {
+                practiceJeeMainAttempts: 1,
+                practiceJeeMainTimeSpent: timeSpent,
+                practiceJeeMainMarksEarned: marks,
+                practiceJeeMainMaxPossible: maxMarks,
+                practiceJeeMainCorrect: isCorrect ? 1 : 0,
+                practiceJeeMainWrong: isWrong ? 1 : 0,
+                practiceJeeMainPartial: isPartial ? 1 : 0,
+            }
+            : {};
+        const jeeAdvancedCreate = isJeeAdvanced
+            ? {
+                practiceJeeAdvancedAttempts: 1,
+                practiceJeeAdvancedTimeSpent: timeSpent,
+                practiceJeeAdvancedMarksEarned: marks,
+                practiceJeeAdvancedMaxPossible: maxMarks,
+                practiceJeeAdvancedCorrect: isCorrect ? 1 : 0,
+                practiceJeeAdvancedWrong: isWrong ? 1 : 0,
+                practiceJeeAdvancedPartial: isPartial ? 1 : 0,
+            }
+            : {};
+        const jeeMainUpdate = isJeeMain
+            ? {
+                practiceJeeMainAttempts: { increment: 1 },
+                practiceJeeMainTimeSpent: { increment: timeSpent },
+                practiceJeeMainMarksEarned: { increment: marks },
+                practiceJeeMainMaxPossible: { increment: maxMarks },
+                practiceJeeMainCorrect: { increment: isCorrect ? 1 : 0 },
+                practiceJeeMainWrong: { increment: isWrong ? 1 : 0 },
+                practiceJeeMainPartial: { increment: isPartial ? 1 : 0 },
+            }
+            : {};
+        const jeeAdvancedUpdate = isJeeAdvanced
+            ? {
+                practiceJeeAdvancedAttempts: { increment: 1 },
+                practiceJeeAdvancedTimeSpent: { increment: timeSpent },
+                practiceJeeAdvancedMarksEarned: { increment: marks },
+                practiceJeeAdvancedMaxPossible: { increment: maxMarks },
+                practiceJeeAdvancedCorrect: { increment: isCorrect ? 1 : 0 },
+                practiceJeeAdvancedWrong: { increment: isWrong ? 1 : 0 },
+                practiceJeeAdvancedPartial: { increment: isPartial ? 1 : 0 },
+            }
+            : {};
         return tx.chapterAnalytics.upsert({
             where: { studentId_chapterId: { studentId, chapterId } },
             create: { studentId, chapterId, ...jeeMainCreate, ...jeeAdvancedCreate },
-            update: { ...jeeMainUpdate, ...jeeAdvancedUpdate, updated_at: new Date() },
+            update: {
+                ...jeeMainUpdate,
+                ...jeeAdvancedUpdate,
+                updated_at: new Date(),
+            },
         });
     }
     writePracticeQuestionTypeAnalytics(tx, studentId, questionType, marks, maxMarks, timeSpent) {
         return tx.studentQuestionAnalytics.upsert({
-            where: { studentId_questioType: { studentId, questioType: questionType } },
+            where: {
+                studentId_questioType: { studentId, questioType: questionType },
+            },
             create: {
                 studentId,
                 questioType: questionType,

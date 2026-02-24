@@ -30,7 +30,7 @@ class Chapter {
                 subjectId: subjectInformation.id,
                 isJeeAdvanced: payload.isJeeAdvanced,
                 isJeeMain: payload.isJeeMain,
-                group: payload.group
+                group: payload.group,
             },
         });
     };
@@ -71,7 +71,7 @@ class Chapter {
                     select: {
                         id: true,
                         name: true,
-                    }
+                    },
                 },
             },
         });

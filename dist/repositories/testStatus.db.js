@@ -16,17 +16,18 @@ class TestStatus {
         try {
             const existingTests = await this.gettingAllTestDetails(userId, paperId);
             const latestTest = existingTests[0];
-            if (latestTest && (latestTest.status === 'IN_PROGRESS' || latestTest.status == 'PAUSED')) {
+            if (latestTest &&
+                (latestTest.status === "IN_PROGRESS" || latestTest.status == "PAUSED")) {
                 // await this.db.testQuestionAttemptStatus.deleteMany({ where: { testStatusId: latestTest.id } });
                 await this.db.testStatus.delete({
-                    where: { id: latestTest.id }
+                    where: { id: latestTest.id },
                 });
             }
             const newTest = await this.startingNewTest(userId, paperId, new Date(), totalTime);
             return {
                 testId: newTest.id,
                 status: newTest.status,
-                message: "New Test Started Successfully"
+                message: "New Test Started Successfully",
             };
         }
         catch (err) {
@@ -51,7 +52,7 @@ class TestStatus {
             }
             // 2. Fetch User Attempts
             const userAttempts = await this.db.testQuestionAttemptStatus.findMany({
-                where: { testStatusId: testStatusId }
+                where: { testStatusId: testStatusId },
             });
             // 3. Fetch Raw Questions
             // Structure: { paperDetails, Physics: { MultiCorrect: [], ... }, Chemistry: { ... }, ... }
@@ -60,7 +61,7 @@ class TestStatus {
                 throw new Error("Paper data not found");
             // 4. Create Map for O(1) Access
             const attemptMap = new Map();
-            userAttempts.forEach(att => attemptMap.set(att.questionId, att));
+            userAttempts.forEach((att) => attemptMap.set(att.questionId, att));
             // 5. Helper: Recursively traverse object to find arrays of questions
             const mergeAttemptsRecursive = (data) => {
                 // Base Case: If data is an array, it's a list of questions. Process it.
@@ -69,27 +70,29 @@ class TestStatus {
                         const userAttempt = attemptMap.get(q.id);
                         return {
                             ...q,
-                            attemptStatus: userAttempt ? {
-                                userAnswer: userAttempt.userAnswer,
-                                isVisited: userAttempt.isVisited,
-                                markedForReview: userAttempt.markedForReview,
-                                timeSpent: userAttempt.timeSpent,
-                                status: userAttempt.status
-                            } : {
-                                userAnswer: null,
-                                isVisited: false,
-                                markedForReview: false,
-                                timeSpent: 0,
-                                status: client_1.AttemptStatus.notAnswered
-                            }
+                            attemptStatus: userAttempt
+                                ? {
+                                    userAnswer: userAttempt.userAnswer,
+                                    isVisited: userAttempt.isVisited,
+                                    markedForReview: userAttempt.markedForReview,
+                                    timeSpent: userAttempt.timeSpent,
+                                    status: userAttempt.status,
+                                }
+                                : {
+                                    userAnswer: null,
+                                    isVisited: false,
+                                    markedForReview: false,
+                                    timeSpent: 0,
+                                    status: client_1.AttemptStatus.notAnswered,
+                                },
                         };
                     });
                 }
                 // Recursive Step: If data is an object (e.g., "Physics", "MultiCorrect"), traverse its keys
-                if (data && typeof data === 'object') {
+                if (data && typeof data === "object") {
                     const newData = {};
                     for (const key in data) {
-                        if (key === 'paperDetails') {
+                        if (key === "paperDetails") {
                             newData[key] = data[key]; // Skip processing paper details
                         }
                         else {
@@ -113,12 +116,12 @@ class TestStatus {
                     activeSection: currentTestStatus.activeSection,
                     activeQuestionId: currentTestStatus.activeQuestionId,
                     status: currentTestStatus.status,
-                    startTime: currentTestStatus.created_at
+                    startTime: currentTestStatus.created_at,
                 },
                 paper: rawPaperData.paperDetails,
                 Physics: processedPhysics,
                 Chemistry: processedChemistry,
-                Mathematics: processedMathematics
+                Mathematics: processedMathematics,
             };
             // 8. Encrypt
             return finalPayload;
@@ -139,23 +142,23 @@ class TestStatus {
                 status: client_1.TestState.IN_PROGRESS,
                 created_at,
                 updated_at: created_at,
-                timeLeft: time
-            }
+                timeLeft: time,
+            },
         });
     }
     async resumeTest(testStatusId) {
         await this.db.testStatus.update({
             where: { id: testStatusId },
-            data: { status: client_1.TestState.IN_PROGRESS }
+            data: { status: client_1.TestState.IN_PROGRESS },
         });
     }
     async gettingAllTestDetails(userId, paperId) {
         return await this.db.testStatus.findMany({
             where: {
                 paperId: paperId,
-                studentId: userId
+                studentId: userId,
             },
-            orderBy: { created_at: 'desc' }
+            orderBy: { created_at: "desc" },
         });
     }
     // =================================================================
@@ -164,7 +167,7 @@ class TestStatus {
     async updatingTestDetails(updateDetails) {
         try {
             const existingTest = await this.db.testStatus.findUnique({
-                where: { id: updateDetails.testId }
+                where: { id: updateDetails.testId },
             });
             if (!existingTest) {
                 console.warn(`⚠️ Skipped: TestID ${updateDetails.testId} not found.`);
@@ -187,13 +190,17 @@ class TestStatus {
                 if (updateDetails.questionStatus?.length > 0) {
                     await Promise.all(updateDetails.questionStatus.map((q) => {
                         let formattedAnswer = [];
-                        if (q.numericAnswer !== null && q.numericAnswer !== undefined && q.numericAnswer !== '') {
+                        if (q.numericAnswer !== null &&
+                            q.numericAnswer !== undefined &&
+                            q.numericAnswer !== "") {
                             formattedAnswer.push(String(q.numericAnswer));
                         }
-                        else if (Array.isArray(q.selectedOptionIds) && q.selectedOptionIds.length > 0) {
+                        else if (Array.isArray(q.selectedOptionIds) &&
+                            q.selectedOptionIds.length > 0) {
                             formattedAnswer = q.selectedOptionIds.map(String);
                         }
-                        else if (q.userAnswer !== null && q.userAnswer !== undefined) {
+                        else if (q.userAnswer !== null &&
+                            q.userAnswer !== undefined) {
                             formattedAnswer = Array.isArray(q.userAnswer)
                                 ? q.userAnswer.map(String)
                                 : [String(q.userAnswer)];
@@ -211,14 +218,14 @@ class TestStatus {
                                 studentId,
                                 timeSpent: q.timeSpent || 0,
                                 userAnswer: formattedAnswer,
-                                status: q.status || 'notAnswered',
+                                status: q.status || "notAnswered",
                                 isVisited: q.isVisited || false,
                                 markedForReview: q.markedForReview || false,
                             },
                             update: {
                                 timeSpent: q.timeSpent || 0,
                                 userAnswer: formattedAnswer,
-                                status: q.status || 'notAnswered',
+                                status: q.status || "notAnswered",
                                 isVisited: q.isVisited || false,
                                 markedForReview: q.markedForReview || false,
                             },
@@ -241,15 +248,15 @@ class TestStatus {
                 include: {
                     testQuestionStatus: {
                         include: {
-                            questions: true // Contains correctAnswer, type, etc.
-                        }
+                            questions: true, // Contains correctAnswer, type, etc.
+                        },
                     },
                     papers: {
                         include: {
-                            markingSchemes: true // Contains Partial Marking Rules
-                        }
-                    }
-                }
+                            markingSchemes: true, // Contains Partial Marking Rules
+                        },
+                    },
+                },
             });
             return testContext;
         }
@@ -257,7 +264,7 @@ class TestStatus {
             throw err;
         }
     }
-    // finalSumbmitTest 
+    // finalSumbmitTest
     async finalSubmitTest(testId, studentId, created_at, evaluationReport) {
         try {
             const existingTest = await this.db.testStatus.findUnique({
@@ -272,13 +279,13 @@ class TestStatus {
                 await tx.testStatus.update({
                     where: { id: testId },
                     data: {
-                        status: 'COMPLETED',
+                        status: "COMPLETED",
                         updated_at: new Date(),
                     },
                 });
                 // ── 2. Upsert every question with full evaluation data ───
                 await Promise.all(finalVerdict.map((q) => {
-                    const isCorrect = q.verdict === 'correct';
+                    const isCorrect = q.verdict === "correct";
                     return tx.testQuestionAttemptStatus.upsert({
                         where: {
                             questionId_testStatusId: {
@@ -293,8 +300,10 @@ class TestStatus {
                             timeSpent: q.timeSpent || 0,
                             userAnswer: q.userAnswer || [],
                             status: q.isVisited
-                                ? (q.userAnswer?.length > 0 ? 'answered' : 'visited')
-                                : 'notAnswered',
+                                ? q.userAnswer?.length > 0
+                                    ? "answered"
+                                    : "visited"
+                                : "notAnswered",
                             isVisited: q.isVisited || false,
                             markedForReview: q.markedForReview || false,
                             isCorrect: isCorrect,
@@ -305,8 +314,10 @@ class TestStatus {
                             timeSpent: q.timeSpent || 0,
                             userAnswer: q.userAnswer || [],
                             status: q.isVisited
-                                ? (q.userAnswer?.length > 0 ? 'answered' : 'visited')
-                                : 'notAnswered',
+                                ? q.userAnswer?.length > 0
+                                    ? "answered"
+                                    : "visited"
+                                : "notAnswered",
                             isVisited: q.isVisited || false,
                             markedForReview: q.markedForReview || false,
                             isCorrect: isCorrect,
@@ -330,15 +341,15 @@ class TestStatus {
     // =================================================================
     async autoPauseInactiveTests(inactivityThresholdSeconds) {
         try {
-            const cutoffTime = new Date(Date.now() - (inactivityThresholdSeconds * 1000));
+            const cutoffTime = new Date(Date.now() - inactivityThresholdSeconds * 1000);
             const result = await this.db.testStatus.updateMany({
                 where: {
                     status: client_1.TestState.IN_PROGRESS,
-                    updated_at: { lt: cutoffTime }
+                    updated_at: { lt: cutoffTime },
                 },
                 data: {
-                    status: client_1.TestState.PAUSED
-                }
+                    status: client_1.TestState.PAUSED,
+                },
             });
             if (result.count > 0) {
                 console.log(`Watchdog: Auto-paused ${result.count} tests.`);

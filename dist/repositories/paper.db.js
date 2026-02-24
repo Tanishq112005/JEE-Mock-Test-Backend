@@ -12,10 +12,10 @@ class Paper {
     constructor(database) {
         this.db = database;
     }
-    // adding the paper information 
+    // adding the paper information
     async addingPapers(paperInformation) {
         try {
-            // getting the exam id 
+            // getting the exam id
             const examId = await exam_db_1.exam.gettingIdOfExam(paperInformation.exam);
             const newPaper = await this.db.papers.create({
                 data: {
@@ -26,8 +26,8 @@ class Paper {
                     day: paperInformation.day,
                     mode: paperInformation.mode,
                     totalDuration: paperInformation.totalDuration,
-                    date: paperInformation.date
-                }
+                    date: paperInformation.date,
+                },
             });
             return newPaper.id;
         }
@@ -35,20 +35,20 @@ class Paper {
             throw err;
         }
     }
-    // deleting the paper from the database 
+    // deleting the paper from the database
     async deletingPapers(paperId) {
         try {
             await this.db.papers.delete({
                 where: {
-                    id: paperId
-                }
+                    id: paperId,
+                },
             });
         }
         catch (err) {
             throw err;
         }
     }
-    // getting all the papers 
+    // getting all the papers
     // -> on the basis of the exam
     async gettingPaperInformation(year, examName) {
         try {
@@ -58,16 +58,16 @@ class Paper {
             if (year != 0 && examName == null) {
                 return this.db.papers.findMany({
                     where: {
-                        year: year
-                    }
+                        year: year,
+                    },
                 });
             }
             if (year == 0 && examName != null) {
                 const examId = await exam_db_1.exam.gettingIdOfExam(examName);
                 return this.db.papers.findMany({
                     where: {
-                        examId: examId
-                    }
+                        examId: examId,
+                    },
                 });
             }
             if (year != 0 && examName != null) {
@@ -75,8 +75,8 @@ class Paper {
                 return this.db.papers.findMany({
                     where: {
                         examId: examId,
-                        year: year
-                    }
+                        year: year,
+                    },
                 });
             }
         }
@@ -107,7 +107,7 @@ class Paper {
                 },
             }));
             // 3. Upsert the Marking Scheme for this specific question type
-            // Upsert ensures we create it if it's the first question of this type, 
+            // Upsert ensures we create it if it's the first question of this type,
             // or just update it if the scheme already exists for this paper.
             if (questionInformation.questionType) {
                 transactions.push(this.db.paperMarkingScheme.upsert({
@@ -142,8 +142,8 @@ class Paper {
         try {
             const paperScheme = await this.db.paperMarkingScheme.findMany({
                 where: {
-                    paperId: paperId
-                }
+                    paperId: paperId,
+                },
             });
             return paperScheme;
         }

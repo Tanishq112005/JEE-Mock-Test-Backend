@@ -1,7 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UpdateTestDetailsConsumer = void 0;
-const testStatus_db_1 = require("../../repositories/testStatus.db"); // Make sure this path points to your TestStatus class instance
+const testStatus_db_1 = require("../../repositories/testStatus.db");
+const reddisService_1 = require("../../services/reddisService");
 class UpdateTestDetailsConsumer {
     connection;
     constructor(connection) {
@@ -32,6 +33,8 @@ class UpdateTestDetailsConsumer {
                     // --- ACTUAL WORKER LOGIC ---
                     await testStatus_db_1.testStatus.updatingTestDetails(data);
                     // ---------------------------
+                    // ── DB confirmed — now safe to delete from Redis ───
+                    await reddisService_1.reddisService.deleteTestUpdateData(data.userId, data.testId);
                     channel.ack(msg);
                     console.log("✅ Test Data Updated Successfully");
                 }
@@ -39,6 +42,7 @@ class UpdateTestDetailsConsumer {
                     console.error("❌ Processing failed for Test Update:", err);
                     // NACK: false, false -> This rejects the message and DROPS it (does not requeue)
                     // If you want to retry later, change the second 'false' to 'true'
+                    // Redis is NOT deleted on failure — cache stays intact for frontend
                     channel.nack(msg, false, false);
                 }
             });
