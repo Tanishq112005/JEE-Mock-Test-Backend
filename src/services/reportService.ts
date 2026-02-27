@@ -5,6 +5,16 @@ import { subject } from "../repositories/subject.db";
 import { reddisService } from "./reddisService";
 import { questionBitmapRegistry } from "./uniqueCountService";
 
+// Canonical question types — always shown even with zero data
+const KNOWN_QUESTION_TYPES = ['MCQ', 'NUMERICAL', 'MSQ'];
+
+// Canonical subjects — always shown even with zero data
+const KNOWN_SUBJECTS = [
+    { key: 'math',      name: 'Mathematics' },
+    { key: 'physics',   name: 'Physics' },
+    { key: 'chemistry', name: 'Chemistry' },
+];
+
 class ReportService {
     private db: PrismaClient;
 
@@ -35,7 +45,6 @@ class ReportService {
             const reddisTestData = await reddisService.reddisTestData(studentId);
             const testWiseData   = await analytics.testWiseData(studentId);
 
-            // ✅ Fix 3 — was item.finalTestResult, correct field is item.testData
             const reddisArray = reddisTestData.testData.map((item: any) => ({
                 id:               item.testId,
                 exam:             item.testData.exam,
@@ -118,7 +127,7 @@ class ReportService {
     // ==========================================
 
     private buildQuestionTypes(tests: any[]) {
-        const allQTypes = new Set<string>();
+        const allQTypes = new Set<string>(KNOWN_QUESTION_TYPES); // always seed known types
         tests.forEach((t) => {
             if (t.questionWise) Object.keys(t.questionWise).forEach((k) => allQTypes.add(k));
         });
@@ -126,7 +135,17 @@ class ReportService {
         const result: Record<string, any> = {};
         for (const qType of allQTypes) {
             const qTests = tests.filter((t) => t.questionWise?.[qType]);
-            if (qTests.length === 0) continue;
+
+            // Always include even if no tests have this type — return zeros
+            if (qTests.length === 0) {
+                result[qType] = {
+                    avgScore:    0,
+                    avgAccuracy: 0,
+                    avgCorrect:  0,
+                    avgWrong:    0,
+                };
+                continue;
+            }
 
             const marks    = qTests.map((t) => t.questionWise[qType]?.marks ?? 0);
             const maxMarks = qTests.map((t) => t.questionWise[qType]?.maxMarks ?? t.questionWise[qType]?.maxScore ?? 0);
@@ -431,7 +450,6 @@ class ReportService {
             const allTestData = await this.allTestResult(studentId);
             if (allTestData.length === 0) return null;
 
-            // ✅ Fix 4 — buildReport is synchronous, no need for Promise.all + Promise.resolve
             const last3  = this.buildReport(allTestData, 3);
             const last5  = this.buildReport(allTestData, 5);
             const last10 = this.buildReport(allTestData, 10);
@@ -505,7 +523,6 @@ class ReportService {
                 };
             }
 
-            // ✅ Fix 4 — synchronous calls, no Promise.all needed
             const report = this.buildReport(allTestData, lastNPerGroup);
             const last3  = this.buildReport(allTestData, 3);
             const last5  = this.buildReport(allTestData, 5);
@@ -537,24 +554,31 @@ class ReportService {
                 examAnalytics,
                 questionTypeAnalytics,
                 redisPracticeData,
+                allSubjects,                                          // ← NEW: resolve subjectId → name
             ] = await Promise.all([
                 analytics.studentOverAllAnalytics(studentId),
                 analytics.subjectAnanlytics(studentId),
                 analytics.examWiseAnalytics(studentId),
                 analytics.questionWiseAnalytics(studentId),
                 reddisService.reddisPraticeWiseData(studentId),
+                this.db.subjects.findMany({ select: { id: true, name: true } }), // ← NEW
             ]);
 
             const calcAcc = (earned: number, max: number) =>
                 max > 0 ? parseFloat(((earned / max) * 100).toFixed(2)) : 0;
 
-            // ✅ Fix 2 — unwrap questionData so all field accesses work directly
+            // Build subjectId → name lookup
+            const subjectIdToName: Record<string, string> = {};
+            for (const s of allSubjects) {
+                subjectIdToName[s.id] = s.name;
+            }
+
             const redisQuestions: any[] = (redisPracticeData.praticeWiseData ?? [])
                 .filter((q: any) => q?.questionData != null)
                 .map((q: any) => q.questionData);
 
             // ── Overall ──────────────────────────────────────────────
-            const overall = overallAnalytics;  // ✅ findUnique returns object directly
+            const overall = overallAnalytics;
 
             const redisOverall = redisQuestions.reduce(
                 (acc, q) => {
@@ -585,24 +609,51 @@ class ReportService {
                 })(),
             };
 
-            // ── Subject wise ─────────────────────────────────────────
+            // ── Subject wise — pre-seed ALL known subjects with zeros ─
             const subjectMap: Record<string, any> = {};
 
-            for (const s of subjectAnalytics) {
-                subjectMap[(s as any).subjectId] = {
-                    subjectId:   (s as any).subjectId,
-                    attempts:    (s as any).practiceAttempts,
-                    timeSpent:   (s as any).practiceTimeSpent,
-                    marksEarned: (s as any).practiceMarksEarned,
-                    maxPossible: (s as any).practiceMaxPossible,
+            // Seed from DB subjects master list so every subject always appears
+            for (const s of allSubjects) {
+                subjectMap[s.id] = {
+                    subjectId:   s.id,
+                    subjectName: s.name,          // ← name resolved here
+                    attempts:    0,
+                    timeSpent:   0,
+                    marksEarned: 0,
+                    maxPossible: 0,
                 };
             }
 
+            // Add DB analytics on top of seeds
+            for (const s of subjectAnalytics) {
+                const sid = (s as any).subjectId;
+                if (!subjectMap[sid]) {
+                    subjectMap[sid] = {
+                        subjectId:   sid,
+                        subjectName: subjectIdToName[sid] ?? 'Unknown',
+                        attempts:    0,
+                        timeSpent:   0,
+                        marksEarned: 0,
+                        maxPossible: 0,
+                    };
+                }
+                subjectMap[sid].attempts    += (s as any).practiceAttempts    ?? 0;
+                subjectMap[sid].timeSpent   += (s as any).practiceTimeSpent   ?? 0;
+                subjectMap[sid].marksEarned += (s as any).practiceMarksEarned ?? 0;
+                subjectMap[sid].maxPossible += (s as any).practiceMaxPossible ?? 0;
+            }
+
+            // Add Redis questions on top
             for (const q of redisQuestions) {
                 if (!q?.subjectId) continue;
                 if (!subjectMap[q.subjectId]) {
                     subjectMap[q.subjectId] = {
-                        subjectId: q.subjectId, attempts: 0, timeSpent: 0, marksEarned: 0, maxPossible: 0,
+                        subjectId:   q.subjectId,
+                        subjectName: subjectIdToName[q.subjectId] ?? 'Unknown',
+                        attempts:    0,
+                        timeSpent:   0,
+                        marksEarned: 0,
+                        maxPossible: 0,
                     };
                 }
                 const s = subjectMap[q.subjectId];
@@ -614,6 +665,7 @@ class ReportService {
 
             const subjectReport = Object.values(subjectMap).map((s: any) => ({
                 subjectId:          s.subjectId,
+                subjectName:        s.subjectName,     // ← always present now
                 attempts:           s.attempts,
                 timeSpent:          s.timeSpent,
                 marksEarned:        s.marksEarned,
@@ -624,24 +676,48 @@ class ReportService {
                     : 0,
             }));
 
-            // ── Question type wise ───────────────────────────────────
+            // ── Question type wise — pre-seed all known types with zeros ──
             const qtMap: Record<string, any> = {};
 
-            for (const qt of questionTypeAnalytics) {
-                qtMap[(qt as any).questioType] = {
-                    questionType: (qt as any).questioType,
-                    attempts:     (qt as any).practiceAttempts,
-                    timeSpent:    (qt as any).practiceTimeSpent,
-                    marksEarned:  (qt as any).practiceMarksEarned,
-                    maxPossible:  (qt as any).practiceMaxPossible,
+            // Seed known types first so they always appear
+            for (const qt of KNOWN_QUESTION_TYPES) {
+                qtMap[qt] = {
+                    questionType: qt,
+                    attempts:     0,
+                    timeSpent:    0,
+                    marksEarned:  0,
+                    maxPossible:  0,
                 };
             }
 
+            // Add DB analytics on top
+            for (const qt of questionTypeAnalytics) {
+                const type = (qt as any).questioType;
+                if (!qtMap[type]) {
+                    qtMap[type] = {
+                        questionType: type,
+                        attempts:     0,
+                        timeSpent:    0,
+                        marksEarned:  0,
+                        maxPossible:  0,
+                    };
+                }
+                qtMap[type].attempts    += (qt as any).practiceAttempts    ?? 0;
+                qtMap[type].timeSpent   += (qt as any).practiceTimeSpent   ?? 0;
+                qtMap[type].marksEarned += (qt as any).practiceMarksEarned ?? 0;
+                qtMap[type].maxPossible += (qt as any).practiceMaxPossible ?? 0;
+            }
+
+            // Add Redis questions on top
             for (const q of redisQuestions) {
                 if (!q?.type) continue;
                 if (!qtMap[q.type]) {
                     qtMap[q.type] = {
-                        questionType: q.type, attempts: 0, timeSpent: 0, marksEarned: 0, maxPossible: 0,
+                        questionType: q.type,
+                        attempts:     0,
+                        timeSpent:    0,
+                        marksEarned:  0,
+                        maxPossible:  0,
                     };
                 }
                 const qt = qtMap[q.type];
@@ -669,10 +745,10 @@ class ReportService {
             for (const e of examAnalytics) {
                 examMap[(e as any).examName] = {
                     examName:    (e as any).examName,
-                    attempts:    (e as any).practiceAttempts,
-                    timeSpent:   (e as any).practiceTimeSpent,
-                    marksEarned: (e as any).practiceMarksEarned,
-                    maxPossible: (e as any).practiceMaxPossible,
+                    attempts:    (e as any).practiceAttempts    ?? 0,
+                    timeSpent:   (e as any).practiceTimeSpent   ?? 0,
+                    marksEarned: (e as any).practiceMarksEarned ?? 0,
+                    maxPossible: (e as any).practiceMaxPossible ?? 0,
                 };
             }
 
@@ -706,8 +782,8 @@ class ReportService {
                 studentId,
                 generatedAt:   new Date(),
                 overall:       overallReport,
-                subjects:      subjectReport,
-                questionTypes: questionTypeReport,
+                subjects:      subjectReport,      // subjectName now included
+                questionTypes: questionTypeReport, // always all types, zero if no data
                 exams:         examReport,
             };
 
@@ -721,95 +797,267 @@ class ReportService {
     // PUBLIC: studentSnapshot
     // ==========================================
 
-    async studentSnapshot(studentId: string) {
-        try {
-            const [
-                allTestData,
-                practiceData,
-                attemptedQuestions,
-                subjectTotals,
-            ] = await Promise.all([
-                this.allTestResult(studentId),
-                this.practiceReport(studentId),
-                questionBitmapRegistry.getAttemptedQuestionIds(studentId),
-                subject.readingAllSubjects(),
-            ]);
+   async studentSnapshot(studentId: string) {
+    try {
+        const [
+            allTestData,
+            practiceData,
+            attemptedQuestions,
+            subjectTotals,
+        ] = await Promise.all([
+            this.allTestResult(studentId),
+            this.practiceReport(studentId),
+            questionBitmapRegistry.getAttemptedQuestionIds(studentId),
+            subject.readingAllSubjects(),
+        ]);
 
-            const calcAcc = (earned: number, max: number) =>
-                max > 0 ? parseFloat(((earned / max) * 100).toFixed(2)) : 0;
+        const calcAcc = (earned: number, max: number) =>
+            max > 0 ? parseFloat(((earned / max) * 100).toFixed(2)) : 0;
 
-            // ── Subject wise unique count ─────────────────────────────
-            const subjectWiseUnique: Record<string, any> = {
-                Mathematics: { uniqueAttempted: 0, totalQuestions: subjectTotals['Mathematics']?.totalQuestion ?? 0 },
-                Physics:     { uniqueAttempted: 0, totalQuestions: subjectTotals['Physics']?.totalQuestion     ?? 0 },
-                Chemistry:   { uniqueAttempted: 0, totalQuestions: subjectTotals['Chemistry']?.totalQuestion   ?? 0 },
+        // ── Subject wise unique count ─────────────────────────────
+        const subjectWiseUnique: Record<string, any> = {
+            Mathematics: { uniqueAttempted: 0, totalQuestions: subjectTotals['Mathematics']?.totalQuestion ?? 0 },
+            Physics:     { uniqueAttempted: 0, totalQuestions: subjectTotals['Physics']?.totalQuestion     ?? 0 },
+            Chemistry:   { uniqueAttempted: 0, totalQuestions: subjectTotals['Chemistry']?.totalQuestion   ?? 0 },
+        };
+
+        if (attemptedQuestions.questionIds.length > 0) {
+            const questionSubjects = await this.db.questions.findMany({
+                where:  { id: { in: attemptedQuestions.questionIds } },
+                select: { subjects: { select: { name: true } } },
+            });
+
+            for (const q of questionSubjects) {
+                const name = q.subjects.name;
+                if (subjectWiseUnique[name] !== undefined) {
+                    subjectWiseUnique[name].uniqueAttempted++;
+                }
+            }
+        }
+
+        // ── Fetch paper details for last 5 tests (covers both reddis and testWise) ──
+        const last5Raw = allTestData.slice(0, 5);
+        const last5TestStatusIds = last5Raw.map((t: any) => t.id);
+
+        // Single query — fetch testStatus → papers → exam for all 5 at once
+        const testStatusWithPapers = await this.db.testStatus.findMany({
+            where: { id: { in: last5TestStatusIds } },
+            select: {
+                id: true,
+                papers: {
+                    select: {
+                        year:           true,
+                        month:          true,
+                        day:            true,
+                        date:           true,
+                        shift:          true,
+                        mode:           true,
+                        totalMarks:     true,
+                        totalDuration:  true,
+                        totalQuestions: true,
+                        exam: {
+                            select: { name: true },
+                        },
+                    },
+                },
+            },
+        });
+
+        // Build a lookup map: testStatusId → paperDetails
+        const paperDetailsMap: Record<string, any> = {};
+        for (const ts of testStatusWithPapers) {
+            paperDetailsMap[ts.id] = {
+                examName:       ts.papers.exam.name      ?? null,
+                year:           ts.papers.year           ?? null,
+                month:          ts.papers.month          ?? null,
+                day:            ts.papers.day            ?? null,
+                date:           ts.papers.date           ?? null,
+                shift:          ts.papers.shift          ?? null,
+                mode:           ts.papers.mode           ?? null,
+                totalMarks:     ts.papers.totalMarks     ?? null,
+                totalDuration:  ts.papers.totalDuration  ?? null,
+                totalQuestions: ts.papers.totalQuestions ?? null,
             };
+        }
 
-            if (attemptedQuestions.questionIds.length > 0) {
-                const questionSubjects = await this.db.questions.findMany({
-                    where:  { id: { in: attemptedQuestions.questionIds } },
-                    select: { subjects: { select: { name: true } } },
-                });
+        // ── Helper: build per-subject block, always all 3 subjects ──
+        const buildSubjectBlock = (t: any, subKey: 'math' | 'physics' | 'chemistry', subjectName: string) => {
+            const s = t[subKey];
+            return {
+                subjectName,
+                marks:          s?.marks          ?? 0,
+                correct:        s?.correct        ?? 0,
+                wrong:          s?.wrong          ?? 0,
+                timeTaken:      s?.timeTaken      ?? 0,
+                totalQuestions: s?.totalQuestions ?? 0,
+                accuracy:       s
+                    ? calcAcc(s.marks ?? 0, s.maxMarks ?? s.maxScore ?? s.totalQuestions ?? 0)
+                    : 0,
+            };
+        };
 
-                for (const q of questionSubjects) {
-                    const name = q.subjects.name;
-                    if (subjectWiseUnique[name] !== undefined) {
-                        subjectWiseUnique[name].uniqueAttempted++;
+        // ── Helper: build question-wise block for one test ────────
+        const buildQuestionWiseBlock = (t: any) => {
+            const qtBlock: Record<string, any> = {};
+            for (const qt of KNOWN_QUESTION_TYPES) {
+                qtBlock[qt] = {
+                    questionType: qt,
+                    marks:        0,
+                    correct:      0,
+                    wrong:        0,
+                    accuracy:     0,
+                };
+            }
+
+            if (t.questionWise && typeof t.questionWise === 'object') {
+                for (const [qtType, qtData] of Object.entries(t.questionWise as Record<string, any>)) {
+                    if (!qtBlock[qtType]) {
+                        qtBlock[qtType] = {
+                            questionType: qtType,
+                            marks:        0,
+                            correct:      0,
+                            wrong:        0,
+                            accuracy:     0,
+                        };
                     }
+                    const maxForCalc = qtData?.maxMarks ?? qtData?.maxScore ?? 0;
+                    qtBlock[qtType] = {
+                        questionType: qtType,
+                        marks:        qtData?.marks   ?? 0,
+                        correct:      qtData?.correct ?? 0,
+                        wrong:        qtData?.wrong   ?? 0,
+                        accuracy:     calcAcc(qtData?.marks ?? 0, maxForCalc),
+                    };
                 }
             }
 
-            // ── Last 5 tests ──────────────────────────────────────────
-            const last5Tests = allTestData.slice(0, 5).map((t: any) => ({
-                testId:    t.id,
-                examName:  t.exam,
-                source:    t.source,
-                createdAt: t.created_at,
-                marks:     t.overAllAnalytics?.marks    ?? t.overAllAnalytics?.totalScore ?? 0,
-                maxMarks:  t.overAllAnalytics?.maxMarks ?? t.overAllAnalytics?.maxScore   ?? 0,
-                accuracy:  calcAcc(
-                    t.overAllAnalytics?.marks    ?? t.overAllAnalytics?.totalScore ?? 0,
-                    t.overAllAnalytics?.maxMarks ?? t.overAllAnalytics?.maxScore   ?? 0,
-                ),
-                timeTaken: t.overAllAnalytics?.timeTaken ?? 0,
-                subjects: {
-                    math:      t.math ? {
-                        marks:    t.math.marks   ?? 0,
-                        correct:  t.math.correct ?? 0,
-                        wrong:    t.math.wrong   ?? 0,
-                        accuracy: calcAcc(t.math.marks ?? 0, t.math.totalQuestions ?? 0),
-                    } : null,
-                    physics:   t.physics ? {
-                        marks:    t.physics.marks   ?? 0,
-                        correct:  t.physics.correct ?? 0,
-                        wrong:    t.physics.wrong   ?? 0,
-                        accuracy: calcAcc(t.physics.marks ?? 0, t.physics.totalQuestions ?? 0),
-                    } : null,
-                    chemistry: t.chemistry ? {
-                        marks:    t.chemistry.marks   ?? 0,
-                        correct:  t.chemistry.correct ?? 0,
-                        wrong:    t.chemistry.wrong   ?? 0,
-                        accuracy: calcAcc(t.chemistry.marks ?? 0, t.chemistry.totalQuestions ?? 0),
-                    } : null,
-                },
-            }));
+            return Object.values(qtBlock);
+        };
+
+        // ── Last 5 tests ──────────────────────────────────────────
+        const last5Tests = last5Raw.map((t: any) => {
+            const overallMarks   = t.overAllAnalytics?.marks    ?? t.overAllAnalytics?.totalScore ?? 0;
+            const overallMaxMark = t.overAllAnalytics?.maxMarks ?? t.overAllAnalytics?.maxScore   ?? 0;
 
             return {
-                studentId,
-                generatedAt: new Date(),
-                last5Tests,
-                practice: practiceData,
-                uniqueQuestionsAttempted: {
-                    total:       attemptedQuestions.totalUnique,
-                    subjectWise: subjectWiseUnique,
+                testId:    t.id,
+                source:    t.source,
+                createdAt: t.created_at,
+
+                // ── Paper details from DB for both reddis and testWise ──
+                paperDetails: paperDetailsMap[t.id] ?? null,
+
+                // Overall test stats
+                overall: {
+                    marks:     overallMarks,
+                    maxMarks:  overallMaxMark,
+                    accuracy:  calcAcc(overallMarks, overallMaxMark),
+                    timeTaken: t.overAllAnalytics?.timeTaken ?? 0,
                 },
+
+                // Always all 3 subjects, zero if no data
+                subjects: {
+                    math:      buildSubjectBlock(t, 'math',      'Mathematics'),
+                    physics:   buildSubjectBlock(t, 'physics',   'Physics'),
+                    chemistry: buildSubjectBlock(t, 'chemistry', 'Chemistry'),
+                },
+
+                // Always all question types, zero if no data
+                questionWise: buildQuestionWiseBlock(t),
+            };
+        });
+
+        // ── Aggregate analytics across last 5 tests ───────────────
+        const last5Aggregate = (() => {
+            if (last5Tests.length === 0) return null;
+
+            const qtAggregate: Record<string, { marks: number; correct: number; wrong: number }> = {};
+            for (const qt of KNOWN_QUESTION_TYPES) {
+                qtAggregate[qt] = { marks: 0, correct: 0, wrong: 0 };
+            }
+
+            const subjectAggregate: Record<string, { marks: number; correct: number; wrong: number }> = {
+                Mathematics: { marks: 0, correct: 0, wrong: 0 },
+                Physics:     { marks: 0, correct: 0, wrong: 0 },
+                Chemistry:   { marks: 0, correct: 0, wrong: 0 },
             };
 
-        } catch (err: any) {
-            console.error(err);
-            throw err;
-        }
+            let totalMarks    = 0;
+            let totalMaxMarks = 0;
+            let totalTime     = 0;
+
+            for (const test of last5Tests) {
+                totalMarks    += test.overall.marks;
+                totalMaxMarks += test.overall.maxMarks;
+                totalTime     += test.overall.timeTaken;
+
+                for (const qw of test.questionWise) {
+                    if (!qtAggregate[qw.questionType]) {
+                        qtAggregate[qw.questionType] = { marks: 0, correct: 0, wrong: 0 };
+                    }
+                    qtAggregate[qw.questionType].marks   += qw.marks;
+                    qtAggregate[qw.questionType].correct += qw.correct;
+                    qtAggregate[qw.questionType].wrong   += qw.wrong;
+                }
+
+                for (const { key, name } of KNOWN_SUBJECTS) {
+                    const s = test.subjects[key as 'math' | 'physics' | 'chemistry'];
+                    subjectAggregate[name].marks   += s.marks;
+                    subjectAggregate[name].correct += s.correct;
+                    subjectAggregate[name].wrong   += s.wrong;
+                }
+            }
+
+            return {
+                testsIncluded:   last5Tests.length,
+                totalMarks,
+                totalMaxMarks,
+                overallAccuracy: calcAcc(totalMarks, totalMaxMarks),
+                avgTimeTaken:    parseFloat((totalTime / last5Tests.length).toFixed(2)),
+
+                subjects: KNOWN_SUBJECTS.map(({ name }) => ({
+                    subjectName:  name,
+                    totalMarks:   subjectAggregate[name].marks,
+                    totalCorrect: subjectAggregate[name].correct,
+                    totalWrong:   subjectAggregate[name].wrong,
+                    accuracy:     calcAcc(
+                        subjectAggregate[name].marks,
+                        subjectAggregate[name].marks + subjectAggregate[name].wrong
+                    ),
+                })),
+
+                questionWise: Object.entries(qtAggregate).map(([qt, data]) => ({
+                    questionType: qt,
+                    totalMarks:   data.marks,
+                    totalCorrect: data.correct,
+                    totalWrong:   data.wrong,
+                    accuracy:     calcAcc(data.marks, data.marks + data.wrong),
+                })),
+            };
+        })();
+
+        return {
+            studentId,
+            generatedAt: new Date(),
+
+            tests: {
+                last5:          last5Tests,
+                last5Aggregate,
+            },
+
+            practice: practiceData,
+
+            uniqueQuestionsAttempted: {
+                total:       attemptedQuestions.totalUnique,
+                subjectWise: subjectWiseUnique,
+            },
+        };
+
+    } catch (err: any) {
+        console.error(err);
+        throw err;
     }
+}
 }
 
 export const reportService = new ReportService(database);
