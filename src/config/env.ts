@@ -58,30 +58,13 @@ export const {
 } = process.env;
 
 // =================================================================
-// UPSTASH — validated at startup, throws immediately if missing
+// ANALYTICS REDIS — Upstash instance for analytics data
 // =================================================================
-
-
-// =================================================================
-// ANALYTICS REDIS INSTANCES
-// =================================================================
-export const ANALYTICS_REDIS_INSTANCES = [
-    {
-        id:    "analytics_instance_1",
-        dbId:  requireEnv("UPSTASH_REDIS_DBID"),
-        url:   requireEnv("UPSTASH_REDIS_REST_URL"),
-        token: requireEnv("UPSTASH_REDIS_REST_TOKEN"),
-    },
-];
+export const ANALYTICS_REDIS_URL   = requireEnv("UPSTASH_REDIS_REST_URL");
+export const ANALYTICS_REDIS_TOKEN = requireEnv("UPSTASH_REDIS_REST_TOKEN");
 
 // =================================================================
-// TEST DATA REDIS INSTANCES
+// TEST DATA REDIS — Upstash instance for test/update caching
 // =================================================================
-export const TEST_REDIS_INSTANCES = [
-    {
-        id:    "test_instance_1",
-        dbId:  requireEnv("UPSTASH_REDIS_DBID_CACHING"),
-        url:   requireEnv("UPSTASH_REDIS_REST_URL_CACHING"),
-        token: requireEnv("UPSTASH_REDIS_REST_TOKEN_CACHING"),
-    },
-];
+export const TEST_REDIS_URL   = requireEnv("UPSTASH_REDIS_REST_URL_CACHING");
+export const TEST_REDIS_TOKEN = requireEnv("UPSTASH_REDIS_REST_TOKEN_CACHING");
