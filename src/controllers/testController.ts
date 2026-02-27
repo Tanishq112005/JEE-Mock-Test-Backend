@@ -201,6 +201,7 @@ class TestController {
 
       return res.status(200).json(new ApiResponse("Pushed in queue"));
     } catch (err: any) {
+      console.error(err) ;
       return res
         .status(500)
         .json(new ApiError("Error in updating the details", err));
