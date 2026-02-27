@@ -1,83 +1,67 @@
 "use strict";
 // =================================================================
 // lib/caching.ts
-// Main Redis caching layer — uses instance pools for both
-// analytics data and test/update data
+// Simple Redis caching layer — single instance, no pool rotation
 // =================================================================
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.reddisConfigForCaching = void 0;
+const redis_1 = require("@upstash/redis");
 const env_1 = require("../config/env");
-const redisInstancePool_1 = require("./redisInstancePool");
 class ReddisConfigForCaching {
-    analyticsPool;
-    testDataPool;
-    // ── Suffix used to store which instance holds each key ───────────
-    // e.g. "userId:testUpperLayer:_instance" = "analytics_instance_2"
-    metaSuffix = ":_instance";
+    analyticsRedis;
+    testRedis;
     constructor() {
-        this.analyticsPool = new redisInstancePool_1.RedisInstancePool(env_1.ANALYTICS_REDIS_INSTANCES);
-        this.testDataPool = new redisInstancePool_1.RedisInstancePool(env_1.TEST_REDIS_INSTANCES);
+        this.analyticsRedis = new redis_1.Redis({
+            url: env_1.ANALYTICS_REDIS_URL,
+            token: env_1.ANALYTICS_REDIS_TOKEN,
+        });
+        this.testRedis = new redis_1.Redis({
+            url: env_1.TEST_REDIS_URL,
+            token: env_1.TEST_REDIS_TOKEN,
+        });
+        console.log("✅ Redis instances initialized (analytics + test)");
     }
     // =================================================================
     // ANALYTICS DATA
     // =================================================================
     async settingAnanlyticsData(key, data) {
         try {
-            const { redis, instanceId } = await this.analyticsPool.getInstanceWithId();
-            await Promise.all([
-                // ── Store actual data on active instance ──────────────
-                redis.set(key, data),
-                // ── Store instanceId on registry so we can find it ────
-                // Registry is always instance 0 (low overhead — only stores small strings)
-                this.analyticsPool.getRegistry().set(`${key}${this.metaSuffix}`, instanceId),
-            ]);
-            console.log(`✅ Analytics data stored — key: "${key}" on instance: "${instanceId}"`);
+            await this.analyticsRedis.set(key, JSON.stringify(data));
+            console.log(`✅ Analytics SET — key: "${key}"`);
         }
         catch (err) {
+            console.error(`❌ Analytics SET failed — key: "${key}":`, err.message);
             throw err;
         }
     }
     async gettingAnanlyticsData(key) {
         try {
-            // ── 1. Ask registry which instance holds this key ─────────
-            const instanceId = await this.analyticsPool
-                .getRegistry()
-                .get(`${key}${this.metaSuffix}`);
-            if (!instanceId) {
-                // ── No registry entry — key doesn't exist or registry miss
-                // Fallback: try current instance
-                const { redis } = await this.analyticsPool.getInstanceWithId();
-                return await redis.get(key);
+            const raw = await this.analyticsRedis.get(key);
+            if (!raw)
+                return null;
+            // ── Upstash may auto-deserialize JSON — handle both cases ──
+            if (typeof raw === "string") {
+                try {
+                    return JSON.parse(raw);
+                }
+                catch {
+                    return raw;
+                }
             }
-            // ── 2. Go directly to the correct instance ────────────────
-            console.log(`📍 Analytics GET — key: "${key}" found on instance: "${instanceId}"`);
-            return await this.analyticsPool.getInstanceById(instanceId).get(key);
+            return raw;
         }
         catch (err) {
-            throw err;
+            console.error(`❌ Analytics GET failed — key: "${key}":`, err.message);
+            return null; // never crash the caller on a cache miss
         }
     }
     async deletingAnanlyticsData(key) {
         try {
-            // ── 1. Find which instance holds this key ─────────────────
-            const instanceId = await this.analyticsPool
-                .getRegistry()
-                .get(`${key}${this.metaSuffix}`);
-            await Promise.all([
-                // ── Delete actual data from the correct instance ───────
-                instanceId
-                    ? this.analyticsPool.getInstanceById(instanceId).del(key)
-                    : (async () => {
-                        const { redis } = await this.analyticsPool.getInstanceWithId();
-                        return redis.del(key);
-                    })(),
-                // ── Delete the registry entry too ──────────────────────
-                this.analyticsPool.getRegistry().del(`${key}${this.metaSuffix}`),
-            ]);
-            console.log(`🗑️  Analytics DELETE — key: "${key}" from instance: "${instanceId}"`);
+            await this.analyticsRedis.del(key);
+            console.log(`🗑️  Analytics DELETE — key: "${key}"`);
         }
         catch (err) {
-            throw err;
+            console.error(`❌ Analytics DELETE failed — key: "${key}":`, err.message);
         }
     }
     // =================================================================
@@ -85,76 +69,42 @@ class ReddisConfigForCaching {
     // =================================================================
     async settingTestData(key, data) {
         try {
-            const { redis, instanceId } = await this.testDataPool.getInstanceWithId();
-            await Promise.all([
-                // ── Store actual data on active instance ──────────────
-                redis.set(key, data),
-                // ── Store instanceId on registry ──────────────────────
-                this.testDataPool.getRegistry().set(`${key}${this.metaSuffix}`, instanceId),
-            ]);
-            console.log(`✅ Test data stored — key: "${key}" on instance: "${instanceId}"`);
+            await this.testRedis.set(key, JSON.stringify(data));
+            console.log(`✅ Test data SET — key: "${key}"`);
         }
         catch (err) {
+            console.error(`❌ Test data SET failed — key: "${key}":`, err.message);
             throw err;
         }
     }
     async gettingTestData(key) {
         try {
-            // ── 1. Ask registry which instance holds this key ─────────
-            const instanceId = await this.testDataPool
-                .getRegistry()
-                .get(`${key}${this.metaSuffix}`);
-            if (!instanceId) {
-                // ── Fallback to current instance ──────────────────────
-                const { redis } = await this.testDataPool.getInstanceWithId();
-                return await redis.get(key);
+            const raw = await this.testRedis.get(key);
+            if (!raw)
+                return null;
+            if (typeof raw === "string") {
+                try {
+                    return JSON.parse(raw);
+                }
+                catch {
+                    return raw;
+                }
             }
-            // ── 2. Go directly to the correct instance ────────────────
-            console.log(`📍 Test data GET — key: "${key}" found on instance: "${instanceId}"`);
-            return await this.testDataPool.getInstanceById(instanceId).get(key);
+            return raw;
         }
         catch (err) {
-            throw err;
+            console.error(`❌ Test data GET failed — key: "${key}":`, err.message);
+            return null; // never crash the caller on a cache miss
         }
     }
     async deletingTestData(key) {
         try {
-            // ── 1. Find which instance holds this key ─────────────────
-            const instanceId = await this.testDataPool
-                .getRegistry()
-                .get(`${key}${this.metaSuffix}`);
-            await Promise.all([
-                // ── Delete actual data from the correct instance ───────
-                instanceId
-                    ? this.testDataPool.getInstanceById(instanceId).del(key)
-                    : (async () => {
-                        const { redis } = await this.testDataPool.getInstanceWithId();
-                        return redis.del(key);
-                    })(),
-                // ── Delete the registry entry too ──────────────────────
-                this.testDataPool.getRegistry().del(`${key}${this.metaSuffix}`),
-            ]);
-            console.log(`🗑️  Test data DELETE — key: "${key}" from instance: "${instanceId}"`);
+            await this.testRedis.del(key);
+            console.log(`🗑️  Test data DELETE — key: "${key}"`);
         }
         catch (err) {
-            throw err;
+            console.error(`❌ Test data DELETE failed — key: "${key}":`, err.message);
         }
-    }
-    // =================================================================
-    // MONITORING
-    // =================================================================
-    getPoolStatus() {
-        return {
-            analytics: this.analyticsPool.getStatus(),
-            testData: this.testDataPool.getStatus(),
-        };
-    }
-    // ── Force sync real counts from Upstash API ───────────────────────
-    async forceSyncCounts() {
-        await Promise.all([
-            this.analyticsPool.syncRealCounts(),
-            this.testDataPool.syncRealCounts(),
-        ]);
     }
 }
 exports.reddisConfigForCaching = new ReddisConfigForCaching();
