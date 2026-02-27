@@ -18,7 +18,6 @@ class TestStatus {
             const latestTest = existingTests[0];
             if (latestTest &&
                 (latestTest.status === "IN_PROGRESS" || latestTest.status == "PAUSED")) {
-                // await this.db.testQuestionAttemptStatus.deleteMany({ where: { testStatusId: latestTest.id } });
                 await this.db.testStatus.delete({
                     where: { id: latestTest.id },
                 });
@@ -55,7 +54,6 @@ class TestStatus {
                 where: { testStatusId: testStatusId },
             });
             // 3. Fetch Raw Questions
-            // Structure: { paperDetails, Physics: { MultiCorrect: [], ... }, Chemistry: { ... }, ... }
             const rawPaperData = await question_db_1.question.getRawQuestionsForPaper(currentTestStatus.paperId);
             if (!rawPaperData)
                 throw new Error("Paper data not found");
@@ -64,7 +62,6 @@ class TestStatus {
             userAttempts.forEach((att) => attemptMap.set(att.questionId, att));
             // 5. Helper: Recursively traverse object to find arrays of questions
             const mergeAttemptsRecursive = (data) => {
-                // Base Case: If data is an array, it's a list of questions. Process it.
                 if (Array.isArray(data)) {
                     return data.map((q) => {
                         const userAttempt = attemptMap.get(q.id);
@@ -88,12 +85,11 @@ class TestStatus {
                         };
                     });
                 }
-                // Recursive Step: If data is an object (e.g., "Physics", "MultiCorrect"), traverse its keys
                 if (data && typeof data === "object") {
                     const newData = {};
                     for (const key in data) {
                         if (key === "paperDetails") {
-                            newData[key] = data[key]; // Skip processing paper details
+                            newData[key] = data[key];
                         }
                         else {
                             newData[key] = mergeAttemptsRecursive(data[key]);
@@ -103,8 +99,7 @@ class TestStatus {
                 }
                 return data;
             };
-            // 6. Process Subjects (Physics, Chemistry, Mathematics)
-            // This will automatically handle the nested MultiCorrect/SingleCorrect/Integer structure
+            // 6. Process Subjects
             const processedPhysics = mergeAttemptsRecursive(rawPaperData.Physics);
             const processedChemistry = mergeAttemptsRecursive(rawPaperData.Chemistry);
             const processedMathematics = mergeAttemptsRecursive(rawPaperData.Mathematics);
@@ -123,7 +118,6 @@ class TestStatus {
                 Chemistry: processedChemistry,
                 Mathematics: processedMathematics,
             };
-            // 8. Encrypt
             return finalPayload;
         }
         catch (err) {
@@ -248,12 +242,12 @@ class TestStatus {
                 include: {
                     testQuestionStatus: {
                         include: {
-                            questions: true, // Contains correctAnswer, type, etc.
+                            questions: true,
                         },
                     },
                     papers: {
                         include: {
-                            markingSchemes: true, // Contains Partial Marking Rules
+                            markingSchemes: true,
                         },
                     },
                 },
@@ -264,7 +258,9 @@ class TestStatus {
             throw err;
         }
     }
-    // finalSumbmitTest
+    // =================================================================
+    // 4. FINAL SUBMIT TEST
+    // =================================================================
     async finalSubmitTest(testId, studentId, created_at, evaluationReport) {
         try {
             const existingTest = await this.db.testStatus.findUnique({
@@ -272,7 +268,6 @@ class TestStatus {
             });
             if (!existingTest)
                 throw new Error(`TestID ${testId} not found`);
-            // ── Pull finalVerdict from the full report ───────────────────
             const finalVerdict = evaluationReport.finalVerdict ?? [];
             await this.db.$transaction(async (tx) => {
                 // ── 1. Mark testStatus as COMPLETED ─────────────────────
@@ -300,9 +295,7 @@ class TestStatus {
                             timeSpent: q.timeSpent || 0,
                             userAnswer: q.userAnswer || [],
                             status: q.isVisited
-                                ? q.userAnswer?.length > 0
-                                    ? "answered"
-                                    : "visited"
+                                ? q.userAnswer?.length > 0 ? "answered" : "visited"
                                 : "notAnswered",
                             isVisited: q.isVisited || false,
                             markedForReview: q.markedForReview || false,
@@ -314,9 +307,7 @@ class TestStatus {
                             timeSpent: q.timeSpent || 0,
                             userAnswer: q.userAnswer || [],
                             status: q.isVisited
-                                ? q.userAnswer?.length > 0
-                                    ? "answered"
-                                    : "visited"
+                                ? q.userAnswer?.length > 0 ? "answered" : "visited"
                                 : "notAnswered",
                             isVisited: q.isVisited || false,
                             markedForReview: q.markedForReview || false,
@@ -358,6 +349,31 @@ class TestStatus {
         }
         catch (err) {
             console.error("Error in auto-pausing inactive tests:", err);
+        }
+    }
+    // =================================================================
+    // 6. GET ALL TEST DETAILS FOR MULTIPLE PAPERS (newest attempt first)
+    // =================================================================
+    async gettingAllTestDetailsForPapers(studentId, paperIds) {
+        try {
+            return await this.db.testStatus.findMany({
+                where: {
+                    studentId,
+                    paperId: { in: paperIds },
+                },
+                select: {
+                    id: true,
+                    paperId: true,
+                    status: true,
+                    timeLeft: true,
+                    isAnalyzed: true,
+                    created_at: true,
+                },
+                orderBy: { created_at: "desc" }, // newest attempt first
+            });
+        }
+        catch (err) {
+            throw err;
         }
     }
 }
