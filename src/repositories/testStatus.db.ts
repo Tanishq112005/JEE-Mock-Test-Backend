@@ -32,7 +32,6 @@ class TestStatus {
         latestTest &&
         (latestTest.status === "IN_PROGRESS" || latestTest.status == "PAUSED")
       ) {
-        // await this.db.testQuestionAttemptStatus.deleteMany({ where: { testStatusId: latestTest.id } });
         await this.db.testStatus.delete({
           where: { id: latestTest.id },
         });
@@ -80,7 +79,6 @@ class TestStatus {
       });
 
       // 3. Fetch Raw Questions
-      // Structure: { paperDetails, Physics: { MultiCorrect: [], ... }, Chemistry: { ... }, ... }
       const rawPaperData: any = await question.getRawQuestionsForPaper(
         currentTestStatus.paperId,
       );
@@ -93,7 +91,6 @@ class TestStatus {
 
       // 5. Helper: Recursively traverse object to find arrays of questions
       const mergeAttemptsRecursive = (data: any): any => {
-        // Base Case: If data is an array, it's a list of questions. Process it.
         if (Array.isArray(data)) {
           return data.map((q: any) => {
             const userAttempt = attemptMap.get(q.id);
@@ -118,12 +115,11 @@ class TestStatus {
           });
         }
 
-        // Recursive Step: If data is an object (e.g., "Physics", "MultiCorrect"), traverse its keys
         if (data && typeof data === "object") {
           const newData: any = {};
           for (const key in data) {
             if (key === "paperDetails") {
-              newData[key] = data[key]; // Skip processing paper details
+              newData[key] = data[key];
             } else {
               newData[key] = mergeAttemptsRecursive(data[key]);
             }
@@ -134,31 +130,27 @@ class TestStatus {
         return data;
       };
 
-      // 6. Process Subjects (Physics, Chemistry, Mathematics)
-      // This will automatically handle the nested MultiCorrect/SingleCorrect/Integer structure
-      const processedPhysics = mergeAttemptsRecursive(rawPaperData.Physics);
-      const processedChemistry = mergeAttemptsRecursive(rawPaperData.Chemistry);
-      const processedMathematics = mergeAttemptsRecursive(
-        rawPaperData.Mathematics,
-      );
+      // 6. Process Subjects
+      const processedPhysics    = mergeAttemptsRecursive(rawPaperData.Physics);
+      const processedChemistry  = mergeAttemptsRecursive(rawPaperData.Chemistry);
+      const processedMathematics = mergeAttemptsRecursive(rawPaperData.Mathematics);
 
       // 7. Construct Final Payload
       const finalPayload = {
         session: {
-          testId: currentTestStatus.id,
-          timeLeft: currentTestStatus.timeLeft,
-          activeSection: currentTestStatus.activeSection,
+          testId:           currentTestStatus.id,
+          timeLeft:         currentTestStatus.timeLeft,
+          activeSection:    currentTestStatus.activeSection,
           activeQuestionId: currentTestStatus.activeQuestionId,
-          status: currentTestStatus.status,
-          startTime: currentTestStatus.created_at,
+          status:           currentTestStatus.status,
+          startTime:        currentTestStatus.created_at,
         },
-        paper: rawPaperData.paperDetails,
-        Physics: processedPhysics,
-        Chemistry: processedChemistry,
+        paper:       rawPaperData.paperDetails,
+        Physics:     processedPhysics,
+        Chemistry:   processedChemistry,
         Mathematics: processedMathematics,
       };
 
-      // 8. Encrypt
       return finalPayload;
     } catch (err) {
       console.error("Error in getSessionData:", err);
@@ -178,12 +170,12 @@ class TestStatus {
   ) {
     return await this.db.testStatus.create({
       data: {
-        studentId: userId,
+        studentId:  userId,
         paperId,
-        status: TestState.IN_PROGRESS,
+        status:     TestState.IN_PROGRESS,
         created_at,
         updated_at: created_at,
-        timeLeft: time,
+        timeLeft:   time,
       },
     });
   }
@@ -191,14 +183,14 @@ class TestStatus {
   private async resumeTest(testStatusId: string) {
     await this.db.testStatus.update({
       where: { id: testStatusId },
-      data: { status: TestState.IN_PROGRESS },
+      data:  { status: TestState.IN_PROGRESS },
     });
   }
 
   async gettingAllTestDetails(userId: string, paperId: string) {
     return await this.db.testStatus.findMany({
       where: {
-        paperId: paperId,
+        paperId:   paperId,
         studentId: userId,
       },
       orderBy: { created_at: "desc" },
@@ -227,11 +219,11 @@ class TestStatus {
           await tx.testStatus.update({
             where: { id: updateDetails.testId },
             data: {
-              timeLeft: updateDetails.timeLeft,
-              activeSection: updateDetails.activeSection,
+              timeLeft:         updateDetails.timeLeft,
+              activeSection:    updateDetails.activeSection,
               activeQuestionId: updateDetails.activeQuestionId,
-              updated_at: new Date(),
-              status: updateDetails.state,
+              updated_at:       new Date(),
+              status:           updateDetails.state,
             },
           });
 
@@ -264,25 +256,25 @@ class TestStatus {
                 return tx.testQuestionAttemptStatus.upsert({
                   where: {
                     questionId_testStatusId: {
-                      questionId: q.questionId,
+                      questionId:  q.questionId,
                       testStatusId: updateDetails.testId,
                     },
                   },
                   create: {
-                    testStatusId: updateDetails.testId,
-                    questionId: q.questionId,
+                    testStatusId:    updateDetails.testId,
+                    questionId:      q.questionId,
                     studentId,
-                    timeSpent: q.timeSpent || 0,
-                    userAnswer: formattedAnswer,
-                    status: q.status || "notAnswered",
-                    isVisited: q.isVisited || false,
+                    timeSpent:       q.timeSpent || 0,
+                    userAnswer:      formattedAnswer,
+                    status:          q.status || "notAnswered",
+                    isVisited:       q.isVisited || false,
                     markedForReview: q.markedForReview || false,
                   },
                   update: {
-                    timeSpent: q.timeSpent || 0,
-                    userAnswer: formattedAnswer,
-                    status: q.status || "notAnswered",
-                    isVisited: q.isVisited || false,
+                    timeSpent:       q.timeSpent || 0,
+                    userAnswer:      formattedAnswer,
+                    status:          q.status || "notAnswered",
+                    isVisited:       q.isVisited || false,
                     markedForReview: q.markedForReview || false,
                   },
                 });
@@ -310,12 +302,12 @@ class TestStatus {
         include: {
           testQuestionStatus: {
             include: {
-              questions: true, // Contains correctAnswer, type, etc.
+              questions: true,
             },
           },
           papers: {
             include: {
-              markingSchemes: true, // Contains Partial Marking Rules
+              markingSchemes: true,
             },
           },
         },
@@ -327,13 +319,14 @@ class TestStatus {
     }
   }
 
-  // finalSumbmitTest
-
+  // =================================================================
+  // 4. FINAL SUBMIT TEST
+  // =================================================================
   async finalSubmitTest(
     testId: string,
     studentId: string,
     created_at: Date,
-    evaluationReport: any, // full summaryReport from testEvaluation.evaluation()
+    evaluationReport: any,
   ) {
     try {
       const existingTest = await this.db.testStatus.findUnique({
@@ -342,7 +335,6 @@ class TestStatus {
 
       if (!existingTest) throw new Error(`TestID ${testId} not found`);
 
-      // ── Pull finalVerdict from the full report ───────────────────
       const finalVerdict: any[] = evaluationReport.finalVerdict ?? [];
 
       await this.db.$transaction(
@@ -351,7 +343,7 @@ class TestStatus {
           await tx.testStatus.update({
             where: { id: testId },
             data: {
-              status: "COMPLETED",
+              status:     "COMPLETED",
               updated_at: new Date(),
             },
           });
@@ -364,41 +356,37 @@ class TestStatus {
               return tx.testQuestionAttemptStatus.upsert({
                 where: {
                   questionId_testStatusId: {
-                    questionId: q.questionId,
+                    questionId:   q.questionId,
                     testStatusId: testId,
                   },
                 },
                 create: {
-                  testStatusId: testId,
-                  questionId: q.questionId,
+                  testStatusId:    testId,
+                  questionId:      q.questionId,
                   studentId,
-                  timeSpent: q.timeSpent || 0,
-                  userAnswer: q.userAnswer || [],
-                  status: q.isVisited
-                    ? q.userAnswer?.length > 0
-                      ? "answered"
-                      : "visited"
+                  timeSpent:       q.timeSpent || 0,
+                  userAnswer:      q.userAnswer || [],
+                  status:          q.isVisited
+                    ? q.userAnswer?.length > 0 ? "answered" : "visited"
                     : "notAnswered",
-                  isVisited: q.isVisited || false,
+                  isVisited:       q.isVisited || false,
                   markedForReview: q.markedForReview || false,
-                  isCorrect: isCorrect,
-                  marksObtained: q.marks || 0,
-                  isAnalyzed: true,
+                  isCorrect:       isCorrect,
+                  marksObtained:   q.marks || 0,
+                  isAnalyzed:      true,
                 },
                 update: {
-                  timeSpent: q.timeSpent || 0,
-                  userAnswer: q.userAnswer || [],
-                  status: q.isVisited
-                    ? q.userAnswer?.length > 0
-                      ? "answered"
-                      : "visited"
+                  timeSpent:       q.timeSpent || 0,
+                  userAnswer:      q.userAnswer || [],
+                  status:          q.isVisited
+                    ? q.userAnswer?.length > 0 ? "answered" : "visited"
                     : "notAnswered",
-                  isVisited: q.isVisited || false,
+                  isVisited:       q.isVisited || false,
                   markedForReview: q.markedForReview || false,
-                  isCorrect: isCorrect,
-                  marksObtained: q.marks || 0,
-                  isAnalyzed: true,
-                  updated_at: new Date(),
+                  isCorrect:       isCorrect,
+                  marksObtained:   q.marks || 0,
+                  isAnalyzed:      true,
+                  updated_at:      new Date(),
                 },
               });
             }),
@@ -428,7 +416,7 @@ class TestStatus {
 
       const result = await this.db.testStatus.updateMany({
         where: {
-          status: TestState.IN_PROGRESS,
+          status:     TestState.IN_PROGRESS,
           updated_at: { lt: cutoffTime },
         },
         data: {
@@ -443,6 +431,31 @@ class TestStatus {
       return result.count;
     } catch (err) {
       console.error("Error in auto-pausing inactive tests:", err);
+    }
+  }
+  
+  // =================================================================
+  // 6. GET ALL TEST DETAILS FOR MULTIPLE PAPERS (newest attempt first)
+  // =================================================================
+  async gettingAllTestDetailsForPapers(studentId: string, paperIds: string[]) {
+    try {
+      return await this.db.testStatus.findMany({
+        where: {
+          studentId,
+          paperId: { in: paperIds },
+        },
+        select: {
+          id:         true,
+          paperId:    true,
+          status:     true,
+          timeLeft:   true,
+          isAnalyzed: true,
+          created_at: true,
+        },
+        orderBy: { created_at: "desc" },   // newest attempt first
+      });
+    } catch (err: any) {
+      throw err;
     }
   }
 }

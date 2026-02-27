@@ -20,7 +20,7 @@ router.post('/update', authMiddleware, testController.updatingTheDetails);
 // Frontend calls: /api/test/lastTestDetails?paperId=...
 router.get('/lastTestDetails', authMiddleware, testController.LastTestDetails);
 
-
+router.get('/paperAttemptsDetails' , authMiddleware , testController.getPapersWithStatus ) ; 
 router.post('/submitTest' , authMiddleware , testController.submitTest) ; 
 
 export const testStatusRoutes = router;

@@ -3,13 +3,14 @@ import { testStatus } from "../repositories/testStatus.db";
 import { updatingDetails } from "../types/testStatus.types";
 import ApiError from "../utils/ApiError";
 import ApiResponse from "../utils/ApiResponse";
-import { AttemptStatus } from "@prisma/client";
+import { AttemptStatus, ExamName } from "@prisma/client";
 import { detailsFromFrontend, questionDetailsFromFrontend } from "../types/update.types";
 import { testEvaluationProducer } from "../rabbitmq/producers/testEvalution-producer";
 import { testEvaluation } from "../services/testEvaluationService";
 import { reddisConfigForCaching } from "../lib/caching";
 import { cachingDataTestUpperLayer, insideTestId } from "../types/caching.types";
 import { reddisService } from "../services/reddisService";
+import { paper } from "../repositories/paper.db";
 
 class TestController {
     constructor() {}
@@ -261,6 +262,135 @@ class TestController {
             );
         }
     };
+
+
+
+    // getting the details of the last test session
+    // ── Getting all papers for a year+exam with attempt status ──────────
+public getPapersWithStatus = async (req: any, res: any) => {
+    const { examName, year } = req.query;
+    const userId = req.user;
+
+    try {
+        if (!examName || !year) {
+            return res.status(400).json(
+                new ApiError("examName and year are required")
+            );
+        }
+
+        const parsedYear = parseInt(year as string, 10);
+        if (isNaN(parsedYear)) {
+            return res.status(400).json(
+                new ApiError("year must be a valid number")
+            );
+        }
+
+        // ── Step 1: Get all papers for this exam + year ──────────────
+        const papers = await paper.gettingPaperInformation(
+            parsedYear,
+            examName as ExamName,
+        ) as any[];
+
+        if (!papers || papers.length === 0) {
+            return res.status(200).json(
+                new ApiResponse("No papers found for this exam and year", [])
+            );
+        }
+
+        const paperIds = papers.map((p: any) => p.id);
+
+        // ── Step 2: Get all testStatus rows for this student + these papers ──
+        // One query for all papers at once — no N+1
+        const allTestSessions = await testStatus.gettingAllTestDetailsForPapers(
+            userId,
+            paperIds,
+        );
+
+        // ── Step 3: Group sessions by paperId ────────────────────────
+        // A student may have multiple attempts on the same paper
+        const sessionsByPaper: Record<string, any[]> = {};
+        for (const session of allTestSessions) {
+            if (!sessionsByPaper[session.paperId]) {
+                sessionsByPaper[session.paperId] = [];
+            }
+            sessionsByPaper[session.paperId].push(session);
+        }
+
+        // ── Step 4: Build response — one entry per paper ─────────────
+        const result = papers.map((p: any) => {
+            const sessions = sessionsByPaper[p.id] ?? [];
+
+            // Sort sessions newest first
+            sessions.sort(
+                (a: any, b: any) =>
+                    new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+            );
+
+            const latestSession = sessions[0] ?? null;
+
+            // Derive overall attempt status for this paper
+            let attemptStatus: 'not_attempted' | 'in_progress' | 'completed' = 'not_attempted';
+            if (latestSession) {
+                if (latestSession.status === 'COMPLETED') {
+                    attemptStatus = 'completed';
+                } else if (
+                    latestSession.status === 'IN_PROGRESS' ||
+                    latestSession.status === 'PAUSED'
+                ) {
+                    attemptStatus = 'in_progress';
+                }
+            }
+
+            return {
+                // ── Paper details ────────────────────────────────────
+                paperId:        p.id,
+                examName:       examName,
+                year:           p.year,
+                month:          p.month,
+                day:            p.day,
+                date:           p.date,
+                shift:          p.shift,
+                mode:           p.mode,
+                totalMarks:     p.totalMarks,
+                totalDuration:  p.totalDuration,
+                totalQuestions: p.totalQuestions,
+
+                // ── Attempt status ───────────────────────────────────
+                attemptStatus,
+                totalAttempts: sessions.length,
+
+                // Latest attempt info (null if never attempted)
+                latestAttempt: latestSession
+                    ? {
+                        testId:     latestSession.id,
+                        status:     latestSession.status,
+                        isAnalyzed: latestSession.isAnalyzed,
+                        createdAt:  latestSession.created_at,
+                        timeLeft:   latestSession.timeLeft,
+                    }
+                    : null,
+
+                // All attempts (newest first)
+                allAttempts: sessions.map((s: any) => ({
+                    testId:     s.id,
+                    status:     s.status,
+                    isAnalyzed: s.isAnalyzed,
+                    createdAt:  s.created_at,
+                    timeLeft:   s.timeLeft,
+                })),
+            };
+        });
+
+        return res.status(200).json(
+            new ApiResponse("Papers with attempt status", result)
+        );
+
+    } catch (err: any) {
+        return res.status(500).json(
+            new ApiError("Error in getting papers with status", err)
+        );
+    }
+};
 }
 
 export const testController = new TestController();
