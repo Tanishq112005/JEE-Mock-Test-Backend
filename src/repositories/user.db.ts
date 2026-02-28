@@ -128,7 +128,8 @@ class User {
       const userDetails = await this.db.user.findUnique(
         {
           where : {
-            email : email 
+            email : email ,
+            is_verified : true
           }
         }
       )
