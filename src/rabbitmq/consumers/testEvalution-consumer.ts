@@ -1,10 +1,6 @@
-
 import { Channel, ConsumeMessage } from "amqplib";
-import { testStatus } from "../../repositories/testStatus.db"; // Make sure this path points to your TestStatus class instance
-import { studentTestAnalytics } from "../producers/studentTestAnalytics-producer";
-import { analytics } from "../../repositories/analytics.db";
-
-
+import { testStatus } from "../../repositories/testStatus.db";
+import { testSyncService } from "../../services/testSyncService";
 
 export class UpdateFinalEvaluationConsumer {
     private connection: any;
@@ -15,52 +11,54 @@ export class UpdateFinalEvaluationConsumer {
 
     async start() {
         try {
-            const channel = await this.connection.getChannel();
+            const channel      = await this.connection.getChannel();
             const exchangeName = "main_exchange";
-            const queueName = "testEvalution_queue";
-            const routingKey = "TestEvaluation.it";
+            const queueName    = "testEvalution_queue";
+            const routingKey   = "TestEvaluation.it";
 
-            // 1. Assert Exchange
             await channel.assertExchange(exchangeName, "direct", { durable: true });
-
-            // 2. Assert Queue
             await channel.assertQueue(queueName, { durable: true });
-
-            // 3. Bind Queue to Exchange with specific Routing Key
-            // This is CRITICAL: It tells RabbitMQ "Only put messages with key 'UpdateTestDetails.update.it' in this queue"
             await channel.bindQueue(queueName, exchangeName, routingKey);
-        
-            console.log("🔄 Test Evalution Consumer waiting for messages...");
 
-            // 4. Consume
+            console.log("🔄 Test Evaluation Consumer waiting for messages...");
+
             channel.prefetch(1);
             channel.consume(queueName, async (msg: ConsumeMessage | null) => {
                 if (!msg) return;
 
                 try {
                     const data = JSON.parse(msg.content.toString());
-                    
-                    console.log(`📥 Processing Test Update for User: ${data.studentId}`);
+                    console.log(`📥 Processing Test Evaluation for student: ${data.studentId}`);
 
-                    // --- ACTUAL WORKER LOGIC ---
-                    await testStatus.finalSubmitTest(data.testId , data.studentId , data.created_at , data.report);
-                   
-                    await studentTestAnalytics.updateData(data) ; 
-                    // ---------------------------
-                  
+                    // Step 1: Save all question verdicts to DB, mark test COMPLETED
+                    await testStatus.finalSubmitTest(
+                        data.testId,
+                        data.studentId,
+                        data.created_at,
+                        data.report,
+                    );
+
+                    // Step 2: Build SummaryReport from saved DB data →
+                    // persist to testAttemptSummary + all analytics tables →
+                    // clean up Redis (DB is now source of truth)
+                    await testSyncService.syncAfterSubmission(
+                        data.testId,
+                        data.studentId,
+                    );
+
+                    // Only ack AFTER both steps succeed
                     channel.ack(msg);
-                    console.log("✅ Test Is  Evaluated SuccessFully");
+                    console.log(`✅ Test ${data.testId} fully evaluated and synced`);
 
                 } catch (err) {
-                    console.error("❌ Processing failed for Test Evalutaion:", err);
-                    
-    
+                    console.error("❌ Processing failed for Test Evaluation:", err);
+                    // nack without requeue — prevents infinite retry loop on bad data
                     channel.nack(msg, false, false);
                 }
             });
 
         } catch (error: any) {
-            console.error("❌ Error in  TestUpdate Consumer:", error);
+            console.error("❌ Error in TestEvaluation Consumer:", error);
             throw error;
         }
     }
