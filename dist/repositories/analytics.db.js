@@ -2,168 +2,303 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.analytics = void 0;
 const database_1 = require("../lib/database");
-// ─────────────────────────────────────────────
-// Analytics Class
-// ─────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Analytics
+//
+// Schema facts:
+//   questionType enum: SingleCorrect | MultiCorrect | Integer |
+//     ComprehensionSingleCorrect | ComprehensionMultiCorrect | ComprehensionInteger
+//
+//   TestAttemptSummary has: totalScore, maxScore, percentage, accuracy, timeTaken
+//   SubjectTestResult has:  subjectName (SubjectName enum), marks, positiveMarks, etc.
+//   QuestionTypeTestResult has: questionType (questionType enum), marks, etc.
+// ─────────────────────────────────────────────────────────────────────────────
 class Analytics {
     db;
     constructor(database) {
         this.db = database;
     }
-    // ══════════════════════════════════════════
-    // READ OPERATIONS
-    // ══════════════════════════════════════════
+    // ══════════════════════════════════════════════════════════════════════════
+    // READ
+    // ══════════════════════════════════════════════════════════════════════════
     async collectingTotalQuestion() {
-        try {
-            return await this.db.subjects.findMany();
-        }
-        catch (err) {
-            throw err;
-        }
+        return this.db.subjects.findMany();
     }
     async subjectAnanlytics(studentId) {
-        try {
-            return await this.db.subjectAnalytics.findMany({
-                where: { studentId },
-            });
-        }
-        catch (err) {
-            throw err;
-        }
+        return this.db.subjectAnalytics.findMany({ where: { studentId } });
     }
     async studentOverAllAnalytics(studentId) {
-        try {
-            return await this.db.studentOverallAnalytics.findUnique({
-                where: { studentId },
-            });
-        }
-        catch (err) {
-            throw err;
-        }
+        return this.db.studentOverallAnalytics.findUnique({ where: { studentId } });
     }
     async questionWiseAnalytics(studentId) {
-        try {
-            return await this.db.studentQuestionAnalytics.findMany({
-                where: { studentId },
-            });
-        }
-        catch (err) {
-            throw err;
-        }
+        return this.db.studentQuestionAnalytics.findMany({ where: { studentId } });
     }
-    async subjectWiseAnalytics(studentId) {
-        try {
-            return await this.db.subjectAnalytics.findMany({
-                where: { studentId },
-            });
-        }
-        catch (err) {
-            throw err;
-        }
+    async chapterWiseAnalytics(studentId) {
+        return this.db.chapterAnalytics.findMany({ where: { studentId } });
     }
+    async examWiseAnalytics(studentId) {
+        return this.db.examAnalytics.findMany({ where: { studentId } });
+    }
+    // ══════════════════════════════════════════════════════════════════════════
+    // testWiseData
+    // Reads from TestAttemptSummary → SubjectTestResult[] + QuestionTypeTestResult[]
+    // Returns shape that reportService builders consume
+    // ══════════════════════════════════════════════════════════════════════════
     async testWiseData(studentId) {
-        try {
-            const rawTestData = await this.db.testAttemptSummary.findMany({
-                where: { studentId },
-                include: {
-                    subjectResults: true,
-                    questionTypeResults: true,
-                    testStatus: {
-                        include: {
-                            papers: {
-                                include: { exam: true },
-                            },
+        const rows = await this.db.testAttemptSummary.findMany({
+            where: { studentId },
+            include: {
+                subjectResults: true,
+                questionTypeResults: true,
+                testStatus: {
+                    include: {
+                        papers: {
+                            include: { exam: true },
                         },
                     },
                 },
-                orderBy: { created_at: "desc" },
-            });
-            return rawTestData.map((test) => {
-                const getSub = (name) => test.subjectResults.find((s) => s.subjectName === name);
-                const math = getSub("Mathematics");
-                const physics = getSub("Physics");
-                const chemistry = getSub("Chemistry");
-                const formattedQuestionTypes = {};
-                test.questionTypeResults.forEach((qt) => {
-                    formattedQuestionTypes[qt.questionType] = this.formatStats(qt);
-                });
-                const examName = test.testStatus.papers.exam.name;
-                const paper = test.testStatus.papers;
+            },
+            orderBy: { created_at: "desc" },
+        });
+        return rows.map((test) => {
+            const paper = test.testStatus.papers;
+            // ── Subject blocks (null-safe) ─────────────────────────────────────────
+            const findSub = (name) => test.subjectResults.find((s) => s.subjectName === name) ?? null;
+            const buildSubject = (raw) => {
+                if (!raw)
+                    return null;
                 return {
-                    id: test.id,
-                    testStatusId: test.testStatusId,
-                    exam: examName,
-                    created_at: test.created_at,
-                    math: math ? this.formatStats(math) : null,
-                    physics: physics ? this.formatStats(physics) : null,
-                    chemistry: chemistry ? this.formatStats(chemistry) : null,
-                    overall: {
-                        totalScore: test.totalScore,
-                        maxScore: test.maxScore,
-                        percentage: test.percentage,
-                        overallAccuracy: test.accuracy,
-                        totalTimeTaken: test.timeTaken,
-                        averageTimePerQuestion: test.avgTimePerQ,
-                    },
-                    paperMeta: {
-                        year: paper.year,
-                        month: paper.month,
-                        day: paper.day,
-                        date: paper.date,
-                        shift: paper.shift,
-                        mode: paper.mode,
-                        totalMarks: paper.totalMarks,
-                        totalDuration: paper.totalDuration,
-                        totalQuestions: paper.totalQuestions,
-                    },
-                    questionTypes: formattedQuestionTypes,
+                    marks: raw.marks,
+                    maxMarks: raw.positiveMarks, // used by reportService calcAccuracy
+                    correct: raw.correct,
+                    wrong: raw.wrong,
+                    partial: raw.partial,
+                    attempt: raw.attempted,
+                    timeTaken: raw.timeTaken,
+                    totalQuestions: raw.totalQuestions,
+                    accuracy: raw.accuracy,
                 };
-            });
-        }
-        catch (err) {
-            throw err;
-        }
+            };
+            // ── Question type blocks ──────────────────────────────────────────────
+            // Keys are actual questionType enum values: "SingleCorrect", "MultiCorrect", etc.
+            const questionTypes = {};
+            for (const qt of test.questionTypeResults) {
+                questionTypes[qt.questionType] = {
+                    marks: qt.marks,
+                    maxMarks: qt.positiveMarks, // used by reportService calcAccuracy
+                    correct: qt.correct,
+                    wrong: qt.wrong,
+                    partial: qt.partial,
+                    attempt: qt.attempted,
+                    timeTaken: qt.timeTaken,
+                    totalQuestions: qt.totalQuestions,
+                    accuracy: qt.accuracy,
+                };
+            }
+            // ── overAllAnalytics — shape reportService reads ───────────────────────
+            // reportService reads: marks ?? totalScore, maxMarks ?? maxScore, timeTaken, totalQuestions
+            const overAllAnalytics = {
+                totalScore: test.totalScore, // marks
+                maxScore: test.maxScore, // maxMarks
+                timeTaken: test.timeTaken,
+                totalQuestions: paper.totalQuestions ?? 0,
+                accuracy: test.accuracy,
+                percentage: test.percentage,
+            };
+            return {
+                id: test.testStatusId,
+                testStatusId: test.testStatusId,
+                created_at: test.created_at,
+                source: "testWise",
+                exam: paper.exam.name,
+                math: buildSubject(findSub("Mathematics")),
+                physics: buildSubject(findSub("Physics")),
+                chemistry: buildSubject(findSub("Chemistry")),
+                overAllAnalytics,
+                questionTypes,
+                paperMeta: {
+                    year: paper.year ?? null,
+                    month: paper.month ?? null,
+                    day: paper.day ?? null,
+                    date: paper.date ?? null,
+                    shift: paper.shift ?? null,
+                    mode: paper.mode ?? null,
+                    totalMarks: paper.totalMarks ?? null,
+                    totalDuration: paper.totalDuration ?? null,
+                    totalQuestions: paper.totalQuestions ?? null,
+                },
+                chapterWise: [],
+            };
+        });
     }
-    async getTestChapterSnapshots(studentId) {
-        try {
-            return await this.db.testChapterAnalytics.findMany({
-                where: { studentId },
-                orderBy: { created_at: "desc" },
-            });
-        }
-        catch (err) {
-            throw err;
-        }
+    async chapterWiseSnapshots(studentId) {
+        return this.db.testChapterAnalytics.findMany({
+            where: { studentId },
+            orderBy: { created_at: "desc" },
+        });
     }
-    async chapterWiseAnalytics(studentId) {
-        try {
-            return await this.db.chapterAnalytics.findMany({
-                where: { studentId },
-            });
+    async getFullTestSummaryReport(testStatusId, studentId) {
+        const testSummary = await this.db.testAttemptSummary.findFirst({
+            where: { testStatusId, studentId },
+            include: {
+                subjectResults: true,
+                questionTypeResults: true,
+                testStatus: {
+                    include: {
+                        papers: { include: { exam: true } },
+                        testQuestionStatus: true,
+                    },
+                },
+            },
+        });
+        if (!testSummary)
+            return null;
+        const getSub = (name) => testSummary.subjectResults.find((s) => s.subjectName === name);
+        const buildStat = (s) => s ? {
+            totalQuestions: s.totalQuestions,
+            attempt: s.attempted,
+            marks: s.marks,
+            timeTaken: s.timeTaken,
+            positiveMarks: s.positiveMarks,
+            paritalMarks: s.partialMarks, // typo kept
+            negativeMarks: s.negativeMarks,
+            correct: s.correct,
+            partial: s.partial,
+            wrong: s.wrong,
+            accuracy: s.accuracy,
+        } : null;
+        const questionTypes = {};
+        for (const qt of testSummary.questionTypeResults) {
+            questionTypes[qt.questionType] = {
+                totalQuestions: qt.totalQuestions,
+                attempt: qt.attempted,
+                marks: qt.marks,
+                timeTaken: qt.timeTaken,
+                positiveMarks: qt.positiveMarks,
+                partialMarks: qt.partialMarks,
+                negativeMarks: qt.negativeMarks,
+                correct: qt.correct,
+                partial: qt.partial,
+                wrong: qt.wrong,
+                accuracy: qt.accuracy,
+            };
         }
-        catch (err) {
-            throw err;
-        }
+        const chapterSnapshots = await this.db.testChapterAnalytics.findMany({
+            where: { testStatusId, studentId },
+        });
+        const paper = testSummary.testStatus.papers;
+        const math = getSub("Mathematics");
+        const phy = getSub("Physics");
+        const chem = getSub("Chemistry");
+        return {
+            exam: paper.exam.name,
+            created_at: testSummary.created_at,
+            math: buildStat(math),
+            physics: buildStat(phy),
+            chemistry: buildStat(chem),
+            overall: {
+                totalQuestions: (math?.totalQuestions ?? 0) +
+                    (phy?.totalQuestions ?? 0) +
+                    (chem?.totalQuestions ?? 0),
+                totalAttempted: (math?.attempted ?? 0) +
+                    (phy?.attempted ?? 0) +
+                    (chem?.attempted ?? 0),
+                totalCorrect: (math?.correct ?? 0) + (phy?.correct ?? 0) + (chem?.correct ?? 0),
+                totalPartial: (math?.partial ?? 0) + (phy?.partial ?? 0) + (chem?.partial ?? 0),
+                overallAccuracy: testSummary.accuracy,
+                totalTimeTaken: testSummary.timeTaken,
+                averageTimePerQuestion: testSummary.avgTimePerQ,
+                totalScore: testSummary.totalScore,
+                maxScore: testSummary.maxScore,
+                percentage: testSummary.percentage,
+            },
+            questionTypes,
+            chapterWise: chapterSnapshots.map((ch) => ({
+                chapterId: ch.chapterId,
+                chapterName: ch.chapterName,
+                subjectName: ch.subjectName,
+                totalQuestions: ch.totalQuestions,
+                attempt: ch.attempt,
+                correct: ch.correct,
+                partial: ch.partial,
+                wrong: ch.wrong,
+                positiveMarks: ch.positiveMarks,
+                partialMarks: ch.partialMarks,
+                negativeMarks: ch.negativeMarks,
+                marks: ch.marksEarned,
+                timeTaken: ch.timeTaken,
+                accuracy: ch.accuracy,
+            })),
+            paperMeta: {
+                year: paper.year ?? null,
+                month: paper.month ?? null,
+                day: paper.day ?? null,
+                date: paper.date ?? null,
+                shift: paper.shift ?? null,
+                mode: paper.mode ?? null,
+                totalMarks: paper.totalMarks ?? null,
+                totalDuration: paper.totalDuration ?? null,
+                totalQuestions: paper.totalQuestions ?? null,
+            },
+        };
     }
-    async examWiseAnalytics(studentId) {
-        try {
-            return await this.db.examAnalytics.findMany({
-                where: { studentId },
+    // ══════════════════════════════════════════════════════════════════════════
+    // PERSIST — main transaction
+    // ══════════════════════════════════════════════════════════════════════════
+    async persistTestAnalytics(testStatusId, studentId, report) {
+        const { exam, math, physics, chemistry, chapterWise } = report;
+        // Resolve subjectIds
+        const subjects = await this.db.subjects.findMany({ select: { id: true, name: true } });
+        const subjectIdMap = {};
+        for (const s of subjects)
+            subjectIdMap[s.name] = s.id;
+        const mathId = subjectIdMap["Mathematics"];
+        const phyId = subjectIdMap["Physics"];
+        const chemId = subjectIdMap["Chemistry"];
+        if (!mathId || !phyId || !chemId) {
+            throw new Error("One or more subjects not found in DB");
+        }
+        const subjectMap = {
+            Mathematics: { subjectId: mathId, stats: math },
+            Physics: { subjectId: phyId, stats: physics },
+            Chemistry: { subjectId: chemId, stats: chemistry },
+        };
+        await this.db.$transaction(async (tx) => {
+            const _tx = tx;
+            // ✅ 1. TestAttemptSummary + SubjectTestResult[] + QuestionTypeTestResult[]
+            //    THIS was the missing call — without it math/physics/chemistry were null
+            await this.writeTestAttemptSummary(_tx, testStatusId, studentId, report);
+            // ✅ 2. Per-test per-chapter snapshot rows
+            if (chapterWise.length > 0) {
+                await Promise.all(this.writeTestChapterSnapshots(_tx, testStatusId, studentId, exam, chapterWise));
+            }
+            // ✅ 3. Cumulative chapter analytics
+            if (chapterWise.length > 0) {
+                await Promise.all(this.writeChapterAnalytics(_tx, studentId, exam, chapterWise));
+            }
+            // ✅ 4. Cumulative subject analytics
+            await Promise.all(this.writeSubjectAnalytics(_tx, studentId, subjectMap));
+            // ✅ 5. Student overall analytics
+            await this.writeStudentOverallAnalytics(_tx, studentId, report);
+            // ✅ 6. Exam analytics
+            await this.writeExamAnalytics(_tx, studentId, report);
+            // ✅ 7. Mark as analyzed
+            await tx.testStatus.update({
+                where: { id: testStatusId },
+                data: { isAnalyzed: true, updated_at: new Date() },
             });
-        }
-        catch (err) {
-            throw err;
-        }
+        }, { maxWait: 5000, timeout: 30000 });
     }
-    // ══════════════════════════════════════════
-    // WRITE OPERATIONS — small focused builders
-    // ══════════════════════════════════════════
-    // 1. TestAttemptSummary + SubjectTestResult[] + QuestionTypeTestResult[]
+    // ══════════════════════════════════════════════════════════════════════════
+    // WRITE HELPERS — test analytics
+    // ══════════════════════════════════════════════════════════════════════════
     writeTestAttemptSummary(tx, testStatusId, studentId, report) {
         const { overall, math, physics, chemistry, questionTypes } = report;
         const totalScore = math.marks + physics.marks + chemistry.marks;
-        const totalMaxPossible = math.totalQuestions + physics.totalQuestions + chemistry.totalQuestions;
-        const percentage = totalMaxPossible > 0 ? (totalScore / totalMaxPossible) * 100 : 0;
+        const totalMaxMark = math.positiveMarks + physics.positiveMarks + chemistry.positiveMarks;
+        const percentage = totalMaxMark > 0
+            ? parseFloat(((totalScore / totalMaxMark) * 100).toFixed(4)) : 0;
+        // SubjectName enum values that match schema
         const subjectRows = [
             ["Mathematics", math],
             ["Physics", physics],
@@ -177,11 +312,12 @@ class Analytics {
             wrong: s.wrong,
             marks: s.marks,
             positiveMarks: s.positiveMarks,
-            partialMarks: s.paritalMarks,
+            partialMarks: s.paritalMarks, // typo kept
             negativeMarks: s.negativeMarks,
             timeTaken: s.timeTaken,
             accuracy: s.accuracy,
         }));
+        // questionType enum values from your schema e.g. "SingleCorrect"
         const qtRows = Object.entries(questionTypes).map(([type, qt]) => ({
             questionType: type,
             totalQuestions: qt.totalQuestions,
@@ -202,7 +338,7 @@ class Analytics {
                 testStatusId,
                 studentId,
                 totalScore,
-                maxScore: totalMaxPossible,
+                maxScore: totalMaxMark,
                 percentage,
                 accuracy: overall.overallAccuracy,
                 timeTaken: overall.totalTimeTaken,
@@ -212,7 +348,7 @@ class Analytics {
             },
             update: {
                 totalScore,
-                maxScore: totalMaxPossible,
+                maxScore: totalMaxMark,
                 percentage,
                 accuracy: overall.overallAccuracy,
                 timeTaken: overall.totalTimeTaken,
@@ -228,7 +364,6 @@ class Analytics {
             },
         });
     }
-    // 2. TestChapterAnalytics — one snapshot row per chapter per test
     writeTestChapterSnapshots(tx, testStatusId, studentId, examName, chapterWise) {
         return chapterWise.map((ch) => tx.testChapterAnalytics.upsert({
             where: {
@@ -251,7 +386,7 @@ class Analytics {
                 partial: ch.partial,
                 wrong: ch.wrong,
                 marksEarned: ch.marks,
-                maxPossible: ch.totalQuestions,
+                maxPossible: ch.positiveMarks,
                 positiveMarks: ch.positiveMarks,
                 partialMarks: ch.partialMarks,
                 negativeMarks: ch.negativeMarks,
@@ -264,6 +399,7 @@ class Analytics {
                 partial: ch.partial,
                 wrong: ch.wrong,
                 marksEarned: ch.marks,
+                maxPossible: ch.positiveMarks,
                 positiveMarks: ch.positiveMarks,
                 partialMarks: ch.partialMarks,
                 negativeMarks: ch.negativeMarks,
@@ -272,72 +408,53 @@ class Analytics {
             },
         }));
     }
-    // 3. ChapterAnalytics — cumulative aggregate, split by exam type
     writeChapterAnalytics(tx, studentId, examName, chapterWise) {
         const isJeeMain = examName === "JEE_MAIN";
         const isJeeAdvanced = examName === "JEE_ADVANCED";
         return chapterWise.map((ch) => {
-            const jeeMainCreate = isJeeMain
-                ? {
-                    testJeeMainAttempts: ch.attempt,
-                    testJeeMainTimeSpent: ch.timeTaken,
-                    testJeeMainMarksEarned: ch.marks,
-                    testJeeMainMaxPossible: ch.totalQuestions,
-                    testJeeMainCorrect: ch.correct,
-                    testJeeMainWrong: ch.wrong,
-                    testJeeMainPartial: ch.partial,
-                }
-                : {};
-            const jeeAdvancedCreate = isJeeAdvanced
-                ? {
-                    testJeeAdvancedAttempts: ch.attempt,
-                    testJeeAdvancedTimeSpent: ch.timeTaken,
-                    testJeeAdvancedMarksEarned: ch.marks,
-                    testJeeAdvancedMaxPossible: ch.totalQuestions,
-                    testJeeAdvancedCorrect: ch.correct,
-                    testJeeAdvancedWrong: ch.wrong,
-                    testJeeAdvancedPartial: ch.partial,
-                }
-                : {};
-            const jeeMainIncrement = isJeeMain
-                ? {
-                    testJeeMainAttempts: { increment: ch.attempt },
-                    testJeeMainTimeSpent: { increment: ch.timeTaken },
-                    testJeeMainMarksEarned: { increment: ch.marks },
-                    testJeeMainMaxPossible: { increment: ch.totalQuestions },
-                    testJeeMainCorrect: { increment: ch.correct },
-                    testJeeMainWrong: { increment: ch.wrong },
-                    testJeeMainPartial: { increment: ch.partial },
-                }
-                : {};
-            const jeeAdvancedIncrement = isJeeAdvanced
-                ? {
-                    testJeeAdvancedAttempts: { increment: ch.attempt },
-                    testJeeAdvancedTimeSpent: { increment: ch.timeTaken },
-                    testJeeAdvancedMarksEarned: { increment: ch.marks },
-                    testJeeAdvancedMaxPossible: { increment: ch.totalQuestions },
-                    testJeeAdvancedCorrect: { increment: ch.correct },
-                    testJeeAdvancedWrong: { increment: ch.wrong },
-                    testJeeAdvancedPartial: { increment: ch.partial },
-                }
-                : {};
+            const mainCreate = isJeeMain ? {
+                testJeeMainAttempts: ch.attempt,
+                testJeeMainTimeSpent: ch.timeTaken,
+                testJeeMainMarksEarned: ch.marks,
+                testJeeMainMaxPossible: ch.positiveMarks,
+                testJeeMainCorrect: ch.correct,
+                testJeeMainWrong: ch.wrong,
+                testJeeMainPartial: ch.partial,
+            } : {};
+            const advCreate = isJeeAdvanced ? {
+                testJeeAdvancedAttempts: ch.attempt,
+                testJeeAdvancedTimeSpent: ch.timeTaken,
+                testJeeAdvancedMarksEarned: ch.marks,
+                testJeeAdvancedMaxPossible: ch.positiveMarks,
+                testJeeAdvancedCorrect: ch.correct,
+                testJeeAdvancedWrong: ch.wrong,
+                testJeeAdvancedPartial: ch.partial,
+            } : {};
+            const mainInc = isJeeMain ? {
+                testJeeMainAttempts: { increment: ch.attempt },
+                testJeeMainTimeSpent: { increment: ch.timeTaken },
+                testJeeMainMarksEarned: { increment: ch.marks },
+                testJeeMainMaxPossible: { increment: ch.positiveMarks },
+                testJeeMainCorrect: { increment: ch.correct },
+                testJeeMainWrong: { increment: ch.wrong },
+                testJeeMainPartial: { increment: ch.partial },
+            } : {};
+            const advInc = isJeeAdvanced ? {
+                testJeeAdvancedAttempts: { increment: ch.attempt },
+                testJeeAdvancedTimeSpent: { increment: ch.timeTaken },
+                testJeeAdvancedMarksEarned: { increment: ch.marks },
+                testJeeAdvancedMaxPossible: { increment: ch.positiveMarks },
+                testJeeAdvancedCorrect: { increment: ch.correct },
+                testJeeAdvancedWrong: { increment: ch.wrong },
+                testJeeAdvancedPartial: { increment: ch.partial },
+            } : {};
             return tx.chapterAnalytics.upsert({
                 where: { studentId_chapterId: { studentId, chapterId: ch.chapterId } },
-                create: {
-                    studentId,
-                    chapterId: ch.chapterId,
-                    ...jeeMainCreate,
-                    ...jeeAdvancedCreate,
-                },
-                update: {
-                    ...jeeMainIncrement,
-                    ...jeeAdvancedIncrement,
-                    updated_at: new Date(),
-                },
+                create: { studentId, chapterId: ch.chapterId, ...mainCreate, ...advCreate },
+                update: { ...mainInc, ...advInc, updated_at: new Date() },
             });
         });
     }
-    // 4. SubjectAnalytics — per subject cumulative
     writeSubjectAnalytics(tx, studentId, subjectMap) {
         return Object.values(subjectMap).map(({ subjectId, stats }) => tx.subjectAnalytics.upsert({
             where: { studentId_subjectId: { studentId, subjectId } },
@@ -347,22 +464,21 @@ class Analytics {
                 testAttempts: stats.attempt,
                 testTimeSpent: stats.timeTaken,
                 testMarksEarned: stats.marks,
-                testMaxPossible: stats.totalQuestions,
+                testMaxPossible: stats.positiveMarks,
             },
             update: {
                 testAttempts: { increment: stats.attempt },
                 testTimeSpent: { increment: stats.timeTaken },
                 testMarksEarned: { increment: stats.marks },
-                testMaxPossible: { increment: stats.totalQuestions },
+                testMaxPossible: { increment: stats.positiveMarks },
                 updated_at: new Date(),
             },
         }));
     }
-    // 5. StudentOverallAnalytics — global cumulative
     writeStudentOverallAnalytics(tx, studentId, report) {
         const { overall, math, physics, chemistry } = report;
         const totalMarks = math.marks + physics.marks + chemistry.marks;
-        const totalMaxPossible = math.totalQuestions + physics.totalQuestions + chemistry.totalQuestions;
+        const totalMax = math.positiveMarks + physics.positiveMarks + chemistry.positiveMarks;
         return tx.studentOverallAnalytics.upsert({
             where: { studentId },
             create: {
@@ -370,24 +486,23 @@ class Analytics {
                 testAttempts: overall.totalAttempted,
                 testTimeSpent: overall.totalTimeTaken,
                 testMarksEarned: totalMarks,
-                testMaxPossible: totalMaxPossible,
+                testMaxPossible: totalMax,
                 uniqueTestAttempts: overall.totalAttempted,
             },
             update: {
                 testAttempts: { increment: overall.totalAttempted },
                 testTimeSpent: { increment: overall.totalTimeTaken },
                 testMarksEarned: { increment: totalMarks },
-                testMaxPossible: { increment: totalMaxPossible },
+                testMaxPossible: { increment: totalMax },
                 uniqueTestAttempts: { increment: overall.totalAttempted },
                 updated_at: new Date(),
             },
         });
     }
-    // 6. ExamAnalytics — per exam cumulative
     writeExamAnalytics(tx, studentId, report) {
         const { exam, overall, math, physics, chemistry } = report;
         const totalMarks = math.marks + physics.marks + chemistry.marks;
-        const totalMaxPossible = math.totalQuestions + physics.totalQuestions + chemistry.totalQuestions;
+        const totalMax = math.positiveMarks + physics.positiveMarks + chemistry.positiveMarks;
         return tx.examAnalytics.upsert({
             where: { studentId_examName: { studentId, examName: exam } },
             create: {
@@ -396,473 +511,206 @@ class Analytics {
                 testAttempts: overall.totalAttempted,
                 testTimeSpent: overall.totalTimeTaken,
                 testMarksEarned: totalMarks,
-                testMaxPossible: totalMaxPossible,
+                testMaxPossible: totalMax,
                 testsCompleted: 1,
             },
             update: {
                 testAttempts: { increment: overall.totalAttempted },
                 testTimeSpent: { increment: overall.totalTimeTaken },
                 testMarksEarned: { increment: totalMarks },
-                testMaxPossible: { increment: totalMaxPossible },
+                testMaxPossible: { increment: totalMax },
                 testsCompleted: { increment: 1 },
                 updated_at: new Date(),
             },
         });
     }
-    // ══════════════════════════════════════════
-    // STREAK MANAGEMENT
-    // ══════════════════════════════════════════
-    // Call this every time a student solves any problem (practice or test).
-    // - If the student already solved something today → no-op (streak already counted).
-    // - If the student solved something yesterday → streak continues, increment it.
-    // - If the student missed a day or more → streak resets to 1.
-    // - maximumStreak is updated whenever the current streak beats it.
+    // ══════════════════════════════════════════════════════════════════════════
+    // STREAK
+    // ══════════════════════════════════════════════════════════════════════════
     async updateStreak(studentId) {
-        try {
-            // Normalize "today" and "yesterday" to midnight UTC so time-of-day is irrelevant
-            const now = new Date();
-            const todayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-            const yesterdayUTC = new Date(todayUTC);
-            yesterdayUTC.setUTCDate(yesterdayUTC.getUTCDate() - 1);
-            await this.db.$transaction(async (tx) => {
-                // 1. Check if the student already has activity logged for today
-                const todayLog = await tx.dailyActivityLog.findUnique({
-                    where: {
-                        studentId_date: { studentId, date: todayUTC },
-                    },
-                });
-                // Already solved something today — streak was already incremented, nothing to do
-                if (todayLog)
-                    return;
-                // 2. First problem of the day — upsert today's activity log
-                await tx.dailyActivityLog.upsert({
-                    where: { studentId_date: { studentId, date: todayUTC } },
-                    create: { studentId, date: todayUTC, questionsSolved: 1 },
-                    update: { questionsSolved: { increment: 1 } },
-                });
-                // 3. Fetch current streak state from profile
-                const profile = await tx.studentProfile.findUnique({
-                    where: { id: studentId },
-                    select: { streak: true, maximumStreak: true },
-                });
-                if (!profile)
-                    throw new Error(`Student profile not found: ${studentId}`);
-                // 4. Check if the student solved something yesterday (streak is alive)
-                const yesterdayLog = await tx.dailyActivityLog.findUnique({
-                    where: {
-                        studentId_date: { studentId, date: yesterdayUTC },
-                    },
-                });
-                // Streak continues if yesterday had activity, otherwise reset to 1
-                const newStreak = yesterdayLog ? profile.streak + 1 : 1;
-                // Maximum streak is the higher of the two
-                const newMaximumStreak = Math.max(newStreak, profile.maximumStreak);
-                // 5. Persist updated streak back to the profile
-                await tx.studentProfile.update({
-                    where: { id: studentId },
-                    data: {
-                        streak: newStreak,
-                        maximumStreak: newMaximumStreak,
-                    },
-                });
-            });
-        }
-        catch (err) {
-            throw err;
-        }
-    }
-    // ══════════════════════════════════════════
-    // COMBINED TRANSACTION — orchestrates all
-    // write operations in a single atomic call
-    // ══════════════════════════════════════════
-    async persistTestAnalytics(testStatusId, studentId, report) {
-        const { exam, math, physics, chemistry, chapterWise } = report;
-        // ── Fetch subjectIds internally ──────────────────────────────────
-        const subjects = await this.db.subjects.findMany({
-            select: { id: true, name: true },
-        });
-        const subjectIdMap = {};
-        for (const s of subjects) {
-            subjectIdMap[s.name] = s.id;
-        }
-        const mathematicsId = subjectIdMap["Mathematics"];
-        const physicsId = subjectIdMap["Physics"];
-        const chemistryId = subjectIdMap["Chemistry"];
-        if (!mathematicsId || !physicsId || !chemistryId) {
-            throw new Error("One or more subjects not found in DB");
-        }
-        const subjectMap = {
-            Mathematics: { subjectId: mathematicsId, stats: math },
-            Physics: { subjectId: physicsId, stats: physics },
-            Chemistry: { subjectId: chemistryId, stats: chemistry },
-        };
-        await this.db.$transaction(async (tx) => {
-            const _tx = tx;
-            await Promise.all(this.writeChapterAnalytics(_tx, studentId, exam, chapterWise));
-            // 3. ✅ FIX: Now write TestChapterSnapshots (Child records will now find their parents)
-            await Promise.all(this.writeTestChapterSnapshots(_tx, testStatusId, studentId, exam, chapterWise));
-            await Promise.all(this.writeChapterAnalytics(_tx, studentId, exam, chapterWise));
-            await Promise.all(this.writeSubjectAnalytics(_tx, studentId, subjectMap));
-            await this.writeStudentOverallAnalytics(_tx, studentId, report);
-            await this.writeExamAnalytics(_tx, studentId, report);
-            await tx.testStatus.update({
-                where: { id: testStatusId },
-                data: { isAnalyzed: true, updated_at: new Date() },
-            });
-        }, {
-            maxWait: 5000, // Time to wait to acquire the transaction lock (default 2000ms)
-            timeout: 30000, // Increase timeout to 30 seconds (default is 5000ms)
-        });
-    }
-    // ══════════════════════════════════════════
-    // PRACTICE ANALYTICS WRITE
-    // ══════════════════════════════════════════
-    // Input shape — comes from practiceQuestionEvaluationService result
-    // verdict: "correct" | "partial" | "wrong" | "unattempted"
-    writePracticeAttemptRecord(tx, studentId, questionId, verdict, marks, timeSpent, userAnswer, isVisited) {
-        return tx.chapterWiseQuestionAttemptStatus.create({
-            data: {
-                questionId,
-                studentId,
-                questionStatus: isVisited ? "answered" : "notAnswered",
-                isCorrect: verdict === "correct",
-                marksObtained: marks,
-                timeSpent,
-                userAnswer,
-                isAnalyzed: true,
-            },
-        });
-    }
-    async getFullTestSummaryReport(testStatusId, studentId) {
-        try {
-            const testSummary = await this.db.testAttemptSummary.findFirst({
-                where: { testStatusId, studentId },
-                include: {
-                    subjectResults: true,
-                    questionTypeResults: true,
-                    testStatus: {
-                        include: {
-                            papers: {
-                                include: { exam: true },
-                            },
-                            testQuestionStatus: true,
-                        },
-                    },
-                },
-            });
-            if (!testSummary)
-                return null;
-            // ── Subject results ──────────────────────────────────────────────
-            const getSub = (name) => testSummary.subjectResults.find((s) => s.subjectName === name);
-            const math = getSub("Mathematics");
-            const physics = getSub("Physics");
-            const chemistry = getSub("Chemistry");
-            const buildSubjectStat = (s) => s
-                ? {
-                    totalQuestions: s.totalQuestions,
-                    attempt: s.attempted,
-                    marks: s.marks,
-                    timeTaken: s.timeTaken,
-                    positiveMarks: s.positiveMarks,
-                    paritalMarks: s.partialMarks,
-                    negativeMarks: s.negativeMarks,
-                    correct: s.correct,
-                    partial: s.partial,
-                    wrong: s.wrong,
-                    accuracy: s.accuracy,
-                }
-                : null;
-            // ── Question type results ────────────────────────────────────────
-            const questionTypes = {};
-            testSummary.questionTypeResults.forEach((qt) => {
-                questionTypes[qt.questionType] = {
-                    totalQuestions: qt.totalQuestions,
-                    attempt: qt.attempted,
-                    marks: qt.marks,
-                    timeTaken: qt.timeTaken,
-                    positiveMarks: qt.positiveMarks,
-                    partialMarks: qt.partialMarks,
-                    negativeMarks: qt.negativeMarks,
-                    correct: qt.correct,
-                    partial: qt.partial,
-                    wrong: qt.wrong,
-                    accuracy: qt.accuracy,
-                };
-            });
-            // ── Chapter wise breakdown ───────────────────────────────────────
-            const chapterSnapshots = await this.db.testChapterAnalytics.findMany({
-                where: { testStatusId, studentId },
-                orderBy: { created_at: "asc" },
-            });
-            const chapterWise = chapterSnapshots.map((ch) => ({
-                chapterId: ch.chapterId,
-                chapterName: ch.chapterName,
-                subjectName: ch.subjectName,
-                totalQuestions: ch.totalQuestions,
-                attempt: ch.attempt,
-                correct: ch.correct,
-                partial: ch.partial,
-                wrong: ch.wrong,
-                positiveMarks: ch.positiveMarks,
-                partialMarks: ch.partialMarks,
-                negativeMarks: ch.negativeMarks,
-                marks: ch.marksEarned,
-                timeTaken: ch.timeTaken,
-                accuracy: ch.accuracy,
-            }));
-            // ── Final verdict (per-question attempt details) ─────────────────
-            const questionAttempts = testSummary.testStatus.testQuestionStatus;
-            const finalVerdict = questionAttempts.map((q) => ({
-                questionId: q.questionId,
-                isVisited: q.isVisited,
-                timeSpent: q.timeSpent,
-                markedForReview: q.markedForReview,
-                userAnswer: q.userAnswer,
-                verdict: q.isCorrect
-                    ? "correct"
-                    : q.marksObtained > 0
-                        ? "partial"
-                        : "wrong",
-                marks: q.marksObtained,
-            }));
-            // ── Paper meta ───────────────────────────────────────────────────
-            const paper = testSummary.testStatus.papers;
-            const examName = paper.exam.name;
-            const mathStats = buildSubjectStat(math);
-            const physicsStats = buildSubjectStat(physics);
-            const chemistryStats = buildSubjectStat(chemistry);
-            return {
-                exam: examName,
-                created_at: testSummary.created_at,
-                math: mathStats,
-                physics: physicsStats,
-                chemistry: chemistryStats,
-                overall: {
-                    totalQuestions: (math?.totalQuestions ?? 0) +
-                        (physics?.totalQuestions ?? 0) +
-                        (chemistry?.totalQuestions ?? 0),
-                    totalAttempted: (math?.attempted ?? 0) +
-                        (physics?.attempted ?? 0) +
-                        (chemistry?.attempted ?? 0),
-                    totalCorrect: (math?.correct ?? 0) +
-                        (physics?.correct ?? 0) +
-                        (chemistry?.correct ?? 0),
-                    totalPartial: (math?.partial ?? 0) +
-                        (physics?.partial ?? 0) +
-                        (chemistry?.partial ?? 0),
-                    overallAccuracy: testSummary.accuracy,
-                    totalTimeTaken: testSummary.timeTaken,
-                    averageTimePerQuestion: testSummary.avgTimePerQ,
-                    totalScore: testSummary.totalScore,
-                    maxScore: testSummary.maxScore,
-                    percentage: testSummary.percentage,
-                },
-                questionTypes,
-                chapterWise,
-                finalVerdict,
-                paperMeta: {
-                    year: paper.year,
-                    month: paper.month,
-                    day: paper.day,
-                    date: paper.date,
-                    shift: paper.shift,
-                    mode: paper.mode,
-                    totalMarks: paper.totalMarks,
-                    totalDuration: paper.totalDuration,
-                    totalQuestions: paper.totalQuestions,
-                },
-            };
-        }
-        catch (err) {
-            throw err;
-        }
-    }
-    writePracticeOverallAnalytics(tx, studentId, marks, maxMarks, timeSpent) {
-        return tx.studentOverallAnalytics.upsert({
-            where: { studentId },
-            create: {
-                studentId,
-                practiceAttempts: 1,
-                practiceTimeSpent: timeSpent,
-                practiceMarksEarned: marks,
-                practiceMaxPossible: maxMarks,
-                uniquePracticeAttempts: 1,
-            },
-            update: {
-                practiceAttempts: { increment: 1 },
-                practiceTimeSpent: { increment: timeSpent },
-                practiceMarksEarned: { increment: marks },
-                practiceMaxPossible: { increment: maxMarks },
-                uniquePracticeAttempts: { increment: 1 },
-                updated_at: new Date(),
-            },
-        });
-    }
-    writePracticeSubjectAnalytics(tx, studentId, subjectId, marks, maxMarks, timeSpent) {
-        return tx.subjectAnalytics.upsert({
-            where: { studentId_subjectId: { studentId, subjectId } },
-            create: {
-                studentId,
-                subjectId,
-                practiceAttempts: 1,
-                practiceTimeSpent: timeSpent,
-                practiceMarksEarned: marks,
-                practiceMaxPossible: maxMarks,
-            },
-            update: {
-                practiceAttempts: { increment: 1 },
-                practiceTimeSpent: { increment: timeSpent },
-                practiceMarksEarned: { increment: marks },
-                practiceMaxPossible: { increment: maxMarks },
-                updated_at: new Date(),
-            },
-        });
-    }
-    writePracticeChapterAnalytics(tx, studentId, chapterId, examName, verdict, marks, maxMarks, timeSpent) {
-        const isCorrect = verdict === "correct";
-        const isWrong = verdict === "wrong";
-        const isPartial = verdict === "partial";
-        const isJeeMain = examName === "JEE_MAIN";
-        const isJeeAdvanced = examName === "JEE_ADVANCED";
-        const jeeMainCreate = isJeeMain
-            ? {
-                practiceJeeMainAttempts: 1,
-                practiceJeeMainTimeSpent: timeSpent,
-                practiceJeeMainMarksEarned: marks,
-                practiceJeeMainMaxPossible: maxMarks,
-                practiceJeeMainCorrect: isCorrect ? 1 : 0,
-                practiceJeeMainWrong: isWrong ? 1 : 0,
-                practiceJeeMainPartial: isPartial ? 1 : 0,
-            }
-            : {};
-        const jeeAdvancedCreate = isJeeAdvanced
-            ? {
-                practiceJeeAdvancedAttempts: 1,
-                practiceJeeAdvancedTimeSpent: timeSpent,
-                practiceJeeAdvancedMarksEarned: marks,
-                practiceJeeAdvancedMaxPossible: maxMarks,
-                practiceJeeAdvancedCorrect: isCorrect ? 1 : 0,
-                practiceJeeAdvancedWrong: isWrong ? 1 : 0,
-                practiceJeeAdvancedPartial: isPartial ? 1 : 0,
-            }
-            : {};
-        const jeeMainUpdate = isJeeMain
-            ? {
-                practiceJeeMainAttempts: { increment: 1 },
-                practiceJeeMainTimeSpent: { increment: timeSpent },
-                practiceJeeMainMarksEarned: { increment: marks },
-                practiceJeeMainMaxPossible: { increment: maxMarks },
-                practiceJeeMainCorrect: { increment: isCorrect ? 1 : 0 },
-                practiceJeeMainWrong: { increment: isWrong ? 1 : 0 },
-                practiceJeeMainPartial: { increment: isPartial ? 1 : 0 },
-            }
-            : {};
-        const jeeAdvancedUpdate = isJeeAdvanced
-            ? {
-                practiceJeeAdvancedAttempts: { increment: 1 },
-                practiceJeeAdvancedTimeSpent: { increment: timeSpent },
-                practiceJeeAdvancedMarksEarned: { increment: marks },
-                practiceJeeAdvancedMaxPossible: { increment: maxMarks },
-                practiceJeeAdvancedCorrect: { increment: isCorrect ? 1 : 0 },
-                practiceJeeAdvancedWrong: { increment: isWrong ? 1 : 0 },
-                practiceJeeAdvancedPartial: { increment: isPartial ? 1 : 0 },
-            }
-            : {};
-        return tx.chapterAnalytics.upsert({
-            where: { studentId_chapterId: { studentId, chapterId } },
-            create: { studentId, chapterId, ...jeeMainCreate, ...jeeAdvancedCreate },
-            update: {
-                ...jeeMainUpdate,
-                ...jeeAdvancedUpdate,
-                updated_at: new Date(),
-            },
-        });
-    }
-    writePracticeQuestionTypeAnalytics(tx, studentId, questionType, marks, maxMarks, timeSpent) {
-        return tx.studentQuestionAnalytics.upsert({
-            where: {
-                studentId_questioType: { studentId, questioType: questionType },
-            },
-            create: {
-                studentId,
-                questioType: questionType,
-                practiceAttempts: 1,
-                practiceTimeSpent: timeSpent,
-                practiceMarksEarned: marks,
-                practiceMaxPossible: maxMarks,
-            },
-            update: {
-                practiceAttempts: { increment: 1 },
-                practiceTimeSpent: { increment: timeSpent },
-                practiceMarksEarned: { increment: marks },
-                practiceMaxPossible: { increment: maxMarks },
-                updated_at: new Date(),
-            },
-        });
-    }
-    writePracticeDailyLog(tx, studentId, isCorrect, timeSpent) {
         const now = new Date();
         const todayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-        return tx.dailyActivityLog.upsert({
-            where: { studentId_date: { studentId, date: todayUTC } },
-            create: {
-                studentId,
-                date: todayUTC,
-                questionsSolved: 1,
-                questionsCorrect: isCorrect ? 1 : 0,
-                timeSpent,
-            },
-            update: {
-                questionsSolved: { increment: 1 },
-                questionsCorrect: { increment: isCorrect ? 1 : 0 },
-                timeSpent: { increment: timeSpent },
-            },
+        const yesterdayUTC = new Date(todayUTC);
+        yesterdayUTC.setUTCDate(yesterdayUTC.getUTCDate() - 1);
+        await this.db.$transaction(async (tx) => {
+            const todayLog = await tx.dailyActivityLog.findUnique({
+                where: { studentId_date: { studentId, date: todayUTC } },
+            });
+            if (todayLog)
+                return;
+            await tx.dailyActivityLog.upsert({
+                where: { studentId_date: { studentId, date: todayUTC } },
+                create: { studentId, date: todayUTC, questionsSolved: 1 },
+                update: { questionsSolved: { increment: 1 } },
+            });
+            const profile = await tx.studentProfile.findUnique({
+                where: { id: studentId },
+                select: { streak: true, maximumStreak: true },
+            });
+            if (!profile)
+                throw new Error(`Profile not found: ${studentId}`);
+            const yesterdayLog = await tx.dailyActivityLog.findUnique({
+                where: { studentId_date: { studentId, date: yesterdayUTC } },
+            });
+            const newStreak = yesterdayLog ? profile.streak + 1 : 1;
+            const newMaxStreak = Math.max(newStreak, profile.maximumStreak);
+            await tx.studentProfile.update({
+                where: { id: studentId },
+                data: { streak: newStreak, maximumStreak: newMaxStreak },
+            });
         });
     }
-    // Combined transaction — call this with the result from practiceQuestionEvaluationService
-    async persistPracticeAnalytics(studentId, subjectId, // pass subject id from subjects table
-    result) {
-        // Unattempted questions — nothing to persist
+    // ══════════════════════════════════════════════════════════════════════════
+    // PRACTICE ANALYTICS
+    // ══════════════════════════════════════════════════════════════════════════
+    async persistPracticeAnalytics(studentId, subjectId, result) {
         if (!result.isVisited)
             return;
         const isCorrect = result.verdict === "correct";
         await this.db.$transaction(async (tx) => {
             const _tx = tx;
+            const now = new Date();
+            const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
             await Promise.all([
-                // 1. Raw attempt record
-                this.writePracticeAttemptRecord(_tx, studentId, result.questionId, result.verdict, result.marks, result.timeSpent, result.userAnswer, result.isVisited),
-                // 2. Overall analytics
-                this.writePracticeOverallAnalytics(_tx, studentId, result.marks, result.positiveMarks, result.timeSpent),
-                // 3. Subject analytics
-                this.writePracticeSubjectAnalytics(_tx, studentId, subjectId, result.marks, result.positiveMarks, result.timeSpent),
-                // 4. Chapter analytics (only if question belongs to a chapter and has an exam)
+                // Attempt record
+                _tx.chapterWiseQuestionAttemptStatus.create({
+                    data: {
+                        questionId: result.questionId,
+                        studentId,
+                        questionStatus: result.isVisited ? "answered" : "notAnswered",
+                        isCorrect,
+                        marksObtained: result.marks,
+                        timeSpent: result.timeSpent,
+                        userAnswer: result.userAnswer,
+                        isAnalyzed: true,
+                    },
+                }),
+                // Overall
+                _tx.studentOverallAnalytics.upsert({
+                    where: { studentId },
+                    create: {
+                        studentId,
+                        practiceAttempts: 1,
+                        practiceTimeSpent: result.timeSpent,
+                        practiceMarksEarned: result.marks,
+                        practiceMaxPossible: result.positiveMarks,
+                        uniquePracticeAttempts: 1,
+                    },
+                    update: {
+                        practiceAttempts: { increment: 1 },
+                        practiceTimeSpent: { increment: result.timeSpent },
+                        practiceMarksEarned: { increment: result.marks },
+                        practiceMaxPossible: { increment: result.positiveMarks },
+                        uniquePracticeAttempts: { increment: 1 },
+                        updated_at: new Date(),
+                    },
+                }),
+                // Subject
+                _tx.subjectAnalytics.upsert({
+                    where: { studentId_subjectId: { studentId, subjectId } },
+                    create: {
+                        studentId,
+                        subjectId,
+                        practiceAttempts: 1,
+                        practiceTimeSpent: result.timeSpent,
+                        practiceMarksEarned: result.marks,
+                        practiceMaxPossible: result.positiveMarks,
+                    },
+                    update: {
+                        practiceAttempts: { increment: 1 },
+                        practiceTimeSpent: { increment: result.timeSpent },
+                        practiceMarksEarned: { increment: result.marks },
+                        practiceMaxPossible: { increment: result.positiveMarks },
+                        updated_at: new Date(),
+                    },
+                }),
+                // Question type
+                _tx.studentQuestionAnalytics.upsert({
+                    where: { studentId_questioType: { studentId, questioType: result.type } },
+                    create: {
+                        studentId,
+                        questioType: result.type,
+                        practiceAttempts: 1,
+                        practiceTimeSpent: result.timeSpent,
+                        practiceMarksEarned: result.marks,
+                        practiceMaxPossible: result.positiveMarks,
+                    },
+                    update: {
+                        practiceAttempts: { increment: 1 },
+                        practiceTimeSpent: { increment: result.timeSpent },
+                        practiceMarksEarned: { increment: result.marks },
+                        practiceMaxPossible: { increment: result.positiveMarks },
+                        updated_at: new Date(),
+                    },
+                }),
+                // Daily log
+                _tx.dailyActivityLog.upsert({
+                    where: { studentId_date: { studentId, date: today } },
+                    create: {
+                        studentId,
+                        date: today,
+                        questionsSolved: 1,
+                        questionsCorrect: isCorrect ? 1 : 0,
+                        timeSpent: result.timeSpent,
+                    },
+                    update: {
+                        questionsSolved: { increment: 1 },
+                        questionsCorrect: { increment: isCorrect ? 1 : 0 },
+                        timeSpent: { increment: result.timeSpent },
+                    },
+                }),
+                // Chapter (only if both chapterId and examName present)
                 result.chapterId && result.examName
-                    ? this.writePracticeChapterAnalytics(_tx, studentId, result.chapterId, result.examName, result.verdict, result.marks, result.positiveMarks, result.timeSpent)
+                    ? (() => {
+                        const isJeeMain = result.examName === "JEE_MAIN";
+                        const isJeeAdvanced = result.examName === "JEE_ADVANCED";
+                        const isWrong = result.verdict === "wrong";
+                        const isPartial = result.verdict === "partial";
+                        const mainC = isJeeMain ? {
+                            practiceJeeMainAttempts: 1,
+                            practiceJeeMainTimeSpent: result.timeSpent,
+                            practiceJeeMainMarksEarned: result.marks,
+                            practiceJeeMainMaxPossible: result.positiveMarks,
+                            practiceJeeMainCorrect: isCorrect ? 1 : 0,
+                            practiceJeeMainWrong: isWrong ? 1 : 0,
+                            practiceJeeMainPartial: isPartial ? 1 : 0,
+                        } : {};
+                        const advC = isJeeAdvanced ? {
+                            practiceJeeAdvancedAttempts: 1,
+                            practiceJeeAdvancedTimeSpent: result.timeSpent,
+                            practiceJeeAdvancedMarksEarned: result.marks,
+                            practiceJeeAdvancedMaxPossible: result.positiveMarks,
+                            practiceJeeAdvancedCorrect: isCorrect ? 1 : 0,
+                            practiceJeeAdvancedWrong: isWrong ? 1 : 0,
+                            practiceJeeAdvancedPartial: isPartial ? 1 : 0,
+                        } : {};
+                        const mainU = isJeeMain ? {
+                            practiceJeeMainAttempts: { increment: 1 },
+                            practiceJeeMainTimeSpent: { increment: result.timeSpent },
+                            practiceJeeMainMarksEarned: { increment: result.marks },
+                            practiceJeeMainMaxPossible: { increment: result.positiveMarks },
+                            practiceJeeMainCorrect: { increment: isCorrect ? 1 : 0 },
+                            practiceJeeMainWrong: { increment: isWrong ? 1 : 0 },
+                            practiceJeeMainPartial: { increment: isPartial ? 1 : 0 },
+                        } : {};
+                        const advU = isJeeAdvanced ? {
+                            practiceJeeAdvancedAttempts: { increment: 1 },
+                            practiceJeeAdvancedTimeSpent: { increment: result.timeSpent },
+                            practiceJeeAdvancedMarksEarned: { increment: result.marks },
+                            practiceJeeAdvancedMaxPossible: { increment: result.positiveMarks },
+                            practiceJeeAdvancedCorrect: { increment: isCorrect ? 1 : 0 },
+                            practiceJeeAdvancedWrong: { increment: isWrong ? 1 : 0 },
+                            practiceJeeAdvancedPartial: { increment: isPartial ? 1 : 0 },
+                        } : {};
+                        return _tx.chapterAnalytics.upsert({
+                            where: { studentId_chapterId: { studentId, chapterId: result.chapterId } },
+                            create: { studentId, chapterId: result.chapterId, ...mainC, ...advC },
+                            update: { ...mainU, ...advU, updated_at: new Date() },
+                        });
+                    })()
                     : Promise.resolve(),
-                // 5. Question type analytics
-                this.writePracticeQuestionTypeAnalytics(_tx, studentId, result.type, result.marks, result.positiveMarks, result.timeSpent),
-                // 6. Daily activity log
-                this.writePracticeDailyLog(_tx, studentId, isCorrect, result.timeSpent),
             ]);
         });
-    }
-    // ══════════════════════════════════════════
-    // PRIVATE HELPERS
-    // ══════════════════════════════════════════
-    formatStats(statBlock) {
-        return {
-            totalQuestions: statBlock.totalQuestions,
-            attempt: statBlock.attempted,
-            marks: statBlock.marks,
-            timeTaken: statBlock.timeTaken,
-            positiveMarks: statBlock.positiveMarks,
-            paritalMarks: statBlock.partialMarks, // keeping typo for consistency
-            negativeMarks: statBlock.negativeMarks,
-            correct: statBlock.correct,
-            partial: statBlock.partial,
-            wrong: statBlock.wrong,
-            accuracy: statBlock.accuracy,
-        };
     }
 }
 exports.analytics = new Analytics(database_1.database);

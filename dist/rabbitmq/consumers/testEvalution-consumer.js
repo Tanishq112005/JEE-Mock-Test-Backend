@@ -1,8 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UpdateFinalEvaluationConsumer = void 0;
-const testStatus_db_1 = require("../../repositories/testStatus.db"); // Make sure this path points to your TestStatus class instance
-const studentTestAnalytics_producer_1 = require("../producers/studentTestAnalytics-producer");
+const testStatus_db_1 = require("../../repositories/testStatus.db");
+const testSyncService_1 = require("../../services/testSyncService");
 class UpdateFinalEvaluationConsumer {
     connection;
     constructor(connection) {
@@ -14,37 +14,36 @@ class UpdateFinalEvaluationConsumer {
             const exchangeName = "main_exchange";
             const queueName = "testEvalution_queue";
             const routingKey = "TestEvaluation.it";
-            // 1. Assert Exchange
             await channel.assertExchange(exchangeName, "direct", { durable: true });
-            // 2. Assert Queue
             await channel.assertQueue(queueName, { durable: true });
-            // 3. Bind Queue to Exchange with specific Routing Key
-            // This is CRITICAL: It tells RabbitMQ "Only put messages with key 'UpdateTestDetails.update.it' in this queue"
             await channel.bindQueue(queueName, exchangeName, routingKey);
-            console.log("🔄 Test Evalution Consumer waiting for messages...");
-            // 4. Consume
+            console.log("🔄 Test Evaluation Consumer waiting for messages...");
             channel.prefetch(1);
             channel.consume(queueName, async (msg) => {
                 if (!msg)
                     return;
                 try {
                     const data = JSON.parse(msg.content.toString());
-                    console.log(`📥 Processing Test Update for User: ${data.studentId}`);
-                    // --- ACTUAL WORKER LOGIC ---
+                    console.log(`📥 Processing Test Evaluation for student: ${data.studentId}`);
+                    // Step 1: Save all question verdicts to DB, mark test COMPLETED
                     await testStatus_db_1.testStatus.finalSubmitTest(data.testId, data.studentId, data.created_at, data.report);
-                    await studentTestAnalytics_producer_1.studentTestAnalytics.updateData(data);
-                    // ---------------------------
+                    // Step 2: Build SummaryReport from saved DB data →
+                    // persist to testAttemptSummary + all analytics tables →
+                    // clean up Redis (DB is now source of truth)
+                    await testSyncService_1.testSyncService.syncAfterSubmission(data.testId, data.studentId);
+                    // Only ack AFTER both steps succeed
                     channel.ack(msg);
-                    console.log("✅ Test Is  Evaluated SuccessFully");
+                    console.log(`✅ Test ${data.testId} fully evaluated and synced`);
                 }
                 catch (err) {
-                    console.error("❌ Processing failed for Test Evalutaion:", err);
+                    console.error("❌ Processing failed for Test Evaluation:", err);
+                    // nack without requeue — prevents infinite retry loop on bad data
                     channel.nack(msg, false, false);
                 }
             });
         }
         catch (error) {
-            console.error("❌ Error in  TestUpdate Consumer:", error);
+            console.error("❌ Error in TestEvaluation Consumer:", error);
             throw error;
         }
     }
