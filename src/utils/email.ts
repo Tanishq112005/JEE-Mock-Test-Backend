@@ -20,7 +20,6 @@ class BrevoRotator {
   
     while (attempts < BREVO_KEYS.length) {
       const apiKey = BREVO_KEYS[this.currentKeyIndex];
-
       try {
         console.log(`🔄 Trying Brevo Account #${this.currentKeyIndex + 1}...`);
 
