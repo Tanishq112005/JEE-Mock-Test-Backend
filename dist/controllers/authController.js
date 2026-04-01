@@ -14,6 +14,7 @@ const generateOtp_1 = require("../utils/generateOtp");
 const jwtToken_1 = require("../utils/jwtToken");
 const password_1 = require("../utils/password");
 const redis_1 = require("../lib/redis");
+const middleware_db_1 = require("../repositories/middleware.db");
 class AuthController {
     db;
     redis;
@@ -118,7 +119,12 @@ class AuthController {
             if (!userDetails) {
                 return res.status(404).json(new ApiError_1.default("User account not found"));
             }
-            const payload = { id: userDetails.id, name: userDetails.name, email: userDetails.email, type: userDetails.type };
+            let idInPayload = userDetails.id;
+            if (userDetails.type === 'Student') {
+                const studentId = await middleware_db_1.middleware.gettingStudentId(idInPayload);
+                idInPayload = studentId;
+            }
+            const payload = { id: idInPayload, name: userDetails.name, email: userDetails.email, type: userDetails.type };
             const accessToken = (0, jwtToken_1.generateAccessToken)(payload);
             return res
                 .status(200)
