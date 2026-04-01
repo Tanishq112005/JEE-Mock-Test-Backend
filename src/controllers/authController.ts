@@ -16,7 +16,6 @@ import {
 } from "../utils/jwtToken";
 import { comparePasswords, hashPassword } from "../utils/password";
 import { redisConfig, redisClient } from "../lib/redis";
-import { middleware } from "../repositories/middleware.db";
 
 export class AuthController {
   private db: PrismaClient | any;
@@ -154,12 +153,8 @@ export class AuthController {
       if (!userDetails) {
         return res.status(404).json(new ApiError("User account not found"));
       }
-      let idInPayload : any = userDetails.id ; 
-      if(userDetails.type === 'Student'){
-           const studentId = await middleware.gettingStudentId(idInPayload) ; 
-           idInPayload = studentId ; 
-      }
-      const payload: jwtPayloadAccessToken = { id: idInPayload , name : userDetails.name , email : userDetails.email  , type : userDetails.type };
+
+      const payload: jwtPayloadAccessToken = { id: userDetails.id , name : userDetails.name , email : userDetails.email  , type : userDetails.type };
       const accessToken: string = generateAccessToken(payload);
 
       return res
