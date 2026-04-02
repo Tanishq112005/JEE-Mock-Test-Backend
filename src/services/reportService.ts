@@ -57,6 +57,7 @@ class ReportService {
     // ── Redis tests ────────────────────────────────────────────────────────
     const reddisArray = (reddisTestData.testData ?? []).map((item: any) => ({
       id:               item.testId,
+      paperId:          item.testData?.paperId ?? null,
       exam:             item.testData?.exam,
       created_at:       new Date(item.created_at),
       source:           "reddis" as const,
@@ -88,9 +89,11 @@ class ReportService {
     const dbIds          = new Set(testWiseArray.map((t) => t.id));
     const filteredReddis = reddisArray.filter((t) => !dbIds.has(t.id));
 
-    return [...filteredReddis, ...testWiseArray].sort(
+    const combined = [...filteredReddis, ...testWiseArray].sort(
       (a, b) => b.created_at.getTime() - a.created_at.getTime(),
     );
+
+    return combined;
   }
 
   // ══════════════════════════════════════════
@@ -236,8 +239,15 @@ class ReportService {
     const getTime     = (t: any) => t.overAllAnalytics?.timeTaken  ?? 0;
     const getQ        = (t: any) => t.overAllAnalytics?.totalQuestions ?? 0;
 
+    const uniquePapers = new Set<string>();
+    for (const t of tests) {
+      const pId = t.paperMeta?.id || t.paperId || t.id;
+      uniquePapers.add(String(pId));
+    }
+
     return {
-      totalTests: tests.length,
+      totalTests: uniquePapers.size,
+      totalAttempts: tests.length,
       overall: {
         avgScore:           this.avgOf(tests.map(getMarks)),
         avgAccuracy:        this.avgOf(tests.map((t) => this.calcAccuracy(getMarks(t), getMaxMarks(t)))),
@@ -294,8 +304,15 @@ class ReportService {
     const allTestData = await this.allTestResult(studentId);
     if (allTestData.length === 0) return null;
 
+    const uniqueTestIdsSet = new Set<string>();
+    for (const test of allTestData) {
+      const pId = (test as any).paperMeta?.id || (test as any).paperId || test.id;
+      uniqueTestIdsSet.add(String(pId));
+    }
+
     return {
       studentId,
+      totalUniqueMockTests: uniqueTestIdsSet.size,
       generatedAt: new Date(),
       ...this.buildReport(allTestData, lastNPerGroup),
     };
@@ -327,6 +344,7 @@ class ReportService {
     if (allTestData.length === 0) {
       return {
         studentId,
+        totalUniqueMockTests: 0,
         generatedAt: new Date(),
         report:     null,
         lastNTests: { last3: null, last5: null, last10: null },
@@ -334,8 +352,15 @@ class ReportService {
       };
     }
 
+    const uniqueTestIdsSet = new Set<string>();
+    for (const test of allTestData) {
+      const pId = (test as any).paperMeta?.id || (test as any).paperId || test.id;
+      uniqueTestIdsSet.add(String(pId));
+    }
+
     return {
       studentId,
+      totalUniqueMockTests: uniqueTestIdsSet.size,
       generatedAt: new Date(),
       report:      this.buildReport(allTestData, lastNPerGroup),
       lastNTests: {
@@ -781,9 +806,15 @@ class ReportService {
         })),
       };
     })();
+    const uniqueTestIdsSet = new Set<string>();
+    for (const test of allTestData) {
+      const pId = (test as any).paperMeta?.id || (test as any).paperId || test.id;
+      uniqueTestIdsSet.add(String(pId));
+    }
 
     return {
       studentId,
+      totalUniqueMockTests: uniqueTestIdsSet.size,
       generatedAt: new Date(),
       tests: { last5: last5Tests, last5Aggregate },
       practice: practiceData,

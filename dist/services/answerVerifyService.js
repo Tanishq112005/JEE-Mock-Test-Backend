@@ -23,7 +23,14 @@ class AnswerVerifyService {
                 break;
             }
         }
-        // 3. THE FIX: Helper to check if both arrays contain exactly the same elements (ignoring order)
+        // 3. Handle unattempted question
+        if (!userAnswer || userAnswer.length === 0) {
+            return {
+                marks: 0,
+                verdict: "unattempted"
+            };
+        }
+        // 4. THE FIX: Helper to check if both arrays contain exactly the same elements (ignoring order)
         // Checks length first, then sorts and converts to string for a safe value-based comparison.
         const isExactMatch = userAnswer.length > 0 &&
             userAnswer.length === correctAnswer.length &&

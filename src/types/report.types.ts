@@ -96,6 +96,7 @@ export interface QuestionVerdict {
 // ─────────────────────────────────────────────
 
 export interface TestEvaluationSummaryReport {
+  paperId:       string;
   exam:          ExamName | undefined;
   math:          SubjectResult;
   physics:       SubjectResult;

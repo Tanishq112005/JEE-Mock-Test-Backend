@@ -209,16 +209,40 @@ class TestController {
         const created_at_string = String(created_at ?? "");
 
         try {
-            const questionStatusArray = Object.values(questionsById || {}).map((q: questionDetailsFromFrontend) => ({
-                isVisited:       q.isVisited,
-                markedForReview: q.markedForReview,
-                questionId:      q.questionId,
-                userAnswer:      q.userAnswer,
-                timeSpent:       q.timeSpentSeconds || 0,
-                status: q.status === AttemptStatus.answered
-                    ? AttemptStatus.answered
-                    : AttemptStatus.notAnswered,
-            }));
+            const questionStatusArray = Object.values(questionsById || {}).map((q: any) => {
+                let formattedAnswer: string[] = [];
+
+                if (
+                  q.numericAnswer !== null &&
+                  q.numericAnswer !== undefined &&
+                  q.numericAnswer !== ""
+                ) {
+                  formattedAnswer.push(String(q.numericAnswer));
+                } else if (
+                  Array.isArray(q.selectedOptionIds) &&
+                  q.selectedOptionIds.length > 0
+                ) {
+                  formattedAnswer = q.selectedOptionIds.map(String);
+                } else if (
+                  q.userAnswer !== null &&
+                  q.userAnswer !== undefined
+                ) {
+                  formattedAnswer = Array.isArray(q.userAnswer)
+                    ? q.userAnswer.map(String)
+                    : [String(q.userAnswer)];
+                }
+
+                return {
+                    isVisited:       q.isVisited,
+                    markedForReview: q.markedForReview,
+                    questionId:      q.questionId,
+                    userAnswer:      formattedAnswer,
+                    timeSpent:       q.timeSpentSeconds || 0,
+                    status: q.status === AttemptStatus.answered
+                        ? AttemptStatus.answered
+                        : AttemptStatus.notAnswered,
+                };
+            });
 
             const details: updatingDetails = {
                 testId,

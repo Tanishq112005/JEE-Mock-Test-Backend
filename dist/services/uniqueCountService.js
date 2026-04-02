@@ -113,9 +113,10 @@ class QuestionBitmapRegistry {
      */
     async markAttempted(studentId, questionId) {
         this.ensureLoaded();
-        const bitIndex = this.questionToIndex.get(questionId);
+        let bitIndex = this.questionToIndex.get(questionId);
         if (bitIndex === undefined) {
-            throw new Error(`[QuestionBitmapRegistry] Unknown questionId: ${questionId}. Did you call registerNewQuestion()?`);
+            console.warn(`[QuestionBitmapRegistry] Unknown questionId: ${questionId}. Registering on demand...`);
+            bitIndex = await this.registerNewQuestion(questionId);
         }
         const key = this.studentKey(studentId);
         // GETBIT then SETBIT — two ops, but GETSET is not available for bits.
@@ -143,10 +144,10 @@ class QuestionBitmapRegistry {
         const getPipeline = this.redis.multi();
         const indexedQuestions = [];
         for (const questionId of questionIds) {
-            const bitIndex = this.questionToIndex.get(questionId);
+            let bitIndex = this.questionToIndex.get(questionId);
             if (bitIndex === undefined) {
-                console.warn(`[QuestionBitmapRegistry] Skipping unknown questionId: ${questionId}`);
-                continue;
+                console.warn(`[QuestionBitmapRegistry] Unknown questionId: ${questionId}. Registering on demand...`);
+                bitIndex = await this.registerNewQuestion(questionId);
             }
             indexedQuestions.push({ questionId, bitIndex });
             getPipeline.getBit(key, bitIndex);
@@ -243,12 +244,12 @@ class QuestionBitmapRegistry {
         this.ensureLoaded();
         const [testAttempts, chapterAttempts] = await Promise.all([
             this.db.testQuestionAttemptStatus.findMany({
-                where: { studentId },
+                where: { studentId, isCorrect: true },
                 select: { questionId: true },
                 distinct: ["questionId"],
             }),
             this.db.chapterWiseQuestionAttemptStatus.findMany({
-                where: { studentId },
+                where: { studentId, isCorrect: true },
                 select: { questionId: true },
                 distinct: ["questionId"],
             }),
@@ -305,11 +306,11 @@ class QuestionBitmapRegistry {
     async coldStartCheck(studentId, questionId) {
         const [testAttempt, chapterAttempt] = await Promise.all([
             this.db.testQuestionAttemptStatus.findFirst({
-                where: { studentId, questionId },
+                where: { studentId, questionId, isCorrect: true },
                 select: { id: true },
             }),
             this.db.chapterWiseQuestionAttemptStatus.findFirst({
-                where: { studentId, questionId },
+                where: { studentId, questionId, isCorrect: true },
                 select: { id: true },
             }),
         ]);

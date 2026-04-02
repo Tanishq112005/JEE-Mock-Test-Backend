@@ -143,6 +143,7 @@ class Analytics {
         questionTypes,
 
         paperMeta: {
+          id:             paper.id             ?? null,
           year:           paper.year           ?? null,
           month:          paper.month          ?? null,
           day:            paper.day            ?? null,

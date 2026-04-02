@@ -141,8 +141,24 @@ class TestController {
                 payload = {};
             }
             else {
+                let latestStatus = testStatusDetails[0].status;
+                // ── Verify against Redis in case it's still processing as COMPLETED ──
+                if (latestStatus === 'IN_PROGRESS' || latestStatus === 'PAUSED') {
+                    try {
+                        const upperLayer = await caching_1.reddisConfigForCaching.gettingAnanlyticsData(`${userId}:testUpperLayer`);
+                        if (upperLayer && Array.isArray(upperLayer.testId)) {
+                            const isCompleted = upperLayer.testId.some((t) => t.id === testStatusDetails[0].id);
+                            if (isCompleted) {
+                                latestStatus = 'COMPLETED';
+                            }
+                        }
+                    }
+                    catch (err) {
+                        console.error("Error fetching redis upper layer in LastTestDetails:", err);
+                    }
+                }
                 payload = {
-                    status: testStatusDetails[0].status,
+                    status: latestStatus,
                     created_at: testStatusDetails[0].created_at,
                     testId: testStatusDetails[0].id,
                 };
@@ -159,16 +175,34 @@ class TestController {
         const userId = req.user;
         const created_at_string = String(created_at ?? "");
         try {
-            const questionStatusArray = Object.values(questionsById || {}).map((q) => ({
-                isVisited: q.isVisited,
-                markedForReview: q.markedForReview,
-                questionId: q.questionId,
-                userAnswer: q.userAnswer,
-                timeSpent: q.timeSpentSeconds || 0,
-                status: q.status === client_1.AttemptStatus.answered
-                    ? client_1.AttemptStatus.answered
-                    : client_1.AttemptStatus.notAnswered,
-            }));
+            const questionStatusArray = Object.values(questionsById || {}).map((q) => {
+                let formattedAnswer = [];
+                if (q.numericAnswer !== null &&
+                    q.numericAnswer !== undefined &&
+                    q.numericAnswer !== "") {
+                    formattedAnswer.push(String(q.numericAnswer));
+                }
+                else if (Array.isArray(q.selectedOptionIds) &&
+                    q.selectedOptionIds.length > 0) {
+                    formattedAnswer = q.selectedOptionIds.map(String);
+                }
+                else if (q.userAnswer !== null &&
+                    q.userAnswer !== undefined) {
+                    formattedAnswer = Array.isArray(q.userAnswer)
+                        ? q.userAnswer.map(String)
+                        : [String(q.userAnswer)];
+                }
+                return {
+                    isVisited: q.isVisited,
+                    markedForReview: q.markedForReview,
+                    questionId: q.questionId,
+                    userAnswer: formattedAnswer,
+                    timeSpent: q.timeSpentSeconds || 0,
+                    status: q.status === client_1.AttemptStatus.answered
+                        ? client_1.AttemptStatus.answered
+                        : client_1.AttemptStatus.notAnswered,
+                };
+            });
             const details = {
                 testId,
                 userId,
@@ -182,8 +216,11 @@ class TestController {
                 questionStatus: questionStatusArray,
             };
             const testEvaluate = await testEvaluationService_1.testEvaluation.evaluation(details, userId);
+            if (!testEvaluate) {
+                return res.status(400).json(new ApiError_1.default("Evaluation failed. Cannot submit test."));
+            }
             let gettingUserUpperLayer = await caching_1.reddisConfigForCaching.gettingAnanlyticsData(`${userId}:testUpperLayer`);
-            if (!gettingUserUpperLayer) {
+            if (!gettingUserUpperLayer || !Array.isArray(gettingUserUpperLayer.testId)) {
                 gettingUserUpperLayer = { testId: [] };
             }
             const dataToInsert = {
@@ -232,10 +269,27 @@ class TestController {
             // ── Step 2: Get all testStatus rows for this student + these papers ──
             // One query for all papers at once — no N+1
             const allTestSessions = await testStatus_db_1.testStatus.gettingAllTestDetailsForPapers(userId, paperIds);
+            // ── Check Redis Analytics UpperLayer for recent test submissions ──
+            let upperLayer = null;
+            try {
+                upperLayer = await caching_1.reddisConfigForCaching.gettingAnanlyticsData(`${userId}:testUpperLayer`);
+            }
+            catch (err) {
+                console.error("Error fetching redis upper layer:", err);
+            }
+            const completedTestIds = new Set(upperLayer && Array.isArray(upperLayer.testId)
+                ? upperLayer.testId.map((t) => t.id)
+                : []);
             // ── Step 3: Group sessions by paperId ────────────────────────
             // A student may have multiple attempts on the same paper
             const sessionsByPaper = {};
             for (const session of allTestSessions) {
+                // Override status if completed in Redis
+                let currentStatus = session.status;
+                if ((currentStatus === 'IN_PROGRESS' || currentStatus === 'PAUSED') && completedTestIds.has(session.id)) {
+                    currentStatus = 'COMPLETED';
+                }
+                session.status = currentStatus;
                 if (!sessionsByPaper[session.paperId]) {
                     sessionsByPaper[session.paperId] = [];
                 }

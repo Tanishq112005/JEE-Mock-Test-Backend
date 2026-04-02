@@ -180,8 +180,8 @@ class TestSyncService {
 
       const isCorrect   = q.isCorrect === true;
       const isPartial   = !isCorrect && (q.marksObtained ?? 0) > 0;
-      const isWrong     = q.isVisited && !isCorrect && !isPartial;
-      const isAttempted = q.isVisited;
+      const isAttempted = q.status === "answered";
+      const isWrong     = isAttempted && !isCorrect && !isPartial;
       const marks       = q.marksObtained ?? 0;
 
       totalTimeTaken += q.timeSpent ?? 0;

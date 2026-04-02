@@ -13,8 +13,9 @@ class TestEvalution {
             const gettingAllQuestionsOfPaper = await question_db_1.question.gettingQuestionsInformation(lastStatus.paperId);
             const paperMarkingScheme = await paper_db_1.paper.paperMarkingScheme(lastStatus.paperId);
             let updateQuestion = new Map();
-            if (!gettingAllQuestionsOfPaper || gettingAllQuestionsOfPaper.length === 0)
-                return;
+            if (!gettingAllQuestionsOfPaper || gettingAllQuestionsOfPaper.length === 0) {
+                throw new Error(`No questions found for paperId: ${lastStatus.paperId}. Cannot evaluate test.`);
+            }
             const getEmptyQuestionTypeStat = () => ({
                 totalQuestions: 0, attempt: 0, correct: 0, partial: 0, wrong: 0,
                 positiveMarks: 0, partialMarks: 0, negativeMarks: 0, marks: 0,
@@ -237,6 +238,7 @@ class TestEvalution {
                 ? ((totalCorrect + totalPartial) / totalAttempted) * 100
                 : 0;
             const summaryReport = {
+                paperId: lastStatus.paperId,
                 exam: gettingAllQuestionsOfPaper[0].papers?.exam.name,
                 math: {
                     totalQuestions: mathTotalQuestions,
@@ -297,7 +299,8 @@ class TestEvalution {
             return summaryReport;
         }
         catch (err) {
-            console.error(err);
+            console.error("Error in test evaluation:", err);
+            throw err;
         }
     }
 }

@@ -17,7 +17,7 @@ export interface PracticeAttemptInput {
 // Output
 // ─────────────────────────────────────────────
 
-interface PracticeEvaluationResult {
+export interface PracticeEvaluationResult {
   questionId:      string;
   verdict:         "correct" | "partial" | "wrong" | "unattempted";
   marks:           number;

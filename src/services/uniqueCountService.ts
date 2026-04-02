@@ -331,12 +331,12 @@ class QuestionBitmapRegistry {
 
     const [testAttempts, chapterAttempts] = await Promise.all([
       this.db.testQuestionAttemptStatus.findMany({
-        where: { studentId },
+        where: { studentId, isCorrect: true },
         select: { questionId: true },
         distinct: ["questionId"],
       }),
       this.db.chapterWiseQuestionAttemptStatus.findMany({
-        where: { studentId },
+        where: { studentId, isCorrect: true },
         select: { questionId: true },
         distinct: ["questionId"],
       }),
@@ -414,11 +414,11 @@ class QuestionBitmapRegistry {
   ): Promise<boolean> {
     const [testAttempt, chapterAttempt] = await Promise.all([
       this.db.testQuestionAttemptStatus.findFirst({
-        where: { studentId, questionId },
+        where: { studentId, questionId, isCorrect: true },
         select: { id: true },
       }),
       this.db.chapterWiseQuestionAttemptStatus.findFirst({
-        where: { studentId, questionId },
+        where: { studentId, questionId, isCorrect: true },
         select: { id: true },
       }),
     ]);

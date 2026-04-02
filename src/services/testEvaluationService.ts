@@ -282,6 +282,7 @@ class TestEvalution {
                 : 0;
 
             const summaryReport = {
+                paperId: lastStatus.paperId,
                 exam: gettingAllQuestionsOfPaper[0].papers?.exam.name,
 
                 math: {
