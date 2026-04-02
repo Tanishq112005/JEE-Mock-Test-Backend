@@ -12,6 +12,7 @@ export class PaperController {
     try {
     
       const paperData: paperDetails = req.body;
+      
       if (
         !paperData.exam ||
         !Object.values(ExamName).includes(paperData.exam)
