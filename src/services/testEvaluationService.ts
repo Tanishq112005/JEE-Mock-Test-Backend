@@ -47,7 +47,9 @@ class TestEvalution {
             const paperMarkingScheme = await paper.paperMarkingScheme(lastStatus.paperId);
             let updateQuestion = new Map();
 
-            if (!gettingAllQuestionsOfPaper || gettingAllQuestionsOfPaper.length === 0) return;
+            if (!gettingAllQuestionsOfPaper || gettingAllQuestionsOfPaper.length === 0) {
+                throw new Error(`No questions found for paperId: ${lastStatus.paperId}. Cannot evaluate test.`);
+            }
 
             const getEmptyQuestionTypeStat = (): QuestionTypeStat => ({
                 totalQuestions: 0, attempt: 0, correct: 0, partial: 0, wrong: 0,
@@ -346,7 +348,8 @@ class TestEvalution {
             return summaryReport;
 
         } catch (err: any) {
-            console.error(err);
+            console.error("Error in test evaluation:", err);
+            throw err;
         }
     }
 }

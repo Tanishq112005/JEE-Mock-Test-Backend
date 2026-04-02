@@ -164,11 +164,12 @@ class QuestionBitmapRegistry {
   ): Promise<BitmapCheckResult> {
     this.ensureLoaded();
 
-    const bitIndex = this.questionToIndex.get(questionId);
+    let bitIndex = this.questionToIndex.get(questionId);
     if (bitIndex === undefined) {
-      throw new Error(
-        `[QuestionBitmapRegistry] Unknown questionId: ${questionId}. Did you call registerNewQuestion()?`
+      console.warn(
+        `[QuestionBitmapRegistry] Unknown questionId: ${questionId}. Registering on demand...`
       );
+      bitIndex = await this.registerNewQuestion(questionId);
     }
 
     const key = this.studentKey(studentId);
@@ -207,12 +208,12 @@ class QuestionBitmapRegistry {
     const indexedQuestions: { questionId: string; bitIndex: number }[] = [];
 
     for (const questionId of questionIds) {
-      const bitIndex = this.questionToIndex.get(questionId);
+      let bitIndex = this.questionToIndex.get(questionId);
       if (bitIndex === undefined) {
         console.warn(
-          `[QuestionBitmapRegistry] Skipping unknown questionId: ${questionId}`
+          `[QuestionBitmapRegistry] Unknown questionId: ${questionId}. Registering on demand...`
         );
-        continue;
+        bitIndex = await this.registerNewQuestion(questionId);
       }
       indexedQuestions.push({ questionId, bitIndex });
       getPipeline.getBit(key, bitIndex);

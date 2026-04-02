@@ -170,8 +170,25 @@ class TestController {
             if (testStatusDetails.length === 0) {
                 payload = {};
             } else {
+                let latestStatus = testStatusDetails[0].status;
+
+                // ── Verify against Redis in case it's still processing as COMPLETED ──
+                if (latestStatus === 'IN_PROGRESS' || latestStatus === 'PAUSED') {
+                    try {
+                        const upperLayer = await reddisConfigForCaching.gettingAnanlyticsData(`${userId}:testUpperLayer`);
+                        if (upperLayer && Array.isArray(upperLayer.testId)) {
+                            const isCompleted = upperLayer.testId.some((t: any) => t.id === testStatusDetails[0].id);
+                            if (isCompleted) {
+                                latestStatus = 'COMPLETED';
+                            }
+                        }
+                    } catch (err) {
+                        console.error("Error fetching redis upper layer in LastTestDetails:", err);
+                    }
+                }
+
                 payload = {
-                    status:     testStatusDetails[0].status,
+                    status:     latestStatus,
                     created_at: testStatusDetails[0].created_at,
                     testId:     testStatusDetails[0].id,
                 };
@@ -218,10 +235,16 @@ class TestController {
 
             const testEvaluate = await testEvaluation.evaluation(details, userId);
 
+            if (!testEvaluate) {
+                return res.status(400).json(
+                    new ApiError("Evaluation failed. Cannot submit test.")
+                );
+            }
+
             let gettingUserUpperLayer: cachingDataTestUpperLayer =
                 await reddisConfigForCaching.gettingAnanlyticsData(`${userId}:testUpperLayer`);
 
-            if (!gettingUserUpperLayer) {
+            if (!gettingUserUpperLayer || !Array.isArray(gettingUserUpperLayer.testId)) {
                 gettingUserUpperLayer = { testId: [] };
             }
 
@@ -306,10 +329,31 @@ public getPapersWithStatus = async (req: any, res: any) => {
             paperIds,
         );
 
+        // ── Check Redis Analytics UpperLayer for recent test submissions ──
+        let upperLayer: any = null;
+        try {
+            upperLayer = await reddisConfigForCaching.gettingAnanlyticsData(`${userId}:testUpperLayer`);
+        } catch (err) {
+            console.error("Error fetching redis upper layer:", err);
+        }
+        
+        const completedTestIds = new Set(
+            upperLayer && Array.isArray(upperLayer.testId)
+                ? upperLayer.testId.map((t: any) => t.id)
+                : []
+        );
+
         // ── Step 3: Group sessions by paperId ────────────────────────
         // A student may have multiple attempts on the same paper
         const sessionsByPaper: Record<string, any[]> = {};
         for (const session of allTestSessions) {
+            // Override status if completed in Redis
+            let currentStatus = session.status;
+            if ((currentStatus === 'IN_PROGRESS' || currentStatus === 'PAUSED') && completedTestIds.has(session.id)) {
+                currentStatus = 'COMPLETED';
+            }
+            session.status = currentStatus;
+
             if (!sessionsByPaper[session.paperId]) {
                 sessionsByPaper[session.paperId] = [];
             }

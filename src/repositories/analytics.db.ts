@@ -175,7 +175,16 @@ class Analytics {
         testStatus: {
           include: {
             papers: { include: { exam: true } },
-            testQuestionStatus: true,
+            testQuestionStatus: {
+              include: {
+                questions: {
+                  include: {
+                    subjects: true,
+                    chapters: true,
+                  }
+                }
+              }
+            },
           },
         },
       },
@@ -227,6 +236,25 @@ class Analytics {
     const phy   = getSub("Physics");
     const chem  = getSub("Chemistry");
 
+    const finalVerdict = testSummary.testStatus.testQuestionStatus.map(att => {
+      const q = att.questions;
+      return {
+        questionId:         q.id,
+        type:               q.type,
+        isVisited:          att.isVisited,
+        timeSpent:          att.timeSpent,
+        markedForReview:    att.markedForReview,
+        userAnswer:         att.userAnswer,
+        verdict:            att.isCorrect ? "correct" : (att.marksObtained > 0 ? "partial" : (att.isVisited ? "wrong" : "notAnswered")),
+        marks:              att.marksObtained,
+        totalPositiveMarks: q.positiveMarks,
+        totalNegativeMarks: q.negativeMarks,
+        subject:            q.subjects?.name ?? "Mathematics",
+        chapterId:          q.chapters?.id   ?? null,
+        chapterName:        q.chapters?.name ?? null,
+      };
+    });
+
     return {
       exam:       paper.exam.name,
       created_at: testSummary.created_at,
@@ -274,6 +302,8 @@ class Analytics {
         timeTaken:      ch.timeTaken,
         accuracy:       ch.accuracy,
       })),
+
+      finalVerdict,
 
       paperMeta: {
         year:           paper.year           ?? null,
