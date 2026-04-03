@@ -5,37 +5,8 @@ import { paper } from "../repositories/paper.db";
 import { AnswerVerifyService } from "./answerVerifyService";
 import { questionBitmapRegistry } from "./uniqueCountService";
 import { analytics } from "../repositories/analytics.db";
-
-interface QuestionTypeStat {
-    totalQuestions: number;
-    attempt:        number;
-    correct:        number;
-    partial:        number;
-    wrong:          number;
-    positiveMarks:  number;
-    partialMarks:   number;
-    negativeMarks:  number;
-    marks:          number;
-    timeTaken:      number;
-    accuracy:       number;
-}
-
-interface ChapterStat {
-    chapterId:      string;
-    chapterName:    string;
-    subjectName:    string;
-    totalQuestions: number;
-    attempt:        number;
-    correct:        number;
-    partial:        number;
-    wrong:          number;
-    positiveMarks:  number;
-    partialMarks:   number;
-    negativeMarks:  number;
-    marks:          number;
-    timeTaken:      number;
-    accuracy:       number;
-}
+import { QuestionTypeStat } from "../types/analytics.types";
+import { ChapterStat } from "../types/analytics.types";
 
 class TestEvalution {
     constructor() {}

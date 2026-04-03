@@ -3,20 +3,10 @@ import { createClient, RedisClientType } from "redis";
 import { redisClient } from "../lib/redis";
 import { database } from "../lib/database";
 import { PrismaClient } from "@prisma/client";
-
-
+import { BitmapCheckResult } from "../types/uniqueQuestion.types";
+import { SeenQuestionsResult } from "../types/uniqueQuestion.types";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-
-interface BitmapCheckResult {
-  isFirstAttempt: boolean;
-  bitIndex: number;
-}
-
-interface SeenQuestionsResult {
-  totalUnique: number;
-  questionIds: string[];
-}
 
 // ─── Registry ─────────────────────────────────────────────────────────────────
 

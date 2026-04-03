@@ -83,3 +83,34 @@ export interface SubjectIds {
   physicsId:     string;
   chemistryId:   string;
 }
+
+export interface QuestionTypeStat {
+    totalQuestions: number;
+    attempt:        number;
+    correct:        number;
+    partial:        number;
+    wrong:          number;
+    positiveMarks:  number;
+    partialMarks:   number;
+    negativeMarks:  number;
+    marks:          number;
+    timeTaken:      number;
+    accuracy:       number;
+}
+
+export interface ChapterStat {
+    chapterId:      string;
+    chapterName:    string;
+    subjectName:    string;
+    totalQuestions: number;
+    attempt:        number;
+    correct:        number;
+    partial:        number;
+    wrong:          number;
+    positiveMarks:  number;
+    partialMarks:   number;
+    negativeMarks:  number;
+    marks:          number;
+    timeTaken:      number;
+    accuracy:       number;
+}
