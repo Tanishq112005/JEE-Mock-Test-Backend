@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.questionBitmapRegistry = void 0;
 const redis_1 = require("../lib/redis");
 const database_1 = require("../lib/database");
+// ─── Types ────────────────────────────────────────────────────────────────────
 // ─── Registry ─────────────────────────────────────────────────────────────────
 /**
  * QuestionBitmapRegistry
