@@ -64,23 +64,22 @@ class ReportService {
       math:             item.testData?.math      ?? null,
       physics:          item.testData?.physics   ?? null,
       chemistry:        item.testData?.chemistry ?? null,
-      overAllAnalytics: item.testData?.overall   ?? null,
+      overall:          item.testData?.overall   ?? null, // Kept as 'overall' from Redis
       questionWise:     item.testData?.questionTypes ?? {},
       chapterWise:      item.testData?.chapterWise   ?? [],
     }));
 
     // ── DB tests ───────────────────────────────────────────────────────────
-    // testWiseData already returns math/physics/chemistry as built by analytics.db.ts
     const testWiseArray = testWiseData.map((item: any) => ({
       id:               item.testStatusId,
       created_at:       new Date(item.created_at),
       source:           "testWise" as const,
       exam:             item.exam,
       paperMeta:        item.paperMeta,
-      math:             item.math,         // null if no SubjectTestResult row
-      physics:          item.physics,      // null if no SubjectTestResult row
-      chemistry:        item.chemistry,    // null if no SubjectTestResult row
-      overAllAnalytics: item.overAllAnalytics,
+      math:             item.math,         
+      physics:          item.physics,      
+      chemistry:        item.chemistry,    
+      overAllAnalytics: item.overAllAnalytics, // Kept as 'overAllAnalytics' from DB
       questionWise:     item.questionTypes ?? {},
       chapterWise:      [],
     }));
@@ -98,8 +97,6 @@ class ReportService {
 
   // ══════════════════════════════════════════
   // SUBJECT ANALYTICS
-  // Reads: t.math / t.physics / t.chemistry
-  // Each has: marks, maxMarks, correct, wrong, timeTaken, totalQuestions
   // ══════════════════════════════════════════
 
   private buildSubjectAnalytics(
@@ -133,12 +130,9 @@ class ReportService {
 
   // ══════════════════════════════════════════
   // QUESTION TYPE ANALYTICS
-  // Keys are actual enum values: "SingleCorrect" etc.
-  // Each has: marks, maxMarks, correct, wrong
   // ══════════════════════════════════════════
 
   private buildQuestionTypes(tests: any[]) {
-    // Collect all question type keys actually present in data
     const allQTypes = new Set<string>(KNOWN_QUESTION_TYPES);
     for (const t of tests) {
       if (t.questionWise) {
@@ -180,10 +174,27 @@ class ReportService {
     const latest   = tests[0];
     const previous = tests.slice(1);
 
-    const getMarks    = (t: any) => t.overAllAnalytics?.totalScore ?? t.overAllAnalytics?.marks ?? 0;
-    const getMaxMarks = (t: any) => t.overAllAnalytics?.maxScore   ?? t.overAllAnalytics?.maxMarks ?? 0;
-    const getTime     = (t: any) => t.overAllAnalytics?.timeTaken  ?? 0;
-    const getQ        = (t: any) => t.overAllAnalytics?.totalQuestions ?? 0;
+    // ✅ Robust fallback getters
+    const getMarks = (t: any) => {
+        const oa = t.overAllAnalytics ?? t.overall ?? {};
+        if (oa.totalScore != null) return oa.totalScore;
+        if (oa.marks != null) return oa.marks;
+        return (t.math?.marks ?? 0) + (t.physics?.marks ?? 0) + (t.chemistry?.marks ?? 0);
+    };
+    const getMaxMarks = (t: any) => {
+        const oa = t.overAllAnalytics ?? t.overall ?? {};
+        if (oa.maxScore != null) return oa.maxScore;
+        if (oa.maxMarks != null) return oa.maxMarks;
+        return (t.math?.maxMarks ?? 0) + (t.physics?.maxMarks ?? 0) + (t.chemistry?.maxMarks ?? 0);
+    };
+    const getTime = (t: any) => {
+        const oa = t.overAllAnalytics ?? t.overall ?? {};
+        return oa.timeTaken ?? oa.totalTimeTaken ?? 0;
+    };
+    const getQ = (t: any) => {
+        const oa = t.overAllAnalytics ?? t.overall ?? {};
+        return oa.totalQuestions ?? 0;
+    };
 
     const latestAcc  = this.calcAccuracy(getMarks(latest), getMaxMarks(latest));
     const prevAcc    = this.avgOf(previous.map((t) => this.calcAccuracy(getMarks(t), getMaxMarks(t))));
@@ -234,10 +245,27 @@ class ReportService {
   private buildGroupAnalytics(tests: any[]) {
     if (tests.length === 0) return null;
 
-    const getMarks    = (t: any) => t.overAllAnalytics?.totalScore ?? t.overAllAnalytics?.marks ?? 0;
-    const getMaxMarks = (t: any) => t.overAllAnalytics?.maxScore   ?? t.overAllAnalytics?.maxMarks ?? 0;
-    const getTime     = (t: any) => t.overAllAnalytics?.timeTaken  ?? 0;
-    const getQ        = (t: any) => t.overAllAnalytics?.totalQuestions ?? 0;
+    // ✅ Robust fallback getters
+    const getMarks = (t: any) => {
+        const oa = t.overAllAnalytics ?? t.overall ?? {};
+        if (oa.totalScore != null) return oa.totalScore;
+        if (oa.marks != null) return oa.marks;
+        return (t.math?.marks ?? 0) + (t.physics?.marks ?? 0) + (t.chemistry?.marks ?? 0);
+    };
+    const getMaxMarks = (t: any) => {
+        const oa = t.overAllAnalytics ?? t.overall ?? {};
+        if (oa.maxScore != null) return oa.maxScore;
+        if (oa.maxMarks != null) return oa.maxMarks;
+        return (t.math?.maxMarks ?? 0) + (t.physics?.maxMarks ?? 0) + (t.chemistry?.maxMarks ?? 0);
+    };
+    const getTime = (t: any) => {
+        const oa = t.overAllAnalytics ?? t.overall ?? {};
+        return oa.timeTaken ?? oa.totalTimeTaken ?? 0;
+    };
+    const getQ = (t: any) => {
+        const oa = t.overAllAnalytics ?? t.overall ?? {};
+        return oa.totalQuestions ?? 0;
+    };
 
     const uniquePapers = new Set<string>();
     for (const t of tests) {
@@ -521,7 +549,7 @@ class ReportService {
       { attempts: 0, timeSpent: 0, marksEarned: 0, maxPossible: 0 },
     );
 
-    const dbAttempts    = overallAnalytics?.practiceAttempts    ?? 0;
+    const dbAttempts    = overallAnalytics?.practiceAttempts     ?? 0;
     const dbTime        = overallAnalytics?.practiceTimeSpent   ?? 0;
     const dbMarks       = overallAnalytics?.practiceMarksEarned ?? 0;
     const dbMax         = overallAnalytics?.practiceMaxPossible ?? 0;
@@ -548,7 +576,7 @@ class ReportService {
     for (const s of subjectAnalytics) {
       const sid = (s as any).subjectId;
       if (subjectMap[sid]) {
-        subjectMap[sid].attempts    += (s as any).practiceAttempts    ?? 0;
+        subjectMap[sid].attempts    += (s as any).practiceAttempts     ?? 0;
         subjectMap[sid].timeSpent   += (s as any).practiceTimeSpent   ?? 0;
         subjectMap[sid].marksEarned += (s as any).practiceMarksEarned ?? 0;
         subjectMap[sid].maxPossible += (s as any).practiceMaxPossible ?? 0;
@@ -573,7 +601,7 @@ class ReportService {
       avgTimePerQuestion: s.attempts > 0 ? parseFloat((s.timeSpent / s.attempts).toFixed(2)) : 0,
     }));
 
-    // Question types — using actual enum values
+    // Question types
     const qtMap: Record<string, any> = {};
     for (const qt of KNOWN_QUESTION_TYPES) {
       qtMap[qt] = { questionType: qt, attempts: 0, timeSpent: 0, marksEarned: 0, maxPossible: 0 };
@@ -581,7 +609,7 @@ class ReportService {
     for (const qt of questionTypeAnalytics) {
       const type = (qt as any).questioType;
       if (!qtMap[type]) qtMap[type] = { questionType: type, attempts: 0, timeSpent: 0, marksEarned: 0, maxPossible: 0 };
-      qtMap[type].attempts    += (qt as any).practiceAttempts    ?? 0;
+      qtMap[type].attempts    += (qt as any).practiceAttempts     ?? 0;
       qtMap[type].timeSpent   += (qt as any).practiceTimeSpent   ?? 0;
       qtMap[type].marksEarned += (qt as any).practiceMarksEarned ?? 0;
       qtMap[type].maxPossible += (qt as any).practiceMaxPossible ?? 0;
@@ -610,7 +638,7 @@ class ReportService {
     for (const e of examAnalytics) {
       examMap[(e as any).examName] = {
         examName:    (e as any).examName,
-        attempts:    (e as any).practiceAttempts    ?? 0,
+        attempts:    (e as any).practiceAttempts     ?? 0,
         timeSpent:   (e as any).practiceTimeSpent   ?? 0,
         marksEarned: (e as any).practiceMarksEarned ?? 0,
         maxPossible: (e as any).practiceMaxPossible ?? 0,
@@ -734,27 +762,47 @@ class ReportService {
       return Object.values(qtBlock);
     };
 
-    const getMarks    = (t: any) => t.overAllAnalytics?.totalScore ?? t.overAllAnalytics?.marks ?? 0;
-    const getMaxMarks = (t: any) => t.overAllAnalytics?.maxScore   ?? t.overAllAnalytics?.maxMarks ?? 0;
+    // ✅ Robust fallback getters applied here!
+    const getMarks = (t: any) => {
+        const oa = t.overAllAnalytics ?? t.overall ?? {};
+        if (oa.totalScore != null) return oa.totalScore;
+        if (oa.marks != null) return oa.marks;
+        return (t.math?.marks ?? 0) + (t.physics?.marks ?? 0) + (t.chemistry?.marks ?? 0);
+    };
+    const getMaxMarks = (t: any) => {
+        const oa = t.overAllAnalytics ?? t.overall ?? {};
+        if (oa.maxScore != null) return oa.maxScore;
+        if (oa.maxMarks != null) return oa.maxMarks;
+        return (t.math?.maxMarks ?? 0) + (t.physics?.maxMarks ?? 0) + (t.chemistry?.maxMarks ?? 0);
+    };
+    const getTime = (t: any) => {
+        const oa = t.overAllAnalytics ?? t.overall ?? {};
+        return oa.timeTaken ?? oa.totalTimeTaken ?? 0;
+    };
 
-    const last5Tests = last5Raw.map((t: any) => ({
-      testId:       t.id,
-      source:       t.source,
-      createdAt:    t.created_at,
-      paperDetails: paperDetailsMap[t.id] ?? null,
-      overall: {
-        marks:     getMarks(t),
-        maxMarks:  getMaxMarks(t),
-        accuracy:  calcAcc(getMarks(t), getMaxMarks(t)),
-        timeTaken: t.overAllAnalytics?.timeTaken ?? 0,
-      },
-      subjects: {
-        math:      buildSubjectBlock(t, "math",      "Mathematics"),
-        physics:   buildSubjectBlock(t, "physics",   "Physics"),
-        chemistry: buildSubjectBlock(t, "chemistry", "Chemistry"),
-      },
-      questionWise: buildQuestionWise(t),
-    }));
+    const last5Tests = last5Raw.map((t: any) => {
+      const finalMarks = getMarks(t);
+      const finalMaxMarks = getMaxMarks(t);
+
+      return {
+        testId:       t.id,
+        source:       t.source,
+        createdAt:    t.created_at,
+        paperDetails: paperDetailsMap[t.id] ?? null,
+        overall: {
+          marks:     finalMarks,
+          maxMarks:  finalMaxMarks,
+          accuracy:  calcAcc(finalMarks, finalMaxMarks),
+          timeTaken: getTime(t),
+        },
+        subjects: {
+          math:      buildSubjectBlock(t, "math",      "Mathematics"),
+          physics:   buildSubjectBlock(t, "physics",   "Physics"),
+          chemistry: buildSubjectBlock(t, "chemistry", "Chemistry"),
+        },
+        questionWise: buildQuestionWise(t),
+      };
+    });
 
     const last5Aggregate = (() => {
       if (last5Tests.length === 0) return null;

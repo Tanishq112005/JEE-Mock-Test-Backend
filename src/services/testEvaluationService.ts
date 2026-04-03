@@ -20,7 +20,6 @@ interface QuestionTypeStat {
     accuracy:       number;
 }
 
-// ✅ NEW — chapter stat shape
 interface ChapterStat {
     chapterId:      string;
     chapterName:    string;
@@ -66,7 +65,6 @@ class TestEvalution {
                 ComprehensionInteger:       getEmptyQuestionTypeStat(),
             };
 
-            // ✅ Chapter stats map — keyed by chapterId
             const chapterStats: Map<string, ChapterStat> = new Map();
 
             let mathTotalQuestions      = 0;
@@ -76,17 +74,14 @@ class TestEvalution {
             for (let i = 0; i < gettingAllQuestionsOfPaper.length; i++) {
                 const q = gettingAllQuestionsOfPaper[i];
 
-                // Subject counts
                 if (q.subjects.name === "Mathematics")  mathTotalQuestions++;
                 else if (q.subjects.name === "Physics")  physicsTotalQuestions++;
                 else if (q.subjects.name === "Chemistry") chemistryTotalQuestions++;
 
-                // Question type counts
                 if (questionTypeStats[q.type]) {
                     questionTypeStats[q.type].totalQuestions++;
                 }
 
-                // ✅ Initialize chapter stat if not already present
                 if (q.chapters) {
                     if (!chapterStats.has(q.chapters.id)) {
                         chapterStats.set(q.chapters.id, {
@@ -106,7 +101,6 @@ class TestEvalution {
                             accuracy:       0,
                         });
                     }
-                    // ✅ Count total questions per chapter
                     chapterStats.get(q.chapters.id)!.totalQuestions++;
                 }
 
@@ -148,19 +142,24 @@ class TestEvalution {
                     totalPositiveMarks: questionData.positiveMarks,
                     totalNegativeMarks: questionData.negativeMarks,
                     subject:            questionData.subjects.name,
-                    chapterId:          questionData.chapters?.id   ?? null,  // ✅
-                    chapterName:        questionData.chapters?.name ?? null,  // ✅
+                    chapterId:          questionData.chapters?.id   ?? null,
+                    chapterName:        questionData.chapters?.name ?? null,
                 });
             }
 
             let mathattemptCount = 0, physicsattemptCount = 0, chemistryattemptCount = 0;
             let mathCorrectPositiveMarks = 0, mathNegativeMarks = 0;
-            let physicsCorrectPositiveMarks = 0, physiscsNegativeMarks = 0;
+            
+            // ✅ Fixed spelling from physiscsNegativeMarks to physicsNegativeMarks
+            let physicsCorrectPositiveMarks = 0, physicsNegativeMarks = 0; 
+            
             let chemistryCorrectPostiveMarks = 0, chemistryNegativeMarks = 0;
             let mathPartialPositiveMarks = 0, physicsPartialPositiveMarks = 0, chemistryPartialPositiveMarks = 0;
+            
             let mathCorrect = 0, mathPartial = 0, mathWrong = 0;
             let physicsCorrect = 0, physicsPartial = 0, physicsWrong = 0;
             let chemistryCorrect = 0, chemistryPartial = 0, chemistryWrong = 0;
+            
             let mathTimeTaken = 0, physicsTimeTaken = 0, chemistryTimeTaken = 0;
             let totalTimeTaken = 0;
 
@@ -168,16 +167,13 @@ class TestEvalution {
                 const q = finalVerdict[i];
                 totalTimeTaken += q.timeSpent;
 
-                // Subject time
                 if (q.subject === "Mathematics")       mathTimeTaken      += q.timeSpent;
                 else if (q.subject === "Physics")      physicsTimeTaken   += q.timeSpent;
                 else if (q.subject === "Chemistry")    chemistryTimeTaken += q.timeSpent;
 
-                // Question type time
                 const qtStat = questionTypeStats[q.type];
                 if (qtStat) qtStat.timeTaken += q.timeSpent;
 
-                // ✅ Chapter time tracking
                 if (q.chapterId && chapterStats.has(q.chapterId)) {
                     chapterStats.get(q.chapterId)!.timeTaken += q.timeSpent;
                 }
@@ -194,12 +190,13 @@ class TestEvalution {
                             qtStat.partialMarks += q.marks;
                         } else if (q.verdict === "wrong") {
                             qtStat.wrong++;
-                            qtStat.negativeMarks += Math.abs(q.marks);
+                            // ✅ Fix applied here
+                            qtStat.negativeMarks += Math.abs(q.totalNegativeMarks || 0); 
                         }
                         qtStat.marks = qtStat.positiveMarks + qtStat.partialMarks - qtStat.negativeMarks;
                     }
 
-                    // ✅ Chapter tracking
+                    // ── Chapter tracking ──
                     if (q.chapterId && chapterStats.has(q.chapterId)) {
                         const ch = chapterStats.get(q.chapterId)!;
                         ch.attempt++;
@@ -211,7 +208,8 @@ class TestEvalution {
                             ch.partialMarks += q.marks;
                         } else if (q.verdict === "wrong") {
                             ch.wrong++;
-                            ch.negativeMarks += Math.abs(q.marks);
+                            // ✅ Fix applied here
+                            ch.negativeMarks += Math.abs(q.totalNegativeMarks || 0); 
                         }
                         ch.marks    = ch.positiveMarks + ch.partialMarks - ch.negativeMarks;
                         ch.accuracy = ch.attempt > 0
@@ -231,7 +229,8 @@ class TestEvalution {
                             mathPartialPositiveMarks += q.marks;
                             mathPartial++;
                         } else if (q.verdict === "wrong") {
-                            mathNegativeMarks += Math.abs(q.marks);
+                            // ✅ Fix applied here
+                            mathNegativeMarks += Math.abs(q.totalNegativeMarks || 0); 
                             mathWrong++;
                         }
                     } else if (q.subject === "Physics") {
@@ -245,7 +244,8 @@ class TestEvalution {
                             physicsPartialPositiveMarks += q.marks;
                             physicsPartial++;
                         } else if (q.verdict === "wrong") {
-                            physiscsNegativeMarks += Math.abs(q.marks);
+                            // ✅ Fix applied here
+                            physicsNegativeMarks += Math.abs(q.totalNegativeMarks || 0); 
                             physicsWrong++;
                         }
                     } else if (q.subject === "Chemistry") {
@@ -259,7 +259,8 @@ class TestEvalution {
                             chemistryPartialPositiveMarks += q.marks;
                             chemistryPartial++;
                         } else if (q.verdict === "wrong") {
-                            chemistryNegativeMarks += Math.abs(q.marks);
+                            // ✅ Fix applied here
+                            chemistryNegativeMarks += Math.abs(q.totalNegativeMarks || 0); 
                             chemistryWrong++;
                         }
                     }
@@ -291,7 +292,7 @@ class TestEvalution {
                     marks:          mathCorrectPositiveMarks + mathPartialPositiveMarks - mathNegativeMarks,
                     timeTaken:      mathTimeTaken,
                     positiveMarks:  mathCorrectPositiveMarks,
-                    paritalMarks:   mathPartialPositiveMarks,
+                    partialMarks:   mathPartialPositiveMarks, // ✅ Fixed spelling from paritalMarks
                     negativeMarks:  mathNegativeMarks,
                     correct:        mathCorrect,
                     partial:        mathPartial,
@@ -302,11 +303,11 @@ class TestEvalution {
                 physics: {
                     totalQuestions: physicsTotalQuestions,
                     attempt:        physicsattemptCount,
-                    marks:          physicsCorrectPositiveMarks + physicsPartialPositiveMarks - physiscsNegativeMarks,
+                    marks:          physicsCorrectPositiveMarks + physicsPartialPositiveMarks - physicsNegativeMarks,
                     timeTaken:      physicsTimeTaken,
                     positiveMarks:  physicsCorrectPositiveMarks,
-                    paritalMarks:   physicsPartialPositiveMarks,
-                    negativeMarks:  physiscsNegativeMarks,
+                    partialMarks:   physicsPartialPositiveMarks, // ✅ Fixed spelling from paritalMarks
+                    negativeMarks:  physicsNegativeMarks,
                     correct:        physicsCorrect,
                     partial:        physicsPartial,
                     wrong:          physicsWrong,
@@ -319,7 +320,7 @@ class TestEvalution {
                     marks:          chemistryCorrectPostiveMarks + chemistryPartialPositiveMarks - chemistryNegativeMarks,
                     timeTaken:      chemistryTimeTaken,
                     positiveMarks:  chemistryCorrectPostiveMarks,
-                    paritalMarks:   chemistryPartialPositiveMarks,
+                    partialMarks:   chemistryPartialPositiveMarks, // ✅ Fixed spelling from paritalMarks
                     negativeMarks:  chemistryNegativeMarks,
                     correct:        chemistryCorrect,
                     partial:        chemistryPartial,
@@ -338,7 +339,6 @@ class TestEvalution {
                 },
                 questionTypes: questionTypeStats,
 
-                // ✅ Chapter wise breakdown — array sorted by subject
                 chapterWise: Array.from(chapterStats.values()).sort((a, b) =>
                     a.subjectName.localeCompare(b.subjectName)
                 ),
