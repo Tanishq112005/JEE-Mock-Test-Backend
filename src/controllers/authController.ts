@@ -219,7 +219,20 @@ export class AuthController {
   public forgotPasswordChange = async (req: any, res: any) => {
     const { password } = req.body;
     try {
-      const userId = req.user;
+      const accessToken = req.headers["authorization"]?.split(" ")[1];
+      let originalUserId = req.user;
+      
+      if (accessToken) {
+        const { verifyAccessToken } = require("../utils/jwtToken");
+        const decoded = verifyAccessToken(accessToken);
+        if (decoded && decoded.id) {
+            originalUserId = decoded.id; // Extracts the true User.id
+        }
+      }
+
+      const userId = originalUserId;
+      
+      console.log("DEBUG: passwordChange: req.userId =", req.userId, "req.user =", req.user, "final userId =", userId);
 
       const userDetails = await user.userDetailsThroughId(userId);
       if (!userDetails) {
@@ -241,7 +254,7 @@ export class AuthController {
     } catch (err: any) {
       return res
         .status(404)
-        .json(new ApiError("Error in changing the password"));
+        .json(new ApiError("Error in changing the password" , err));
     }
   };
 
