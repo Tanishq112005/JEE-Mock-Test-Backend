@@ -161,7 +161,17 @@ class AuthController {
     forgotPasswordChange = async (req, res) => {
         const { password } = req.body;
         try {
-            const userId = req.user;
+            const accessToken = req.headers["authorization"]?.split(" ")[1];
+            let originalUserId = req.user;
+            if (accessToken) {
+                const { verifyAccessToken } = require("../utils/jwtToken");
+                const decoded = verifyAccessToken(accessToken);
+                if (decoded && decoded.id) {
+                    originalUserId = decoded.id; // Extracts the true User.id
+                }
+            }
+            const userId = originalUserId;
+            console.log("DEBUG: passwordChange: req.userId =", req.userId, "req.user =", req.user, "final userId =", userId);
             const userDetails = await user_db_1.user.userDetailsThroughId(userId);
             if (!userDetails) {
                 return res
@@ -175,7 +185,7 @@ class AuthController {
         catch (err) {
             return res
                 .status(404)
-                .json(new ApiError_1.default("Error in changing the password"));
+                .json(new ApiError_1.default("Error in changing the password", err));
         }
     };
     login = async (req, res) => {
