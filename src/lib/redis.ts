@@ -21,7 +21,7 @@ class RedisConfig {
 
     this.connect();
   }
-
+ 
   private async connect() {
     try {
         await this.client.connect();
@@ -38,6 +38,6 @@ class RedisConfig {
     return `rate_limit:${keyPrefix}:${identifier}`;
   }
 }
-
+ 
 export const redisConfig = new RedisConfig();
 export const redisClient = redisConfig.client;
