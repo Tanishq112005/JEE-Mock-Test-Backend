@@ -6,20 +6,33 @@ const paper_db_1 = require("../repositories/paper.db");
 const answerVerifyService_1 = require("./answerVerifyService");
 const uniqueCountService_1 = require("./uniqueCountService");
 const analytics_db_1 = require("../repositories/analytics.db");
-class TestEvalution {
+class TestEvaluation {
     constructor() { }
+    // Helper for precision
+    formatFloat(num) {
+        return parseFloat(num.toFixed(4));
+    }
     async evaluation(lastStatus, studentId) {
         try {
             const gettingAllQuestionsOfPaper = await question_db_1.question.gettingQuestionsInformation(lastStatus.paperId);
             const paperMarkingScheme = await paper_db_1.paper.paperMarkingScheme(lastStatus.paperId);
             let updateQuestion = new Map();
-            if (!gettingAllQuestionsOfPaper || gettingAllQuestionsOfPaper.length === 0) {
+            if (!gettingAllQuestionsOfPaper ||
+                gettingAllQuestionsOfPaper.length === 0) {
                 throw new Error(`No questions found for paperId: ${lastStatus.paperId}. Cannot evaluate test.`);
             }
             const getEmptyQuestionTypeStat = () => ({
-                totalQuestions: 0, attempt: 0, correct: 0, partial: 0, wrong: 0,
-                positiveMarks: 0, partialMarks: 0, negativeMarks: 0, marks: 0,
-                timeTaken: 0, accuracy: 0,
+                totalQuestions: 0,
+                attempt: 0,
+                correct: 0,
+                partial: 0,
+                wrong: 0,
+                positiveMarks: 0,
+                partialMarks: 0,
+                negativeMarks: 0,
+                marks: 0,
+                timeTaken: 0,
+                accuracy: 0,
             });
             const questionTypeStats = {
                 SingleCorrect: getEmptyQuestionTypeStat(),
@@ -66,13 +79,14 @@ class TestEvalution {
                     chapterStats.get(q.chapters.id).totalQuestions++;
                 }
                 updateQuestion.set(q.id, {
+                    questionId: q.id,
                     userAnswer: [],
                     isVisited: false,
                     timeSpent: 0,
                     markedForReview: false,
                 });
             }
-            const questionDetails = lastStatus.questionStatus;
+            const questionDetails = lastStatus.questionStatus || [];
             for (let i = 0; i < questionDetails.length; i++) {
                 updateQuestion.set(questionDetails[i].questionId, questionDetails[i]);
             }
@@ -80,15 +94,15 @@ class TestEvalution {
             const evalutionAnswer = new answerVerifyService_1.AnswerVerifyService(paperMarkingScheme);
             for (let i = 0; i < gettingAllQuestionsOfPaper.length; i++) {
                 const questionData = gettingAllQuestionsOfPaper[i];
-                const questionDetails = updateQuestion.get(questionData.id);
-                const result = evalutionAnswer.questionResult(questionDetails.userAnswer, questionData.correctAnswer, questionData.type);
+                const questionDetail = updateQuestion.get(questionData.id);
+                const result = evalutionAnswer.questionResult(questionDetail.userAnswer, questionData.correctAnswer, questionData.type);
                 finalVerdict.push({
                     questionId: questionData.id,
                     type: questionData.type,
-                    isVisited: questionDetails.isVisited,
-                    timeSpent: questionDetails.timeSpent,
-                    markedForReview: questionDetails.markedForReview,
-                    userAnswer: questionDetails.userAnswer,
+                    isVisited: questionDetail.isVisited,
+                    timeSpent: questionDetail.timeSpent,
+                    markedForReview: questionDetail.markedForReview,
+                    userAnswer: questionDetail.userAnswer,
                     verdict: result.verdict,
                     marks: result.marks,
                     totalPositiveMarks: questionData.positiveMarks,
@@ -100,15 +114,16 @@ class TestEvalution {
             }
             let mathattemptCount = 0, physicsattemptCount = 0, chemistryattemptCount = 0;
             let mathCorrectPositiveMarks = 0, mathNegativeMarks = 0;
-            // ✅ Fixed spelling from physiscsNegativeMarks to physicsNegativeMarks
             let physicsCorrectPositiveMarks = 0, physicsNegativeMarks = 0;
-            let chemistryCorrectPostiveMarks = 0, chemistryNegativeMarks = 0;
+            let chemistryCorrectPositiveMarks = 0, chemistryNegativeMarks = 0;
             let mathPartialPositiveMarks = 0, physicsPartialPositiveMarks = 0, chemistryPartialPositiveMarks = 0;
             let mathCorrect = 0, mathPartial = 0, mathWrong = 0;
             let physicsCorrect = 0, physicsPartial = 0, physicsWrong = 0;
             let chemistryCorrect = 0, chemistryPartial = 0, chemistryWrong = 0;
             let mathTimeTaken = 0, physicsTimeTaken = 0, chemistryTimeTaken = 0;
             let totalTimeTaken = 0;
+            // Array to hold questions that need to be marked in DB
+            const correctQuestionIdsForRegistry = [];
             for (let i = 0; i < finalVerdict.length; i++) {
                 const q = finalVerdict[i];
                 totalTimeTaken += q.timeSpent;
@@ -124,7 +139,11 @@ class TestEvalution {
                 if (q.chapterId && chapterStats.has(q.chapterId)) {
                     chapterStats.get(q.chapterId).timeTaken += q.timeSpent;
                 }
-                if (q.isVisited) {
+                // FIX: Check if question was ACTUALLY attempted (not just visited)
+                const isAttempted = q.verdict === "correct" ||
+                    q.verdict === "partial" ||
+                    q.verdict === "wrong";
+                if (isAttempted) {
                     // ── Question type tracking ──
                     if (qtStat) {
                         qtStat.attempt++;
@@ -138,10 +157,10 @@ class TestEvalution {
                         }
                         else if (q.verdict === "wrong") {
                             qtStat.wrong++;
-                            // ✅ Fix applied here
                             qtStat.negativeMarks += Math.abs(q.totalNegativeMarks || 0);
                         }
-                        qtStat.marks = qtStat.positiveMarks + qtStat.partialMarks - qtStat.negativeMarks;
+                        qtStat.marks =
+                            qtStat.positiveMarks + qtStat.partialMarks - qtStat.negativeMarks;
                     }
                     // ── Chapter tracking ──
                     if (q.chapterId && chapterStats.has(q.chapterId)) {
@@ -157,20 +176,19 @@ class TestEvalution {
                         }
                         else if (q.verdict === "wrong") {
                             ch.wrong++;
-                            // ✅ Fix applied here
                             ch.negativeMarks += Math.abs(q.totalNegativeMarks || 0);
                         }
                         ch.marks = ch.positiveMarks + ch.partialMarks - ch.negativeMarks;
-                        ch.accuracy = ch.attempt > 0
-                            ? ((ch.correct + ch.partial) / ch.attempt) * 100
-                            : 0;
+                        ch.accuracy =
+                            ch.attempt > 0
+                                ? this.formatFloat(((ch.correct + ch.partial) / ch.attempt) * 100)
+                                : 0;
                     }
                     // ── Subject tracking ──
                     if (q.subject === "Mathematics") {
                         mathattemptCount++;
                         if (q.verdict === "correct") {
-                            await uniqueCountService_1.questionBitmapRegistry.markAttempted(studentId, q.questionId);
-                            await analytics_db_1.analytics.updateStreak(studentId);
+                            correctQuestionIdsForRegistry.push(q.questionId);
                             mathCorrectPositiveMarks += q.marks;
                             mathCorrect++;
                         }
@@ -179,7 +197,6 @@ class TestEvalution {
                             mathPartial++;
                         }
                         else if (q.verdict === "wrong") {
-                            // ✅ Fix applied here
                             mathNegativeMarks += Math.abs(q.totalNegativeMarks || 0);
                             mathWrong++;
                         }
@@ -187,8 +204,7 @@ class TestEvalution {
                     else if (q.subject === "Physics") {
                         physicsattemptCount++;
                         if (q.verdict === "correct") {
-                            await uniqueCountService_1.questionBitmapRegistry.markAttempted(studentId, q.questionId);
-                            await analytics_db_1.analytics.updateStreak(studentId);
+                            correctQuestionIdsForRegistry.push(q.questionId);
                             physicsCorrectPositiveMarks += q.marks;
                             physicsCorrect++;
                         }
@@ -197,7 +213,6 @@ class TestEvalution {
                             physicsPartial++;
                         }
                         else if (q.verdict === "wrong") {
-                            // ✅ Fix applied here
                             physicsNegativeMarks += Math.abs(q.totalNegativeMarks || 0);
                             physicsWrong++;
                         }
@@ -205,9 +220,8 @@ class TestEvalution {
                     else if (q.subject === "Chemistry") {
                         chemistryattemptCount++;
                         if (q.verdict === "correct") {
-                            await uniqueCountService_1.questionBitmapRegistry.markAttempted(studentId, q.questionId);
-                            await analytics_db_1.analytics.updateStreak(studentId);
-                            chemistryCorrectPostiveMarks += q.marks;
+                            correctQuestionIdsForRegistry.push(q.questionId);
+                            chemistryCorrectPositiveMarks += q.marks;
                             chemistryCorrect++;
                         }
                         else if (q.verdict === "partial") {
@@ -215,25 +229,33 @@ class TestEvalution {
                             chemistryPartial++;
                         }
                         else if (q.verdict === "wrong") {
-                            // ✅ Fix applied here
                             chemistryNegativeMarks += Math.abs(q.totalNegativeMarks || 0);
                             chemistryWrong++;
                         }
                     }
                 }
             }
+            // --- PERFORMANCE FIX: Execute DB calls efficiently outside the loop ---
+            if (correctQuestionIdsForRegistry.length > 0) {
+                // Run them all concurrently
+                await Promise.all(correctQuestionIdsForRegistry.map((qId) => uniqueCountService_1.questionBitmapRegistry.markAttempted(studentId, qId)));
+            }
+            // Only update the streak ONCE for the whole test, not 50 times
+            await analytics_db_1.analytics.updateStreak(studentId);
+            // ----------------------------------------------------------------------
             // Accuracies for question types
             Object.keys(questionTypeStats).forEach((key) => {
                 const stat = questionTypeStats[key];
-                stat.accuracy = stat.attempt > 0
-                    ? ((stat.correct + stat.partial) / stat.attempt) * 100
-                    : 0;
+                stat.accuracy =
+                    stat.attempt > 0
+                        ? this.formatFloat(((stat.correct + stat.partial) / stat.attempt) * 100)
+                        : 0;
             });
             const totalAttempted = mathattemptCount + physicsattemptCount + chemistryattemptCount;
             const totalCorrect = mathCorrect + physicsCorrect + chemistryCorrect;
             const totalPartial = mathPartial + physicsPartial + chemistryPartial;
             const overallAccuracy = totalAttempted > 0
-                ? ((totalCorrect + totalPartial) / totalAttempted) * 100
+                ? this.formatFloat(((totalCorrect + totalPartial) / totalAttempted) * 100)
                 : 0;
             const summaryReport = {
                 paperId: lastStatus.paperId,
@@ -241,53 +263,69 @@ class TestEvalution {
                 math: {
                     totalQuestions: mathTotalQuestions,
                     attempt: mathattemptCount,
-                    marks: mathCorrectPositiveMarks + mathPartialPositiveMarks - mathNegativeMarks,
+                    marks: mathCorrectPositiveMarks +
+                        mathPartialPositiveMarks -
+                        mathNegativeMarks,
                     timeTaken: mathTimeTaken,
                     positiveMarks: mathCorrectPositiveMarks,
-                    partialMarks: mathPartialPositiveMarks, // ✅ Fixed spelling from paritalMarks
+                    partialMarks: mathPartialPositiveMarks,
                     negativeMarks: mathNegativeMarks,
                     correct: mathCorrect,
                     partial: mathPartial,
                     wrong: mathWrong,
                     accuracy: mathattemptCount > 0
-                        ? ((mathCorrect + mathPartial) / mathattemptCount) * 100 : 0,
+                        ? this.formatFloat(((mathCorrect + mathPartial) / mathattemptCount) * 100)
+                        : 0,
                 },
                 physics: {
                     totalQuestions: physicsTotalQuestions,
                     attempt: physicsattemptCount,
-                    marks: physicsCorrectPositiveMarks + physicsPartialPositiveMarks - physicsNegativeMarks,
+                    marks: physicsCorrectPositiveMarks +
+                        physicsPartialPositiveMarks -
+                        physicsNegativeMarks,
                     timeTaken: physicsTimeTaken,
                     positiveMarks: physicsCorrectPositiveMarks,
-                    partialMarks: physicsPartialPositiveMarks, // ✅ Fixed spelling from paritalMarks
+                    partialMarks: physicsPartialPositiveMarks,
                     negativeMarks: physicsNegativeMarks,
                     correct: physicsCorrect,
                     partial: physicsPartial,
                     wrong: physicsWrong,
                     accuracy: physicsattemptCount > 0
-                        ? ((physicsCorrect + physicsPartial) / physicsattemptCount) * 100 : 0,
+                        ? this.formatFloat(((physicsCorrect + physicsPartial) / physicsattemptCount) *
+                            100)
+                        : 0,
                 },
                 chemistry: {
                     totalQuestions: chemistryTotalQuestions,
                     attempt: chemistryattemptCount,
-                    marks: chemistryCorrectPostiveMarks + chemistryPartialPositiveMarks - chemistryNegativeMarks,
+                    marks: chemistryCorrectPositiveMarks +
+                        chemistryPartialPositiveMarks -
+                        chemistryNegativeMarks,
                     timeTaken: chemistryTimeTaken,
-                    positiveMarks: chemistryCorrectPostiveMarks,
-                    partialMarks: chemistryPartialPositiveMarks, // ✅ Fixed spelling from paritalMarks
+                    positiveMarks: chemistryCorrectPositiveMarks,
+                    partialMarks: chemistryPartialPositiveMarks,
                     negativeMarks: chemistryNegativeMarks,
                     correct: chemistryCorrect,
                     partial: chemistryPartial,
                     wrong: chemistryWrong,
                     accuracy: chemistryattemptCount > 0
-                        ? ((chemistryCorrect + chemistryPartial) / chemistryattemptCount) * 100 : 0,
+                        ? this.formatFloat(((chemistryCorrect + chemistryPartial) /
+                            chemistryattemptCount) *
+                            100)
+                        : 0,
                 },
                 overall: {
-                    totalQuestions: mathTotalQuestions + physicsTotalQuestions + chemistryTotalQuestions,
+                    totalQuestions: mathTotalQuestions +
+                        physicsTotalQuestions +
+                        chemistryTotalQuestions,
                     totalAttempted,
                     totalCorrect,
                     totalPartial,
                     overallAccuracy,
                     totalTimeTaken,
-                    averageTimePerQuestion: totalAttempted > 0 ? totalTimeTaken / totalAttempted : 0,
+                    averageTimePerQuestion: totalAttempted > 0
+                        ? this.formatFloat(totalTimeTaken / totalAttempted)
+                        : 0,
                 },
                 questionTypes: questionTypeStats,
                 chapterWise: Array.from(chapterStats.values()).sort((a, b) => a.subjectName.localeCompare(b.subjectName)),
@@ -301,4 +339,4 @@ class TestEvalution {
         }
     }
 }
-exports.testEvaluation = new TestEvalution();
+exports.testEvaluation = new TestEvaluation();
