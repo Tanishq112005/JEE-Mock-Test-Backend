@@ -1,10 +1,10 @@
 
 export interface RedisInstanceConfig {
-    url:   string;
-    token: string;
-    databaseId: string;
+    username: string ; 
+    password : string ; 
     email : string ; 
-    apiKey : string ; 
+    host : string ; 
+    port : number ; 
 }
 
 
