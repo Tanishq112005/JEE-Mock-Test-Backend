@@ -143,7 +143,7 @@ class TestSyncService {
             const paperMs = paperMsMap[qType];
             const positiveMarks = qData?.positiveMarks ?? paperMs?.positiveMarks ?? 4;
             const negativeMarks = qData?.negativeMarks ?? paperMs?.negativeMarks ?? 1;
-            const partialMarks = paperMs?.isPartial ? (positiveMarks / 2) : 0;
+            const partialMarks = paperMs?.isPartial ? positiveMarks / 2 : 0;
             const isCorrect = q.isCorrect === true;
             const isPartial = !isCorrect && (q.marksObtained ?? 0) > 0;
             const isAttempted = q.status === "answered";
@@ -160,16 +160,28 @@ class TestSyncService {
             if (!subjectAcc[subjectName])
                 subjectAcc[subjectName] = this.emptyAcc();
             this.accumulate(subjectAcc[subjectName], {
-                marks, positiveMarks, negativeMarks, partialMarks,
-                isAttempted, isCorrect, isPartial, isWrong,
+                marks,
+                positiveMarks,
+                negativeMarks,
+                partialMarks,
+                isAttempted,
+                isCorrect,
+                isPartial,
+                isWrong,
                 timeSpent: q.timeSpent ?? 0,
             });
             // Question type accumulation (using actual enum values like "SingleCorrect")
             if (!qtAcc[qType])
                 qtAcc[qType] = this.emptyAcc();
             this.accumulate(qtAcc[qType], {
-                marks, positiveMarks, negativeMarks, partialMarks,
-                isAttempted, isCorrect, isPartial, isWrong,
+                marks,
+                positiveMarks,
+                negativeMarks,
+                partialMarks,
+                isAttempted,
+                isCorrect,
+                isPartial,
+                isWrong,
                 timeSpent: q.timeSpent ?? 0,
             });
             // Chapter accumulation
@@ -183,8 +195,14 @@ class TestSyncService {
                     };
                 }
                 this.accumulate(chapterAcc[chapterId], {
-                    marks, positiveMarks, negativeMarks, partialMarks,
-                    isAttempted, isCorrect, isPartial, isWrong,
+                    marks,
+                    positiveMarks,
+                    negativeMarks,
+                    partialMarks,
+                    isAttempted,
+                    isCorrect,
+                    isPartial,
+                    isWrong,
                     timeSpent: q.timeSpent ?? 0,
                 });
             }
@@ -194,9 +212,11 @@ class TestSyncService {
         const totalMaxMarks = Object.values(subjectAcc).reduce((s, a) => s + a.positiveMarks, 0);
         const totalMarks = Object.values(subjectAcc).reduce((s, a) => s + a.marks, 0);
         const overallAcc = totalMaxMarks > 0
-            ? parseFloat(((totalMarks / totalMaxMarks) * 100).toFixed(2)) : 0;
+            ? parseFloat(((totalMarks / totalMaxMarks) * 100).toFixed(2))
+            : 0;
         const avgTimePerQ = totalQuestions > 0
-            ? parseFloat((totalTimeTaken / totalQuestions).toFixed(2)) : 0;
+            ? parseFloat((totalTimeTaken / totalQuestions).toFixed(2))
+            : 0;
         // ── Convert accumulators to typed shapes ──────────────────────────────────
         const toSubjectStats = (acc) => ({
             totalQuestions: acc.totalQuestions,
@@ -210,7 +230,8 @@ class TestSyncService {
             negativeMarks: acc.negativeMarks,
             timeTaken: acc.timeTaken,
             accuracy: acc.positiveMarks > 0
-                ? parseFloat(((acc.marks / acc.positiveMarks) * 100).toFixed(2)) : 0,
+                ? parseFloat(((acc.marks / acc.positiveMarks) * 100).toFixed(2))
+                : 0,
         });
         // questionTypes: keyed by actual Prisma enum value e.g. "SingleCorrect"
         const questionTypes = {};
@@ -227,7 +248,8 @@ class TestSyncService {
                 negativeMarks: acc.negativeMarks,
                 timeTaken: acc.timeTaken,
                 accuracy: acc.positiveMarks > 0
-                    ? parseFloat(((acc.marks / acc.positiveMarks) * 100).toFixed(2)) : 0,
+                    ? parseFloat(((acc.marks / acc.positiveMarks) * 100).toFixed(2))
+                    : 0,
             };
         }
         const chapterWise = Object.values(chapterAcc).map((c) => ({
@@ -245,7 +267,8 @@ class TestSyncService {
             negativeMarks: c.negativeMarks,
             timeTaken: c.timeTaken,
             accuracy: c.positiveMarks > 0
-                ? parseFloat(((c.marks / c.positiveMarks) * 100).toFixed(2)) : 0,
+                ? parseFloat(((c.marks / c.positiveMarks) * 100).toFixed(2))
+                : 0,
         }));
         // OverallStats — only fields that exist in the interface
         const overall = {
@@ -273,15 +296,15 @@ class TestSyncService {
     async cleanupRedis(studentId, testStatusId) {
         try {
             const upperLayerKey = `${studentId}:testUpperLayer`;
-            const upperLayer = await caching_1.reddisConfigForCaching.gettingAnanlyticsData(upperLayerKey);
+            const upperLayer = await caching_1.cacheService.getCache(upperLayerKey);
             if (!upperLayer?.testId?.length)
                 return;
             const entry = upperLayer.testId.find((e) => e.id === testStatusId);
             if (!entry)
                 return;
-            await caching_1.reddisConfigForCaching.deletingAnanlyticsData(`${studentId}:${testStatusId}:${entry.created_at}`);
+            await caching_1.cacheService.deleteCache(`${studentId}:${testStatusId}:${entry.created_at}`);
             upperLayer.testId = upperLayer.testId.filter((e) => e.id !== testStatusId);
-            await caching_1.reddisConfigForCaching.settingAnanlyticsData(upperLayerKey, upperLayer);
+            await caching_1.cacheService.setCache(upperLayerKey, upperLayer);
         }
         catch (err) {
             // Non-critical — DB already has the data

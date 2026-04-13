@@ -1,7 +1,7 @@
 import { PrismaClient, ExamName } from "@prisma/client";
 import { database } from "../lib/database";
 import { analytics } from "../repositories/analytics.db";
-import { reddisConfigForCaching } from "../lib/caching";
+import { cacheService } from "../lib/caching";
 import {
   SummaryReport,
   SubjectStats,
@@ -39,7 +39,10 @@ class TestSyncService {
   // ===========================================================================
   // PUBLIC — call right after finalSubmitTest completes
   // ===========================================================================
-  async syncAfterSubmission(testStatusId: string, studentId: string): Promise<void> {
+  async syncAfterSubmission(
+    testStatusId: string,
+    studentId: string,
+  ): Promise<void> {
     try {
       console.log(`[TestSync] Starting sync for test ${testStatusId}`);
 
@@ -59,7 +62,7 @@ class TestSyncService {
           },
           papers: {
             include: {
-              exam:          true,
+              exam: true,
               markingSchemes: true, // paperMarkingScheme[] — fallback marks
             },
           },
@@ -72,7 +75,9 @@ class TestSyncService {
       }
 
       if (testContext.isAnalyzed) {
-        console.log(`[TestSync] Test ${testStatusId} already analyzed, skipping`);
+        console.log(
+          `[TestSync] Test ${testStatusId} already analyzed, skipping`,
+        );
         return;
       }
 
@@ -82,12 +87,13 @@ class TestSyncService {
       //         ChapterAnalytics, SubjectAnalytics, ExamAnalytics,
       //         StudentOverallAnalytics, marks testStatus.isAnalyzed = true
       await analytics.persistTestAnalytics(testStatusId, studentId, report);
-      console.log(`[TestSync] ✅ DB analytics persisted for test ${testStatusId}`);
+      console.log(
+        `[TestSync] ✅ DB analytics persisted for test ${testStatusId}`,
+      );
 
       // Remove from Redis — DB is now source of truth
       await this.cleanupRedis(studentId, testStatusId);
       console.log(`[TestSync] ✅ Redis cleaned up for test ${testStatusId}`);
-
     } catch (err: any) {
       console.error(`[TestSync] ❌ Sync failed for test ${testStatusId}:`, err);
       throw err;
@@ -101,14 +107,14 @@ class TestSyncService {
     studentId?: string,
   ): Promise<{ processed: number; failed: number }> {
     let processed = 0;
-    let failed    = 0;
+    let failed = 0;
 
     const whereClause: any = { isAnalyzed: false, status: "COMPLETED" };
     if (studentId) whereClause.studentId = studentId;
 
     const unanalyzed = await this.db.testStatus.findMany({
-      where:   whereClause,
-      select:  { id: true, studentId: true },
+      where: whereClause,
+      select: { id: true, studentId: true },
       orderBy: { created_at: "asc" },
     });
 
@@ -118,14 +124,18 @@ class TestSyncService {
       try {
         await this.syncAfterSubmission(test.id, test.studentId);
         processed++;
-        console.log(`[TestSync] ✅ Backfilled ${test.id} (${processed}/${unanalyzed.length})`);
+        console.log(
+          `[TestSync] ✅ Backfilled ${test.id} (${processed}/${unanalyzed.length})`,
+        );
       } catch (err) {
         failed++;
         console.error(`[TestSync] ❌ Failed to backfill ${test.id}:`, err);
       }
     }
 
-    console.log(`[TestSync] Backfill done — processed: ${processed}, failed: ${failed}`);
+    console.log(
+      `[TestSync] Backfill done — processed: ${processed}, failed: ${failed}`,
+    );
     return { processed, failed };
   }
 
@@ -134,7 +144,7 @@ class TestSyncService {
   // ===========================================================================
   private buildSummaryReport(testContext: any): SummaryReport {
     const examName: ExamName = testContext.papers.exam.name;
-    const questions          = testContext.testQuestionStatus;
+    const questions = testContext.testQuestionStatus;
 
     // Paper-level marking scheme fallback keyed by questionType enum value
     // e.g. "SingleCorrect" → { positiveMarks: 4, negativeMarks: 1, isPartial: false }
@@ -146,8 +156,8 @@ class TestSyncService {
     // ── Accumulators ──────────────────────────────────────────────────────────
     const subjectAcc: Record<string, ReturnType<typeof this.emptyAcc>> = {
       Mathematics: this.emptyAcc(),
-      Physics:     this.emptyAcc(),
-      Chemistry:   this.emptyAcc(),
+      Physics: this.emptyAcc(),
+      Chemistry: this.emptyAcc(),
     };
 
     // Keyed by actual questionType enum value e.g. "SingleCorrect"
@@ -155,53 +165,68 @@ class TestSyncService {
 
     const chapterAcc: Record<
       string,
-      { chapterId: string; chapterName: string; subjectName: string }
-        & ReturnType<typeof this.emptyAcc>
+      {
+        chapterId: string;
+        chapterName: string;
+        subjectName: string;
+      } & ReturnType<typeof this.emptyAcc>
     > = {};
 
     let totalAttempted = 0;
     let totalTimeTaken = 0;
-    let totalCorrect   = 0;
-    let totalPartial   = 0;
+    let totalCorrect = 0;
+    let totalPartial = 0;
 
     // ── Process each question attempt ─────────────────────────────────────────
     for (const q of questions) {
-      const qData       = q.questions;
+      const qData = q.questions;
       const subjectName = qData?.subjects?.name ?? "Mathematics"; // SubjectName enum value
-      const chapterId   = qData?.chapterId      ?? null;
+      const chapterId = qData?.chapterId ?? null;
       const chapterName = qData?.chapters?.name ?? "Unknown";
-      const qType       = qData?.type           ?? "SingleCorrect"; // questionType enum
+      const qType = qData?.type ?? "SingleCorrect"; // questionType enum
 
       // Marks: prefer question-level columns, fall back to paper marking scheme
-      const paperMs       = paperMsMap[qType];
+      const paperMs = paperMsMap[qType];
       const positiveMarks = qData?.positiveMarks ?? paperMs?.positiveMarks ?? 4;
       const negativeMarks = qData?.negativeMarks ?? paperMs?.negativeMarks ?? 1;
-      const partialMarks  = paperMs?.isPartial ? (positiveMarks / 2) : 0;
+      const partialMarks = paperMs?.isPartial ? positiveMarks / 2 : 0;
 
-      const isCorrect   = q.isCorrect === true;
-      const isPartial   = !isCorrect && (q.marksObtained ?? 0) > 0;
+      const isCorrect = q.isCorrect === true;
+      const isPartial = !isCorrect && (q.marksObtained ?? 0) > 0;
       const isAttempted = q.status === "answered";
-      const isWrong     = isAttempted && !isCorrect && !isPartial;
-      const marks       = q.marksObtained ?? 0;
+      const isWrong = isAttempted && !isCorrect && !isPartial;
+      const marks = q.marksObtained ?? 0;
 
       totalTimeTaken += q.timeSpent ?? 0;
       if (isAttempted) totalAttempted++;
-      if (isCorrect)   totalCorrect++;
-      if (isPartial)   totalPartial++;
+      if (isCorrect) totalCorrect++;
+      if (isPartial) totalPartial++;
 
       // Subject accumulation
       if (!subjectAcc[subjectName]) subjectAcc[subjectName] = this.emptyAcc();
       this.accumulate(subjectAcc[subjectName], {
-        marks, positiveMarks, negativeMarks, partialMarks,
-        isAttempted, isCorrect, isPartial, isWrong,
+        marks,
+        positiveMarks,
+        negativeMarks,
+        partialMarks,
+        isAttempted,
+        isCorrect,
+        isPartial,
+        isWrong,
         timeSpent: q.timeSpent ?? 0,
       });
 
       // Question type accumulation (using actual enum values like "SingleCorrect")
       if (!qtAcc[qType]) qtAcc[qType] = this.emptyAcc();
       this.accumulate(qtAcc[qType], {
-        marks, positiveMarks, negativeMarks, partialMarks,
-        isAttempted, isCorrect, isPartial, isWrong,
+        marks,
+        positiveMarks,
+        negativeMarks,
+        partialMarks,
+        isAttempted,
+        isCorrect,
+        isPartial,
+        isWrong,
         timeSpent: q.timeSpent ?? 0,
       });
 
@@ -216,8 +241,14 @@ class TestSyncService {
           };
         }
         this.accumulate(chapterAcc[chapterId], {
-          marks, positiveMarks, negativeMarks, partialMarks,
-          isAttempted, isCorrect, isPartial, isWrong,
+          marks,
+          positiveMarks,
+          negativeMarks,
+          partialMarks,
+          isAttempted,
+          isCorrect,
+          isPartial,
+          isWrong,
           timeSpent: q.timeSpent ?? 0,
         });
       }
@@ -225,27 +256,41 @@ class TestSyncService {
 
     // ── Compute overall ───────────────────────────────────────────────────────
     const totalQuestions = questions.length;
-    const totalMaxMarks  = Object.values(subjectAcc).reduce((s, a) => s + a.positiveMarks, 0);
-    const totalMarks     = Object.values(subjectAcc).reduce((s, a) => s + a.marks, 0);
-    const overallAcc     = totalMaxMarks > 0
-      ? parseFloat(((totalMarks / totalMaxMarks) * 100).toFixed(2)) : 0;
-    const avgTimePerQ    = totalQuestions > 0
-      ? parseFloat((totalTimeTaken / totalQuestions).toFixed(2)) : 0;
+    const totalMaxMarks = Object.values(subjectAcc).reduce(
+      (s, a) => s + a.positiveMarks,
+      0,
+    );
+    const totalMarks = Object.values(subjectAcc).reduce(
+      (s, a) => s + a.marks,
+      0,
+    );
+    const overallAcc =
+      totalMaxMarks > 0
+        ? parseFloat(((totalMarks / totalMaxMarks) * 100).toFixed(2))
+        : 0;
+    const avgTimePerQ =
+      totalQuestions > 0
+        ? parseFloat((totalTimeTaken / totalQuestions).toFixed(2))
+        : 0;
 
     // ── Convert accumulators to typed shapes ──────────────────────────────────
-    const toSubjectStats = (acc: ReturnType<typeof this.emptyAcc>): SubjectStats => ({
+    const toSubjectStats = (
+      acc: ReturnType<typeof this.emptyAcc>,
+    ): SubjectStats => ({
       totalQuestions: acc.totalQuestions,
-      attempt:        acc.attempt,
-      correct:        acc.correct,
-      partial:        acc.partial,
-      wrong:          acc.wrong,
-      marks:          acc.marks,
-      positiveMarks:  acc.positiveMarks,
-      paritalMarks:   acc.partialMarks, // intentional typo kept from your type
-      negativeMarks:  acc.negativeMarks,
-      timeTaken:      acc.timeTaken,
-      accuracy:       acc.positiveMarks > 0
-        ? parseFloat(((acc.marks / acc.positiveMarks) * 100).toFixed(2)) : 0,
+      attempt: acc.attempt,
+      correct: acc.correct,
+      partial: acc.partial,
+      wrong: acc.wrong,
+      marks: acc.marks,
+      positiveMarks: acc.positiveMarks,
+      paritalMarks: acc.partialMarks, // intentional typo kept from your type
+      negativeMarks: acc.negativeMarks,
+      timeTaken: acc.timeTaken,
+      accuracy:
+        acc.positiveMarks > 0
+          ? parseFloat(((acc.marks / acc.positiveMarks) * 100).toFixed(2))
+          : 0,
     });
 
     // questionTypes: keyed by actual Prisma enum value e.g. "SingleCorrect"
@@ -253,36 +298,40 @@ class TestSyncService {
     for (const [type, acc] of Object.entries(qtAcc)) {
       questionTypes[type] = {
         totalQuestions: acc.totalQuestions,
-        attempt:        acc.attempt,
-        correct:        acc.correct,
-        partial:        acc.partial,
-        wrong:          acc.wrong,
-        marks:          acc.marks,
-        positiveMarks:  acc.positiveMarks,
-        partialMarks:   acc.partialMarks,
-        negativeMarks:  acc.negativeMarks,
-        timeTaken:      acc.timeTaken,
-        accuracy:       acc.positiveMarks > 0
-          ? parseFloat(((acc.marks / acc.positiveMarks) * 100).toFixed(2)) : 0,
+        attempt: acc.attempt,
+        correct: acc.correct,
+        partial: acc.partial,
+        wrong: acc.wrong,
+        marks: acc.marks,
+        positiveMarks: acc.positiveMarks,
+        partialMarks: acc.partialMarks,
+        negativeMarks: acc.negativeMarks,
+        timeTaken: acc.timeTaken,
+        accuracy:
+          acc.positiveMarks > 0
+            ? parseFloat(((acc.marks / acc.positiveMarks) * 100).toFixed(2))
+            : 0,
       };
     }
 
     const chapterWise: ChapterStat[] = Object.values(chapterAcc).map((c) => ({
-      chapterId:      c.chapterId,
-      chapterName:    c.chapterName,
-      subjectName:    c.subjectName,
+      chapterId: c.chapterId,
+      chapterName: c.chapterName,
+      subjectName: c.subjectName,
       totalQuestions: c.totalQuestions,
-      attempt:        c.attempt,
-      correct:        c.correct,
-      partial:        c.partial,
-      wrong:          c.wrong,
-      marks:          c.marks,
-      positiveMarks:  c.positiveMarks,
-      partialMarks:   c.partialMarks,
-      negativeMarks:  c.negativeMarks,
-      timeTaken:      c.timeTaken,
-      accuracy:       c.positiveMarks > 0
-        ? parseFloat(((c.marks / c.positiveMarks) * 100).toFixed(2)) : 0,
+      attempt: c.attempt,
+      correct: c.correct,
+      partial: c.partial,
+      wrong: c.wrong,
+      marks: c.marks,
+      positiveMarks: c.positiveMarks,
+      partialMarks: c.partialMarks,
+      negativeMarks: c.negativeMarks,
+      timeTaken: c.timeTaken,
+      accuracy:
+        c.positiveMarks > 0
+          ? parseFloat(((c.marks / c.positiveMarks) * 100).toFixed(2))
+          : 0,
     }));
 
     // OverallStats — only fields that exist in the interface
@@ -291,16 +340,16 @@ class TestSyncService {
       totalAttempted,
       totalCorrect,
       totalPartial,
-      overallAccuracy:        overallAcc,
+      overallAccuracy: overallAcc,
       totalTimeTaken,
       averageTimePerQuestion: avgTimePerQ,
     };
 
     return {
-      exam:      examName,
-      math:      toSubjectStats(subjectAcc["Mathematics"] ?? this.emptyAcc()),
-      physics:   toSubjectStats(subjectAcc["Physics"]     ?? this.emptyAcc()),
-      chemistry: toSubjectStats(subjectAcc["Chemistry"]   ?? this.emptyAcc()),
+      exam: examName,
+      math: toSubjectStats(subjectAcc["Mathematics"] ?? this.emptyAcc()),
+      physics: toSubjectStats(subjectAcc["Physics"] ?? this.emptyAcc()),
+      chemistry: toSubjectStats(subjectAcc["Chemistry"] ?? this.emptyAcc()),
       overall,
       questionTypes,
       chapterWise,
@@ -310,25 +359,32 @@ class TestSyncService {
   // ===========================================================================
   // PRIVATE — remove test from Redis after DB has the data
   // ===========================================================================
-  private async cleanupRedis(studentId: string, testStatusId: string): Promise<void> {
+  private async cleanupRedis(
+    studentId: string,
+    testStatusId: string,
+  ): Promise<void> {
     try {
       const upperLayerKey = `${studentId}:testUpperLayer`;
-      const upperLayer: any = await reddisConfigForCaching.gettingAnanlyticsData(upperLayerKey);
+      const upperLayer: any = await cacheService.getCache(upperLayerKey);
       if (!upperLayer?.testId?.length) return;
 
       const entry = upperLayer.testId.find((e: any) => e.id === testStatusId);
       if (!entry) return;
 
-      await reddisConfigForCaching.deletingAnanlyticsData(
+      await cacheService.deleteCache(
         `${studentId}:${testStatusId}:${entry.created_at}`,
       );
 
-      upperLayer.testId = upperLayer.testId.filter((e: any) => e.id !== testStatusId);
-      await reddisConfigForCaching.settingAnanlyticsData(upperLayerKey, upperLayer);
-
+      upperLayer.testId = upperLayer.testId.filter(
+        (e: any) => e.id !== testStatusId,
+      );
+      await cacheService.setCache(upperLayerKey, upperLayer);
     } catch (err) {
       // Non-critical — DB already has the data
-      console.error(`[TestSync] ⚠️ Redis cleanup failed for ${testStatusId}:`, err);
+      console.error(
+        `[TestSync] ⚠️ Redis cleanup failed for ${testStatusId}:`,
+        err,
+      );
     }
   }
 
@@ -339,34 +395,46 @@ class TestSyncService {
   private emptyAcc() {
     return {
       totalQuestions: 0,
-      attempt:        0,
-      correct:        0,
-      partial:        0,
-      wrong:          0,
-      marks:          0,
-      positiveMarks:  0,
-      partialMarks:   0,
-      negativeMarks:  0,
-      timeTaken:      0,
+      attempt: 0,
+      correct: 0,
+      partial: 0,
+      wrong: 0,
+      marks: 0,
+      positiveMarks: 0,
+      partialMarks: 0,
+      negativeMarks: 0,
+      timeTaken: 0,
     };
   }
 
   private accumulate(
     acc: ReturnType<typeof this.emptyAcc>,
     data: {
-      marks: number; positiveMarks: number; negativeMarks: number; partialMarks: number;
-      isAttempted: boolean; isCorrect: boolean; isPartial: boolean; isWrong: boolean;
+      marks: number;
+      positiveMarks: number;
+      negativeMarks: number;
+      partialMarks: number;
+      isAttempted: boolean;
+      isCorrect: boolean;
+      isPartial: boolean;
+      isWrong: boolean;
       timeSpent: number;
     },
   ) {
     acc.totalQuestions++;
-    acc.timeTaken     += data.timeSpent;
-    acc.marks         += data.marks;
+    acc.timeTaken += data.timeSpent;
+    acc.marks += data.marks;
     acc.positiveMarks += data.positiveMarks;
     if (data.isAttempted) acc.attempt++;
-    if (data.isCorrect)   acc.correct++;
-    if (data.isPartial) { acc.partial++;  acc.partialMarks  += data.partialMarks;  }
-    if (data.isWrong)   { acc.wrong++;    acc.negativeMarks += data.negativeMarks; }
+    if (data.isCorrect) acc.correct++;
+    if (data.isPartial) {
+      acc.partial++;
+      acc.partialMarks += data.partialMarks;
+    }
+    if (data.isWrong) {
+      acc.wrong++;
+      acc.negativeMarks += data.negativeMarks;
+    }
   }
 }
 

@@ -2,7 +2,7 @@ import { PrismaClient } from "@prisma/client";
 import { database } from "../lib/database";
 import { analytics } from "../repositories/analytics.db";
 import { subject } from "../repositories/subject.db";
-import { reddisService } from "./reddisService";
+import { dashboardCacheService } from "./dashboardCacheService";
 import { questionBitmapRegistry } from "./uniqueCountService";
 
 // ── Actual Prisma questionType enum values (NOT MCQ/NUMERICAL/MSQ) ───────────
@@ -200,7 +200,7 @@ class ReportService {
 
   async allTestResult(studentId: string) {
     const [reddisTestData, testWiseData] = await Promise.all([
-      reddisService.reddisTestData(studentId),
+      dashboardCacheService.reddisTestData(studentId),
       analytics.testWiseData(studentId),
     ]);
 
@@ -232,6 +232,7 @@ class ReportService {
       chapterWise: [],
     }));
 
+    // ── Dedup: DB wins if same testId exists in both ────────────────────────
     const dbIds = new Set(testWiseArray.map((t) => t.id));
     const filteredReddis = reddisArray.filter((t) => !dbIds.has(t.id));
 
@@ -603,13 +604,17 @@ class ReportService {
     };
   }
 
+  // ══════════════════════════════════════════
+  // PUBLIC: chapterReport
+  // ══════════════════════════════════════════
+
   async chapterReport(
     studentId: string,
     examFilter?: "JEE_MAIN" | "JEE_ADVANCED",
   ) {
     const [dbChapters, reddisData] = await Promise.all([
       analytics.chapterWiseAnalytics(studentId),
-      reddisService.reddisTestData(studentId),
+      dashboardCacheService.reddisTestData(studentId),
     ]);
 
     const chapterMap: Record<string, any> = {};
@@ -789,7 +794,7 @@ class ReportService {
       analytics.subjectAnanlytics(studentId),
       analytics.examWiseAnalytics(studentId),
       analytics.questionWiseAnalytics(studentId),
-      reddisService.reddisPraticeWiseData(studentId),
+      dashboardCacheService.reddisPraticeWiseData(studentId),
       this.db.subjects.findMany({ select: { id: true, name: true } }),
     ]);
 

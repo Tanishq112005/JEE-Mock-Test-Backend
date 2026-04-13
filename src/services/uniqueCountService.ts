@@ -1,6 +1,6 @@
-
 import { createClient, RedisClientType } from "redis";
 import { redisClient } from "../lib/redis";
+import redisManager from "../lib/redisManager";
 import { database } from "../lib/database";
 import { PrismaClient } from "@prisma/client";
 import { BitmapCheckResult } from "../types/uniqueQuestion.types";
@@ -36,10 +36,10 @@ class QuestionBitmapRegistry {
   // Redis keys
   private readonly COUNTER_KEY = "questionBitmap:counter"; // current max index
   private readonly MAP_HASH_KEY = "questionBitmap:indexMap"; // questionId -> index
-  private db : PrismaClient ;
-  constructor(redisClient: RedisClientType , database : PrismaClient) {
+  private db: PrismaClient;
+  constructor(redisClient: RedisClientType, database: PrismaClient) {
     this.redis = redisClient;
-    this.db = database ;
+    this.db = database;
   }
 
   // ── INITIALISATION ──────────────────────────────────────────────────────────
@@ -80,7 +80,7 @@ class QuestionBitmapRegistry {
         this.indexToQuestion.set(index, questionId);
       }
       console.log(
-        `[QuestionBitmapRegistry] Restored ${this.questionToIndex.size} questions from Redis.`
+        `[QuestionBitmapRegistry] Restored ${this.questionToIndex.size} questions from Redis.`,
       );
     } else {
       // First ever load — build map from Postgres and persist to Redis
@@ -98,7 +98,7 @@ class QuestionBitmapRegistry {
       await pipeline.exec();
 
       console.log(
-        `[QuestionBitmapRegistry] Built fresh index for ${questions.length} questions.`
+        `[QuestionBitmapRegistry] Built fresh index for ${questions.length} questions.`,
       );
     }
 
@@ -119,7 +119,7 @@ class QuestionBitmapRegistry {
     // Guard against double-registration
     if (this.questionToIndex.has(questionId)) {
       console.warn(
-        `[QuestionBitmapRegistry] Question ${questionId} is already registered at index ${this.questionToIndex.get(questionId)}.`
+        `[QuestionBitmapRegistry] Question ${questionId} is already registered at index ${this.questionToIndex.get(questionId)}.`,
       );
       return this.questionToIndex.get(questionId)!;
     }
@@ -135,7 +135,7 @@ class QuestionBitmapRegistry {
     this.indexToQuestion.set(newIndex, questionId);
 
     console.log(
-      `[QuestionBitmapRegistry] Registered new question ${questionId} at bit index ${newIndex}.`
+      `[QuestionBitmapRegistry] Registered new question ${questionId} at bit index ${newIndex}.`,
     );
 
     return newIndex;
@@ -150,14 +150,14 @@ class QuestionBitmapRegistry {
    */
   async markAttempted(
     studentId: string,
-    questionId: string
+    questionId: string,
   ): Promise<BitmapCheckResult> {
     this.ensureLoaded();
 
     let bitIndex = this.questionToIndex.get(questionId);
     if (bitIndex === undefined) {
       console.warn(
-        `[QuestionBitmapRegistry] Unknown questionId: ${questionId}. Registering on demand...`
+        `[QuestionBitmapRegistry] Unknown questionId: ${questionId}. Registering on demand...`,
       );
       bitIndex = await this.registerNewQuestion(questionId);
     }
@@ -166,11 +166,12 @@ class QuestionBitmapRegistry {
 
     // GETBIT then SETBIT — two ops, but GETSET is not available for bits.
     // Acceptable because this runs per question attempt, not in a hot inner loop.
-    const previousValue = await this.redis.getBit(key, bitIndex);
+    const client = redisManager.getDashboardRedis(studentId);
+    const previousValue = await client.getBit(key, bitIndex);
     const isFirstAttempt = previousValue === 0;
 
     if (isFirstAttempt) {
-      await this.redis.setBit(key, bitIndex, 1);
+      await client.setBit(key, bitIndex, 1);
     }
 
     return { isFirstAttempt, bitIndex };
@@ -184,7 +185,7 @@ class QuestionBitmapRegistry {
    */
   async markAttemptedBatch(
     studentId: string,
-    questionIds: string[]
+    questionIds: string[],
   ): Promise<Map<string, BitmapCheckResult>> {
     this.ensureLoaded();
 
@@ -194,14 +195,15 @@ class QuestionBitmapRegistry {
     const results = new Map<string, BitmapCheckResult>();
 
     // Phase 1: GET all current bits in one pipeline
-    const getPipeline = this.redis.multi();
+    const client = redisManager.getDashboardRedis(studentId);
+    const getPipeline = client.multi();
     const indexedQuestions: { questionId: string; bitIndex: number }[] = [];
 
     for (const questionId of questionIds) {
       let bitIndex = this.questionToIndex.get(questionId);
       if (bitIndex === undefined) {
         console.warn(
-          `[QuestionBitmapRegistry] Unknown questionId: ${questionId}. Registering on demand...`
+          `[QuestionBitmapRegistry] Unknown questionId: ${questionId}. Registering on demand...`,
         );
         bitIndex = await this.registerNewQuestion(questionId);
       }
@@ -212,11 +214,11 @@ class QuestionBitmapRegistry {
     const currentBits = await getPipeline.exec();
 
     // Phase 2: SET bits only for first-time questions
-    const setPipeline = this.redis.multi();
+    const setPipeline = client.multi();
     let setCount = 0;
 
     indexedQuestions.forEach(({ questionId, bitIndex }, i) => {
-      const currentBit = (currentBits[i] as unknown) as number;
+      const currentBit = currentBits[i] as unknown as number;
       const isFirstAttempt = currentBit === 0;
 
       results.set(questionId, { isFirstAttempt, bitIndex });
@@ -248,13 +250,14 @@ class QuestionBitmapRegistry {
     const key = this.studentKey(studentId);
 
     // Check if key exists first (avoid false negative on missing key)
-    const keyExists = await this.redis.exists(key);
+    const client = redisManager.getDashboardRedis(studentId);
+    const keyExists = await client.exists(key);
     if (!keyExists) {
       // Cold start — check DB directly and warm cache
       return this.coldStartCheck(studentId, questionId);
     }
 
-    const bit = await this.redis.getBit(key, bitIndex);
+    const bit = await client.getBit(key, bitIndex);
     return bit === 1;
   }
 
@@ -264,18 +267,22 @@ class QuestionBitmapRegistry {
    */
   async getUniqueAttemptCount(studentId: string): Promise<number> {
     this.ensureLoaded();
-    return await this.redis.bitCount(this.studentKey(studentId));
+    const client = redisManager.getDashboardRedis(studentId);
+    return await client.bitCount(this.studentKey(studentId));
   }
 
   /**
    * Get all questionIds this student has attempted (bitmap → questionId list).
    * Useful for analytics — e.g. "which chapters has this student covered?".
    */
-  async getAttemptedQuestionIds(studentId: string): Promise<SeenQuestionsResult> {
+  async getAttemptedQuestionIds(
+    studentId: string,
+  ): Promise<SeenQuestionsResult> {
     this.ensureLoaded();
 
+    const client = redisManager.getDashboardRedis(studentId);
     const key = this.studentKey(studentId);
-    const totalUnique = await this.redis.bitCount(key);
+    const totalUnique = await client.bitCount(key);
 
     if (totalUnique === 0) return { totalUnique: 0, questionIds: [] };
 
@@ -284,7 +291,7 @@ class QuestionBitmapRegistry {
     const maxIndex = (await this.redis.get(this.COUNTER_KEY)) ?? "0";
     const maxByte = Math.ceil((parseInt(maxIndex, 10) + 1) / 8);
 
-    const rawBitmap = await this.redis.getRange(key, 0, maxByte - 1);
+    const rawBitmap = await client.getRange(key, 0, maxByte - 1);
 
     if (!rawBitmap) return { totalUnique, questionIds: [] };
 
@@ -343,7 +350,8 @@ class QuestionBitmapRegistry {
     const key = this.studentKey(studentId);
 
     // Set bits for all known attempted questions
-    const pipeline = this.redis.multi();
+    const client = redisManager.getDashboardRedis(studentId);
+    const pipeline = client.multi();
     for (const questionId of allIds) {
       const bitIndex = this.questionToIndex.get(questionId);
       if (bitIndex !== undefined) {
@@ -354,7 +362,7 @@ class QuestionBitmapRegistry {
     await pipeline.exec();
 
     console.log(
-      `[QuestionBitmapRegistry] Synced ${allIds.size} unique questions for student ${studentId}.`
+      `[QuestionBitmapRegistry] Synced ${allIds.size} unique questions for student ${studentId}.`,
     );
   }
 
@@ -362,8 +370,11 @@ class QuestionBitmapRegistry {
    * Wipe a student's bitmap (e.g. for testing or account reset).
    */
   async clearStudentBitmap(studentId: string): Promise<void> {
-    await this.redis.del(this.studentKey(studentId));
-    console.log(`[QuestionBitmapRegistry] Cleared bitmap for student ${studentId}.`);
+    const client = redisManager.getDashboardRedis(studentId);
+    await client.del(this.studentKey(studentId));
+    console.log(
+      `[QuestionBitmapRegistry] Cleared bitmap for student ${studentId}.`,
+    );
   }
 
   // ── LOOKUP HELPERS ───────────────────────────────────────────────────────────
@@ -389,7 +400,7 @@ class QuestionBitmapRegistry {
   private ensureLoaded(): void {
     if (!this.loaded) {
       throw new Error(
-        "[QuestionBitmapRegistry] Registry not loaded. Call load() at server startup first."
+        "[QuestionBitmapRegistry] Registry not loaded. Call load() at server startup first.",
       );
     }
   }
@@ -400,7 +411,7 @@ class QuestionBitmapRegistry {
    */
   private async coldStartCheck(
     studentId: string,
-    questionId: string
+    questionId: string,
   ): Promise<boolean> {
     const [testAttempt, chapterAttempt] = await Promise.all([
       this.db.testQuestionAttemptStatus.findFirst({
@@ -419,7 +430,8 @@ class QuestionBitmapRegistry {
       // Warm the bitmap so future calls are fast
       const bitIndex = this.questionToIndex.get(questionId);
       if (bitIndex !== undefined) {
-        await this.redis.setBit(this.studentKey(studentId), bitIndex, 1);
+        const client = redisManager.getDashboardRedis(studentId);
+        await client.setBit(this.studentKey(studentId), bitIndex, 1);
       }
     }
 
@@ -430,4 +442,7 @@ class QuestionBitmapRegistry {
 // ─── Singleton Export ─────────────────────────────────────────────────────────
 // Instantiate once, share across your app
 
-export const questionBitmapRegistry = new QuestionBitmapRegistry(redisClient , database) ; 
+export const questionBitmapRegistry = new QuestionBitmapRegistry(
+  redisClient,
+  database,
+);

@@ -12,7 +12,7 @@ const client_1 = require("@prisma/client");
 const testEvalution_producer_1 = require("../rabbitmq/producers/testEvalution-producer");
 const testEvaluationService_1 = require("../services/testEvaluationService");
 const caching_1 = require("../lib/caching");
-const reddisService_1 = require("../services/reddisService");
+const dashboardCacheService_1 = require("../services/dashboardCacheService");
 const paper_db_1 = require("../repositories/paper.db");
 class TestController {
     constructor() { }
@@ -22,7 +22,9 @@ class TestController {
         const userId = req.user;
         try {
             const testStatusDetails = await testStatus_db_1.testStatus.startNewTestSession(userId, paperId);
-            return res.status(200).json(new ApiResponse_1.default("Test Details", testStatusDetails));
+            return res
+                .status(200)
+                .json(new ApiResponse_1.default("Test Details", testStatusDetails));
         }
         catch (err) {
             return res.status(500).json(new ApiError_1.default("Error in Creating Test", err));
@@ -39,11 +41,13 @@ class TestController {
                 return res.status(404).json(new ApiError_1.default("Test session not found"));
             }
             // ── Try Redis cache first ────────────────────────────────
-            const cachedUpdateData = await reddisService_1.reddisService.getTestUpdateDataFromReddis(userId, testStatusId, createdAtStr);
+            const cachedUpdateData = await dashboardCacheService_1.dashboardCacheService.getTestUpdateDataFromReddis(userId, testStatusId, createdAtStr);
             // ── Redis MISS — return pure DB data ─────────────────────
             if (!cachedUpdateData) {
                 console.log(`⚠️ Redis MISS for testId: ${testStatusId}, returning DB data`);
-                return res.status(200).json(new ApiResponse_1.default("Your question + test result", dbSessionData));
+                return res
+                    .status(200)
+                    .json(new ApiResponse_1.default("Your question + test result", dbSessionData));
             }
             console.log(`✅ Redis HIT for testId: ${testStatusId}, merging with DB questions`);
             // ── Build lookup map from Redis attempts ─────────────────
@@ -75,8 +79,10 @@ class TestController {
                 session: {
                     testId: testStatusId,
                     timeLeft: cachedUpdateData.timeLeft ?? dbSessionData.session.timeLeft,
-                    activeSection: cachedUpdateData.activeSection ?? dbSessionData.session.activeSection,
-                    activeQuestionId: cachedUpdateData.activeQuestionId ?? dbSessionData.session.activeQuestionId,
+                    activeSection: cachedUpdateData.activeSection ??
+                        dbSessionData.session.activeSection,
+                    activeQuestionId: cachedUpdateData.activeQuestionId ??
+                        dbSessionData.session.activeQuestionId,
                     status: cachedUpdateData.state ?? dbSessionData.session.status,
                     startTime: dbSessionData.session.startTime,
                 },
@@ -85,15 +91,19 @@ class TestController {
                 Chemistry: mergeSubject(dbSessionData.Chemistry),
                 Mathematics: mergeSubject(dbSessionData.Mathematics),
             };
-            return res.status(200).json(new ApiResponse_1.default("Your question + test result", mergedPayload));
+            return res
+                .status(200)
+                .json(new ApiResponse_1.default("Your question + test result", mergedPayload));
         }
         catch (err) {
-            return res.status(500).json(new ApiError_1.default("Error in getting question details", err));
+            return res
+                .status(500)
+                .json(new ApiError_1.default("Error in getting question details", err));
         }
     };
     // ── Saving in-progress update → queue + Redis ────────────────────
     updatingTheDetails = async (req, res) => {
-        const { testId, paperId, timeLeft, created_at, timeStamp, state, activeSection, activeQuestionId, questionsById } = req.body;
+        const { testId, paperId, timeLeft, created_at, timeStamp, state, activeSection, activeQuestionId, questionsById, } = req.body;
         const userId = req.user;
         const createdAtStr = String(created_at ?? "");
         try {
@@ -122,12 +132,14 @@ class TestController {
             // ── Push to queue AND cache in Redis in parallel ──────────
             await Promise.all([
                 updateTestDetails_producer_1.updatingTestDetailsProducer.updateData(details),
-                reddisService_1.reddisService.upsertTestUpdateData(userId, testId, createdAtStr, details),
+                dashboardCacheService_1.dashboardCacheService.upsertTestUpdateData(userId, testId, createdAtStr, details),
             ]);
             return res.status(200).json(new ApiResponse_1.default("Pushed in queue"));
         }
         catch (err) {
-            return res.status(500).json(new ApiError_1.default("Error in updating the details", err));
+            return res
+                .status(500)
+                .json(new ApiError_1.default("Error in updating the details", err));
         }
     };
     // ── Last test session of the user with the paper ─────────────────
@@ -143,13 +155,13 @@ class TestController {
             else {
                 let latestStatus = testStatusDetails[0].status;
                 // ── Verify against Redis in case it's still processing as COMPLETED ──
-                if (latestStatus === 'IN_PROGRESS' || latestStatus === 'PAUSED') {
+                if (latestStatus === "IN_PROGRESS" || latestStatus === "PAUSED") {
                     try {
-                        const upperLayer = await caching_1.reddisConfigForCaching.gettingAnanlyticsData(`${userId}:testUpperLayer`);
+                        const upperLayer = await caching_1.cacheService.getCache(`${userId}:testUpperLayer`);
                         if (upperLayer && Array.isArray(upperLayer.testId)) {
                             const isCompleted = upperLayer.testId.some((t) => t.id === testStatusDetails[0].id);
                             if (isCompleted) {
-                                latestStatus = 'COMPLETED';
+                                latestStatus = "COMPLETED";
                             }
                         }
                     }
@@ -166,12 +178,14 @@ class TestController {
             return res.status(200).json(new ApiResponse_1.default("Last Test Data", payload));
         }
         catch (err) {
-            return res.status(500).json(new ApiError_1.default("Error in getting Details", err));
+            return res
+                .status(500)
+                .json(new ApiError_1.default("Error in getting Details", err));
         }
     };
     // ── Submitting the test → evaluate + write analytics cache ───────
     submitTest = async (req, res) => {
-        const { testId, paperId, timeLeft, created_at, timeStamp, state, activeSection, activeQuestionId, questionsById } = req.body;
+        const { testId, paperId, timeLeft, created_at, timeStamp, state, activeSection, activeQuestionId, questionsById, } = req.body;
         const userId = req.user;
         const created_at_string = String(created_at ?? "");
         try {
@@ -186,8 +200,7 @@ class TestController {
                     q.selectedOptionIds.length > 0) {
                     formattedAnswer = q.selectedOptionIds.map(String);
                 }
-                else if (q.userAnswer !== null &&
-                    q.userAnswer !== undefined) {
+                else if (q.userAnswer !== null && q.userAnswer !== undefined) {
                     formattedAnswer = Array.isArray(q.userAnswer)
                         ? q.userAnswer.map(String)
                         : [String(q.userAnswer)];
@@ -217,10 +230,13 @@ class TestController {
             };
             const testEvaluate = await testEvaluationService_1.testEvaluation.evaluation(details, userId);
             if (!testEvaluate) {
-                return res.status(400).json(new ApiError_1.default("Evaluation failed. Cannot submit test."));
+                return res
+                    .status(400)
+                    .json(new ApiError_1.default("Evaluation failed. Cannot submit test."));
             }
-            let gettingUserUpperLayer = await caching_1.reddisConfigForCaching.gettingAnanlyticsData(`${userId}:testUpperLayer`);
-            if (!gettingUserUpperLayer || !Array.isArray(gettingUserUpperLayer.testId)) {
+            let gettingUserUpperLayer = await caching_1.cacheService.getCache(`${userId}:testUpperLayer`);
+            if (!gettingUserUpperLayer ||
+                !Array.isArray(gettingUserUpperLayer.testId)) {
                 gettingUserUpperLayer = { testId: [] };
             }
             const dataToInsert = {
@@ -230,9 +246,9 @@ class TestController {
             gettingUserUpperLayer.testId.push(dataToInsert);
             // ── Persist analytics + clean up in-progress cache ────────
             await Promise.all([
-                caching_1.reddisConfigForCaching.settingAnanlyticsData(`${userId}:testUpperLayer`, gettingUserUpperLayer),
-                caching_1.reddisConfigForCaching.settingAnanlyticsData(`${userId}:${testId}:${created_at_string}`, testEvaluate),
-                reddisService_1.reddisService.deleteTestUpdateData(userId, testId),
+                caching_1.cacheService.setCache(`${userId}:testUpperLayer`, gettingUserUpperLayer),
+                caching_1.cacheService.setCache(`${userId}:${testId}:${created_at_string}`, testEvaluate),
+                dashboardCacheService_1.dashboardCacheService.deleteTestUpdateData(userId, testId),
             ]);
             console.log("CONTROLLER created_at_string:", created_at_string);
             await testEvalution_producer_1.testEvaluationProducer.evaluateTheData({
@@ -241,10 +257,14 @@ class TestController {
                 created_at: created_at_string,
                 report: testEvaluate,
             });
-            return res.status(200).json(new ApiResponse_1.default("Test submitted successfully", testEvaluate));
+            return res
+                .status(200)
+                .json(new ApiResponse_1.default("Test submitted successfully", testEvaluate));
         }
         catch (err) {
-            return res.status(500).json(new ApiError_1.default("Error in submitting the test", err));
+            return res
+                .status(500)
+                .json(new ApiError_1.default("Error in submitting the test", err));
         }
     };
     // getting the details of the last test session
@@ -254,16 +274,22 @@ class TestController {
         const userId = req.user;
         try {
             if (!examName || !year) {
-                return res.status(400).json(new ApiError_1.default("examName and year are required"));
+                return res
+                    .status(400)
+                    .json(new ApiError_1.default("examName and year are required"));
             }
             const parsedYear = parseInt(year, 10);
             if (isNaN(parsedYear)) {
-                return res.status(400).json(new ApiError_1.default("year must be a valid number"));
+                return res
+                    .status(400)
+                    .json(new ApiError_1.default("year must be a valid number"));
             }
             // ── Step 1: Get all papers for this exam + year ──────────────
-            const papers = await paper_db_1.paper.gettingPaperInformation(parsedYear, examName);
+            const papers = (await paper_db_1.paper.gettingPaperInformation(parsedYear, examName));
             if (!papers || papers.length === 0) {
-                return res.status(200).json(new ApiResponse_1.default("No papers found for this exam and year", []));
+                return res
+                    .status(200)
+                    .json(new ApiResponse_1.default("No papers found for this exam and year", []));
             }
             const paperIds = papers.map((p) => p.id);
             // ── Step 2: Get all testStatus rows for this student + these papers ──
@@ -272,7 +298,7 @@ class TestController {
             // ── Check Redis Analytics UpperLayer for recent test submissions ──
             let upperLayer = null;
             try {
-                upperLayer = await caching_1.reddisConfigForCaching.gettingAnanlyticsData(`${userId}:testUpperLayer`);
+                upperLayer = await caching_1.cacheService.getCache(`${userId}:testUpperLayer`);
             }
             catch (err) {
                 console.error("Error fetching redis upper layer:", err);
@@ -286,8 +312,9 @@ class TestController {
             for (const session of allTestSessions) {
                 // Override status if completed in Redis
                 let currentStatus = session.status;
-                if ((currentStatus === 'IN_PROGRESS' || currentStatus === 'PAUSED') && completedTestIds.has(session.id)) {
-                    currentStatus = 'COMPLETED';
+                if ((currentStatus === "IN_PROGRESS" || currentStatus === "PAUSED") &&
+                    completedTestIds.has(session.id)) {
+                    currentStatus = "COMPLETED";
                 }
                 session.status = currentStatus;
                 if (!sessionsByPaper[session.paperId]) {
@@ -302,14 +329,14 @@ class TestController {
                 sessions.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
                 const latestSession = sessions[0] ?? null;
                 // Derive overall attempt status for this paper
-                let attemptStatus = 'not_attempted';
+                let attemptStatus = "not_attempted";
                 if (latestSession) {
-                    if (latestSession.status === 'COMPLETED') {
-                        attemptStatus = 'completed';
+                    if (latestSession.status === "COMPLETED") {
+                        attemptStatus = "completed";
                     }
-                    else if (latestSession.status === 'IN_PROGRESS' ||
-                        latestSession.status === 'PAUSED') {
-                        attemptStatus = 'in_progress';
+                    else if (latestSession.status === "IN_PROGRESS" ||
+                        latestSession.status === "PAUSED") {
+                        attemptStatus = "in_progress";
                     }
                 }
                 return {
@@ -348,10 +375,14 @@ class TestController {
                     })),
                 };
             });
-            return res.status(200).json(new ApiResponse_1.default("Papers with attempt status", result));
+            return res
+                .status(200)
+                .json(new ApiResponse_1.default("Papers with attempt status", result));
         }
         catch (err) {
-            return res.status(500).json(new ApiError_1.default("Error in getting papers with status", err));
+            return res
+                .status(500)
+                .json(new ApiError_1.default("Error in getting papers with status", err));
         }
     };
 }

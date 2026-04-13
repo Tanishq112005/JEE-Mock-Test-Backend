@@ -57,14 +57,3 @@ export const {
     EMAIL_ADDING_WORKER_PORT,
 } = process.env;
 
-// =================================================================
-// ANALYTICS REDIS — Upstash instance for analytics data
-// =================================================================
-export const ANALYTICS_REDIS_URL   = requireEnv("UPSTASH_REDIS_REST_URL");
-export const ANALYTICS_REDIS_TOKEN = requireEnv("UPSTASH_REDIS_REST_TOKEN");
-
-// =================================================================
-// TEST DATA REDIS — Upstash instance for test/update caching
-// =================================================================
-export const TEST_REDIS_URL   = requireEnv("UPSTASH_REDIS_REST_URL_CACHING");
-export const TEST_REDIS_TOKEN = requireEnv("UPSTASH_REDIS_REST_TOKEN_CACHING");

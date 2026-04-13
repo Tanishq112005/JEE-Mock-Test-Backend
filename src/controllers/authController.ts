@@ -4,7 +4,10 @@ import { PrismaClient } from "@prisma/client";
 import { emailProducer } from "../rabbitmq/producers/email-producer";
 import { user } from "../repositories/user.db";
 import { email_data } from "../types/email.worker.types";
-import { jwtPayloadAccessToken, jwtPayloadRefershToken  } from "../types/jwt.types";
+import {
+  jwtPayloadAccessToken,
+  jwtPayloadRefershToken,
+} from "../types/jwt.types";
 import { userDetails, userSignInputDetails } from "../types/user.types";
 import ApiError from "../utils/ApiError";
 import ApiResponse from "../utils/ApiResponse";
@@ -15,19 +18,18 @@ import {
   verifiyingRefeshToken,
 } from "../utils/jwtToken";
 import { comparePasswords, hashPassword } from "../utils/password";
-import { redisConfig, redisClient } from "../lib/redis";
+import { redisConfig } from "../lib/redis";
+import redisManager from "../lib/redisManager"; // Fixed the import typo here
 
 export class AuthController {
   private db: PrismaClient | any;
-  private redis: any;
 
   constructor(dbClient: PrismaClient | any) {
     this.db = dbClient;
-    this.redis = redisClient;
   }
-  
+
   public createUser = async (req: any, res: any) => {
-    const { name, email, password , type} = req.body;
+    const { name, email, password, type } = req.body;
 
     try {
       const hashedPassword: string = await hashPassword(password);
@@ -35,12 +37,12 @@ export class AuthController {
         name: name,
         email: email,
         password: hashedPassword,
-        type : type
+        type: type,
       };
 
       const checkingUserPresent = await user.checkingUserPresent(email);
       if (checkingUserPresent && checkingUserPresent.is_verified) {
-        return res.status(409).json(new ApiError("user is already exists"));
+        return res.status(409).json(new ApiError("User already exists"));
       }
       if (!checkingUserPresent) {
         const creatingUser = await user.creatingUser(signinPayload);
@@ -49,7 +51,7 @@ export class AuthController {
       const otp = random6digitnumber();
       const redis_key = redisConfig.getRedisEmailKey(email);
       const otp_expire_time = Number(OTP_EXPIRE_TIME) || 300;
-      const paylod: email_data = {
+      const payload: email_data = {
         email_to: email,
         subject: "Verify Account",
         content: `Your verification OTP is ${otp} and it will expire after ${
@@ -57,13 +59,18 @@ export class AuthController {
         } minutes`,
       };
 
-      await emailProducer.sendOtp(paylod);
-      if (!this.redis) {
-        console.log("reddis client is missing") ; 
-        res.status(404).json(new ApiError("redis client is missing "));
-      }
-      console.log("4. Saving to Redis...");
-      await this.redis.set(redis_key, otp, "EX", otp_expire_time);
+      await emailProducer.sendOtp(payload);
+
+      // 1. Get the correct Redis Auth instance for this specific email
+      const redisClient = redisManager.getAuthRedis(email);
+
+      console.log(
+        `4. Saving to Redis Node [${redisManager.authRing.getNodeConfig(email)?.host}]...`,
+      );
+
+      // 2. Use setEx for modern node-redis syntax
+      await redisClient.setEx(redis_key, otp_expire_time, String(otp));
+
       console.log("5. Saved to Redis");
       return res.status(200).json(new ApiResponse("OTP is Sent Successfully"));
     } catch (err: any) {
@@ -73,63 +80,62 @@ export class AuthController {
     }
   };
 
-
-
-
-
   public verifySignupOtp = async (req: any, res: any) => {
     const { email, otp } = req.body;
 
     try {
       const key = redisConfig.getRedisEmailKey(email);
-      const storedOtp = await this.redis.get(key);
+
+      // Fetch the specific Redis instance assigned to this email
+      const redisClient = redisManager.getAuthRedis(email);
+      const storedOtp = await redisClient.get(key);
 
       if (!storedOtp || storedOtp !== String(otp)) {
         return res.status(404).json(new ApiError("OTP is expired or invalid"));
       }
 
-      await this.redis.del(key);
+      // OTP verified, now delete it to prevent reuse
+      await redisClient.del(key);
 
       await user.changingIsVerifiedStatus(email);
       const informationOfUser: any = await user.checkingUserPresent(email);
-      // creating the student right now always 
-      await user.creatingStudent(informationOfUser.id) ;  
-      const payload: jwtPayloadAccessToken = { id: informationOfUser.id , email : informationOfUser.email , name : informationOfUser.name , type : informationOfUser.type};
+
+      // creating the student right now always
+      await user.creatingStudent(informationOfUser.id);
+      const payload: jwtPayloadAccessToken = {
+        id: informationOfUser.id,
+        email: informationOfUser.email,
+        name: informationOfUser.name,
+        type: informationOfUser.type,
+      };
       const accessToken: string = generateAccessToken(payload);
-      
-       const  refreshToken = generateRefershToken({id : informationOfUser.id}, "1d"); ;
-       await user.updateRefershToken(email, refreshToken);
+
+      const refreshToken = generateRefershToken(
+        { id: informationOfUser.id },
+        "1d",
+      );
+      await user.updateRefershToken(email, refreshToken);
+
       const isProduction = process.env.NODE_ENV === "production";
       res.cookie("refreshToken", refreshToken, {
-        
         httpOnly: true,
-    // Only true in production (HTTPS). False for localhost (HTTP).
-    secure: isProduction, 
-    // "None" requires Secure=true. Use "Lax" for localhost.
-    sameSite: isProduction ? "none" : "lax", 
-    maxAge: 30 * 24 * 60 * 60 * 1000,
-    path: "/" // Add this to ensure cookie works on all routes
-      }); 
+        secure: isProduction,
+        sameSite: isProduction ? "none" : "lax",
+        maxAge: 30 * 24 * 60 * 60 * 1000,
+        path: "/",
+      });
 
-
-      return res
-        .status(200)
-        .json(
-          new ApiResponse("Account verified and logged in successfully", {
-            accessToken: accessToken,
-          })
-        );
+      return res.status(200).json(
+        new ApiResponse("Account verified and logged in successfully", {
+          accessToken: accessToken,
+        }),
+      );
     } catch (err: any) {
       return res
         .status(500)
         .json(new ApiError("Error in verifying signup OTP", err));
     }
   };
-
-
-
-
-
 
   public verifyForgotPasswordOtp = async (req: any, res: any) => {
     const { email, otp } = req.body;
@@ -140,13 +146,17 @@ export class AuthController {
 
     try {
       const key = redisConfig.getRedisEmailKey(email);
-      const storedOtp = await this.redis.get(key);
+
+      // Fetch the correct Redis instance
+      const redisClient = redisManager.getAuthRedis(email);
+      const storedOtp = await redisClient.get(key);
 
       if (!storedOtp || storedOtp !== String(otp)) {
         return res.status(400).json(new ApiError("OTP is expired or invalid"));
       }
 
-      await this.redis.del(key);
+      // Delete OTP after successful verification
+      await redisClient.del(key);
 
       const userDetails = await user.userDetails(email);
 
@@ -154,27 +164,25 @@ export class AuthController {
         return res.status(404).json(new ApiError("User account not found"));
       }
 
-      const payload: jwtPayloadAccessToken = { id: userDetails.id , name : userDetails.name , email : userDetails.email  , type : userDetails.type };
+      const payload: jwtPayloadAccessToken = {
+        id: userDetails.id,
+        name: userDetails.name,
+        email: userDetails.email,
+        type: userDetails.type,
+      };
       const accessToken: string = generateAccessToken(payload);
 
-      return res
-        .status(200)
-        .json(
-          new ApiResponse("Your Password is Changed , Please Login Again", {
-            accessToken: accessToken,
-          })
-        );
+      return res.status(200).json(
+        new ApiResponse("Your Password is Changed, Please Login Again", {
+          accessToken: accessToken,
+        }),
+      );
     } catch (err: any) {
       return res
         .status(500)
         .json(new ApiError("Error verifying forgot password OTP", err));
     }
   };
-
-
-
-
-
 
   public forgotPasswordVerification = async (req: any, res: any) => {
     const { email } = req.body;
@@ -187,52 +195,58 @@ export class AuthController {
         const payload: email_data = {
           email_to: email,
           subject: "Forgot Password OTP",
-          content: `OTP To Reset Password is ${otp} , it will expiry after ${
+          content: `OTP To Reset Password is ${otp}, it will expire after ${
             otp_expire_time / 60
           } minutes`,
         };
 
         await emailProducer.sendOtp(payload);
-        await this.redis.set(redis_key, otp, "EX", otp_expire_time);
+
+        // Fetch the correct Redis instance
+        const redisClient = redisManager.getAuthRedis(email);
+        await redisClient.setEx(redis_key, otp_expire_time, String(otp));
       }
 
       return res
         .status(200)
         .json(
           new ApiResponse(
-            "If an account exists, a code has been sent to your email."
-          )
+            "If an account exists, a code has been sent to your email.",
+          ),
         );
     } catch (err: any) {
       return res
         .status(404)
         .json(
-          new ApiError("Error in sending the otp for the forgotPassword", err)
+          new ApiError("Error in sending the otp for the forgotPassword", err),
         );
     }
   };
-
-
-
-
 
   public forgotPasswordChange = async (req: any, res: any) => {
     const { password } = req.body;
     try {
       const accessToken = req.headers["authorization"]?.split(" ")[1];
       let originalUserId = req.user;
-      
+
       if (accessToken) {
         const { verifyAccessToken } = require("../utils/jwtToken");
         const decoded = verifyAccessToken(accessToken);
         if (decoded && decoded.id) {
-            originalUserId = decoded.id; // Extracts the true User.id
+          originalUserId = decoded.id;
         }
       }
 
       const userId = originalUserId;
-      
-      console.log("DEBUG: passwordChange: req.userId =", req.userId, "req.user =", req.user, "final userId =", userId);
+
+      console.log(
+        "DEBUG: passwordChange: req.userId =",
+        req.userId,
+        "req.user =",
+        req.user,
+        "final userId =",
+        userId,
+      );
 
       const userDetails = await user.userDetailsThroughId(userId);
       if (!userDetails) {
@@ -244,24 +258,19 @@ export class AuthController {
       const hashedPassword: string = await hashPassword(password);
       await user.updatePassword(userId, hashedPassword);
 
-
-
-      return res.status(200).json(
-        new ApiResponse(
-          "Password is changed successfully. Please log in again." 
-        )
-      );
+      return res
+        .status(200)
+        .json(
+          new ApiResponse(
+            "Password is changed successfully. Please log in again.",
+          ),
+        );
     } catch (err: any) {
       return res
         .status(404)
-        .json(new ApiError("Error in changing the password" , err));
+        .json(new ApiError("Error in changing the password", err));
     }
   };
-
-
-
-
-
 
   public login = async (req: any, res: any) => {
     const { email, password, remberMe } = req.body;
@@ -280,14 +289,15 @@ export class AuthController {
 
       const jwtPayloadAccessToken: jwtPayloadAccessToken = {
         id: userId,
-        name : userdetails.name , 
-        email : userdetails.email , 
-        type : userdetails.type 
+        name: userdetails.name,
+        email: userdetails.email,
+        type: userdetails.type,
       };
-      
-      const jwtPayloadRefershToken : jwtPayloadRefershToken = {
-        id : userId 
-      }
+
+      const jwtPayloadRefershToken: jwtPayloadRefershToken = {
+        id: userId,
+      };
+
       const accessToken: string = generateAccessToken(jwtPayloadAccessToken);
       var refreshToken;
       if (remberMe) {
@@ -299,21 +309,17 @@ export class AuthController {
       await user.updateRefershToken(email, refreshToken);
       const isProduction = process.env.NODE_ENV === "production";
       res.cookie("refreshToken", refreshToken, {
-        
-        
         httpOnly: true,
-    secure: isProduction, // Now this variable exists!
-    sameSite: isProduction ? "none" : "lax",
-    maxAge: 30 * 24 * 60 * 60 * 1000,
-    path: "/"
+        secure: isProduction,
+        sameSite: isProduction ? "none" : "lax",
+        maxAge: 30 * 24 * 60 * 60 * 1000,
+        path: "/",
       });
-      return res
-        .status(200)
-        .json(
-          new ApiResponse("User is found , and successfully login", {
-            accessToken: accessToken,
-          })
-        );
+      return res.status(200).json(
+        new ApiResponse("User is found, and successfully logged in", {
+          accessToken: accessToken,
+        }),
+      );
     } catch (err: any) {
       return res
         .status(500)
@@ -321,13 +327,9 @@ export class AuthController {
     }
   };
 
-
-
-
-  
   public refershToken = async (req: any, res: any) => {
-    
-    const incomingRefreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
+    const incomingRefreshToken =
+      req.cookies?.refreshToken || req.body?.refreshToken;
 
     if (!incomingRefreshToken) {
       return res
@@ -342,23 +344,21 @@ export class AuthController {
       const userDetails = await user.userDetailsThroughId(userId);
 
       if (userDetails.refersh_token != incomingRefreshToken) {
-        return res
-          .status(401)
-          .json(new ApiError("Refersh Token is inncorrect"));
+        return res.status(401).json(new ApiError("Refresh Token is incorrect"));
       }
 
-      const newAccessToken = generateAccessToken({ id: userId  , name : userDetails.name , email : userDetails.email , type : userDetails.type});
-     
+      const newAccessToken = generateAccessToken({
+        id: userId,
+        name: userDetails.name,
+        email: userDetails.email,
+        type: userDetails.type,
+      });
 
-    
-
-      return res
-        .status(200)
-        .json(
-          new ApiResponse("Access token refreshed", {
-            accessToken: newAccessToken,
-          })
-        );
+      return res.status(200).json(
+        new ApiResponse("Access token refreshed", {
+          accessToken: newAccessToken,
+        }),
+      );
     } catch (err: any) {
       res.clearCookie("refreshToken");
       return res
