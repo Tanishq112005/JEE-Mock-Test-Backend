@@ -140,5 +140,17 @@ class HashRingService {
         }
         return false; // Agar server nahi mila
     }
+    // NAYA: Internal Getters for Key Migration / Rebalancing
+    getClient(config) {
+        return this.instanceMap.get(config);
+    }
+    getConfigByHostPort(host, port) {
+        for (let config of this.instanceMap.keys()) {
+            if (config.host === host && config.port === port) {
+                return config;
+            }
+        }
+        return undefined;
+    }
 }
 exports.HashRingService = HashRingService;

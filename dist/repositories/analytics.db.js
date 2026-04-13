@@ -297,13 +297,13 @@ class Analytics {
             // ✅ 1. TestAttemptSummary + SubjectTestResult[] + QuestionTypeTestResult[]
             //    THIS was the missing call — without it math/physics/chemistry were null
             await this.writeTestAttemptSummary(_tx, testStatusId, studentId, report);
-            // ✅ 2. Per-test per-chapter snapshot rows
-            if (chapterWise.length > 0) {
-                await Promise.all(this.writeTestChapterSnapshots(_tx, testStatusId, studentId, exam, chapterWise));
-            }
-            // ✅ 3. Cumulative chapter analytics
+            // ✅ 2. Cumulative chapter analytics (Must be written FIRST to satisfy Foreign Key constraints)
             if (chapterWise.length > 0) {
                 await Promise.all(this.writeChapterAnalytics(_tx, studentId, exam, chapterWise));
+            }
+            // ✅ 3. Per-test per-chapter snapshot rows (Depends on cumulative chapter analytics)
+            if (chapterWise.length > 0) {
+                await Promise.all(this.writeTestChapterSnapshots(_tx, testStatusId, studentId, exam, chapterWise));
             }
             // ✅ 4. Cumulative subject analytics
             await Promise.all(this.writeSubjectAnalytics(_tx, studentId, subjectMap));
