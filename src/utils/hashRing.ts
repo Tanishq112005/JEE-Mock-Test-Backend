@@ -130,4 +130,18 @@ export class HashRingService {
 
     return false; // Agar server nahi mila
   }
+
+  // NAYA: Internal Getters for Key Migration / Rebalancing
+  public getClient(config: RedisInstanceConfig): RedisClientType | undefined {
+    return this.instanceMap.get(config);
+  }
+
+  public getConfigByHostPort(host: string, port: number): RedisInstanceConfig | undefined {
+    for (let config of this.instanceMap.keys()) {
+      if (config.host === host && config.port === port) {
+        return config;
+      }
+    }
+    return undefined;
+  }
 }

@@ -45,19 +45,94 @@ class RedisManager {
   // ==========================================
 
   public async addAuthInstances(configs: RedisInstanceConfig[]) {
+    const oldConfigs = this.authRing.getActiveNodes();
+
     for (let i = 0; i < configs.length; i++) {
       const client = await this.connect(configs[i]);
       this.authRing.addNode(configs[i], client);
       console.log(`Added node to AUTH Ring: ${configs[i].host}`);
     }
+
+    if (oldConfigs.length > 0) {
+      await this.rebalanceRing(this.authRing, oldConfigs);
+    }
   }
 
   public async addDashboardInstances(configs: RedisInstanceConfig[]) {
+    const oldConfigs = this.dashboardRing.getActiveNodes();
+
     for (let i = 0; i < configs.length; i++) {
       const client = await this.connect(configs[i]);
       this.dashboardRing.addNode(configs[i], client);
       console.log(`Added node to DASHBOARD Ring: ${configs[i].host}`);
     }
+
+    if (oldConfigs.length > 0) {
+      await this.rebalanceRing(this.dashboardRing, oldConfigs);
+    }
+  }
+
+  // ==========================================
+  // KEY MIGRATION PROTOCOLS (Using DUMP/RESTORE)
+  // ==========================================
+
+  private async rebalanceRing(ring: HashRingService, oldConfigs: RedisInstanceConfig[]) {
+    console.log(`[Rebalance] Starting DUMP/RESTORE key migration logic...`);
+    let migratedCount = 0;
+
+    for (const oldConfig of oldConfigs) {
+      const oldClient = ring.getClient(oldConfig);
+      if (!oldClient) continue;
+
+      try {
+        const keys = await oldClient.keys("*");
+        for (const key of keys) {
+           const userId = key.split(":")[0];
+           const targetClient = ring.getNodeClient(userId);
+
+           if (targetClient && targetClient !== oldClient) {
+               // Must use DUMP and RESTORE for complex data types (bitmaps, etc)
+               const dumpValue = await oldClient.dump(key);
+               const pttl = await oldClient.pTTL(key);
+               if (dumpValue) {
+                   await targetClient.restore(key, pttl > 0 ? pttl : 0, dumpValue, { REPLACE: true });
+                   await oldClient.del(key);
+                   migratedCount++;
+               }
+           }
+        }
+      } catch (err: any) {
+        console.error(`Error migrating keys from ${oldConfig.host}:${oldConfig.port}:`, err);
+      }
+    }
+    console.log(`[Rebalance] Successfully migrated ${migratedCount} misplaced keys.`);
+  }
+
+  private async drainNode(ring: HashRingService, dyingClient: RedisClientType) {
+    console.log(`[Drain] Migrating all keys off dying node to survivors...`);
+    let migratedCount = 0;
+
+    try {
+      const keys = await dyingClient.keys("*");
+      for (const key of keys) {
+         const userId = key.split(":")[0];
+         const targetClient = ring.getNodeClient(userId);
+
+         // Target client should now inherently mathematically avoid the dying node because it was removed from the ring
+         if (targetClient && targetClient !== dyingClient) {
+             const dumpValue = await dyingClient.dump(key);
+             const pttl = await dyingClient.pTTL(key);
+             if (dumpValue) {
+                 await targetClient.restore(key, pttl > 0 ? pttl : 0, dumpValue, { REPLACE: true });
+                 await dyingClient.del(key);
+                 migratedCount++;
+             }
+         }
+      }
+    } catch (err: any) {
+      console.error(`[Drain] Error draining keys from dying node:`, err);
+    }
+    console.log(`[Drain] Successfully drained ${migratedCount} keys.`);
   }
 
   // ==========================================
@@ -102,7 +177,21 @@ class RedisManager {
     host: string,
     port: number,
   ): Promise<boolean> {
-    return await this.authRing.removeNodeByHostPort(host, port);
+    const config = this.authRing.getConfigByHostPort(host, port);
+    if (!config) return false;
+
+    const dyingClient = this.authRing.getClient(config);
+    if (!dyingClient) return false;
+
+    // 1. Mathematically remove node from ring first so hashes route to survivors
+    this.authRing.removeNode(config);
+
+    // 2. Safely drain remaining keys from dying connection to survivors
+    await this.drainNode(this.authRing, dyingClient);
+
+    // 3. Disconnect connection
+    await dyingClient.disconnect();
+    return true;
   }
 
   // 3. Dashboard Ring se specific server hatana
@@ -110,7 +199,21 @@ class RedisManager {
     host: string,
     port: number,
   ): Promise<boolean> {
-    return await this.dashboardRing.removeNodeByHostPort(host, port);
+    const config = this.dashboardRing.getConfigByHostPort(host, port);
+    if (!config) return false;
+
+    const dyingClient = this.dashboardRing.getClient(config);
+    if (!dyingClient) return false;
+
+    // 1. Mathematically remove node from ring first so hashes route to survivors
+    this.dashboardRing.removeNode(config);
+
+    // 2. Safely drain remaining keys from dying connection to survivors
+    await this.drainNode(this.dashboardRing, dyingClient);
+
+    // 3. Disconnect connection
+    await dyingClient.disconnect();
+    return true;
   }
 }
 
