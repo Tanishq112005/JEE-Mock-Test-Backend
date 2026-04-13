@@ -45,15 +45,15 @@ class ChapterWiseController {
                 await uniqueCountService_1.questionBitmapRegistry.markAttempted(studentId, questionId);
             }
             // ── 3. Update Redis upper layer (with null guard) ────────────
-            let gettingUpperPractice = await caching_1.reddisConfigForCaching.gettingAnanlyticsData(`${studentId}:praticeUpperLayer`);
+            let gettingUpperPractice = await caching_1.cacheService.getCache(`${studentId}:praticeUpperLayer`);
             if (!gettingUpperPractice) {
                 gettingUpperPractice = { praticeStatus: [] };
             }
             gettingUpperPractice.praticeStatus.push({ questionId, created_at });
             // ── 4. Save to Redis (both keys in parallel) ─────────────────
             await Promise.all([
-                caching_1.reddisConfigForCaching.settingAnanlyticsData(`${studentId}:praticeUpperLayer`, gettingUpperPractice),
-                caching_1.reddisConfigForCaching.settingAnanlyticsData(`${studentId}:${questionId}:${created_at}`, evaluatedQuestion),
+                caching_1.cacheService.setCache(`${studentId}:praticeUpperLayer`, gettingUpperPractice),
+                caching_1.cacheService.setCache(`${studentId}:${questionId}:${created_at}`, evaluatedQuestion),
             ]);
             // ── 5. Send to queue for worker to persist to DB ─────────────
             //  await yourQueueService.send({

@@ -18,7 +18,7 @@ class AnalyticsController {
             if (!testId || !created_at) {
                 return res.status(400).json(new ApiError_1.default("testId and created_at are required"));
             }
-            const testData = await caching_1.reddisConfigForCaching.gettingAnanlyticsData(`${studentId}:${testId}:${created_at}`);
+            const testData = await caching_1.cacheService.getCache(`${studentId}:${testId}:${created_at}`);
             if (testData) {
                 return res.status(200).json(new ApiResponse_1.default("Test data from cache", testData));
             }

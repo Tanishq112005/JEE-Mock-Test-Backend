@@ -4,7 +4,6 @@ import { database } from "../lib/database";
 import { paperDetails, questionDetails } from "../types/paper.types";
 import { exam } from "./exam.db";
 import ApiError from "../utils/ApiError";
-import { P } from "@upstash/redis/zmscore-BjNXmrug";
 
 class Paper {
   private db: PrismaClient;

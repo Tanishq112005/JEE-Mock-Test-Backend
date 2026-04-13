@@ -1,80 +1,85 @@
 import { Channel, ConsumeMessage } from "amqplib";
 import { analytics } from "../../repositories/analytics.db";
-import { reddisConfigForCaching } from "../../lib/caching";
+import { cacheService } from "../../lib/caching";
 import { cachingDataTestUpperLayer } from "../../types/caching.types";
 
-
-
 export class StudentTestAnanlyticsConsumer {
-    private connection: any;
+  private connection: any;
 
-    constructor(connection: any) {
-        this.connection = connection;
-    }
+  constructor(connection: any) {
+    this.connection = connection;
+  }
 
-    async start() {
+  async start() {
+    try {
+      const channel = await this.connection.getChannel();
+      const exchangeName = "main_exchange";
+      const queueName = "studentTestAnalytics_queue";
+      const routingKey = "studentAnalytics.update.it";
+
+      // 1. Assert Exchange
+      await channel.assertExchange(exchangeName, "direct", { durable: true });
+
+      // 2. Assert Queue
+      await channel.assertQueue(queueName, { durable: true });
+
+      // 3. Bind Queue to Exchange with specific Routing Key
+      // This is CRITICAL: It tells RabbitMQ "Only put messages with key 'UpdateTestDetails.update.it' in this queue"
+      await channel.bindQueue(queueName, exchangeName, routingKey);
+
+      console.log("🔄 Stduent Test Analytics Consumer waiting for messages...");
+
+      // 4. Consume
+      channel.prefetch(1);
+      channel.consume(queueName, async (msg: ConsumeMessage | null) => {
+        if (!msg) return;
+
         try {
-            const channel = await this.connection.getChannel();
-            const exchangeName = "main_exchange";
-            const queueName = "studentTestAnalytics_queue";
-            const routingKey = "studentAnalytics.update.it";
+          const data = JSON.parse(msg.content.toString());
 
-            // 1. Assert Exchange
-            await channel.assertExchange(exchangeName, "direct", { durable: true });
+          console.log(
+            `📥 Processing Student Test Analytics Update for User: ${data.studentId}`,
+          );
 
-            // 2. Assert Queue
-            await channel.assertQueue(queueName, { durable: true });
+          await analytics.persistTestAnalytics(
+            data.testId,
+            data.studentId,
+            data.report,
+          );
 
-            // 3. Bind Queue to Exchange with specific Routing Key
-            // This is CRITICAL: It tells RabbitMQ "Only put messages with key 'UpdateTestDetails.update.it' in this queue"
-            await channel.bindQueue(queueName, exchangeName, routingKey);
+          await cacheService.deleteCache(
+            `${data.studentId}:${data.testId}:${data.created_at}`,
+          );
 
-            console.log("🔄 Stduent Test Analytics Consumer waiting for messages...");
+          const upperLayer: cachingDataTestUpperLayer =
+            await cacheService.getCache(`${data.studentId}:testUpperLayer`);
 
-            // 4. Consume
-            channel.prefetch(1);
-            channel.consume(queueName, async (msg: ConsumeMessage | null) => {
-                if (!msg) return;
+          if (upperLayer?.testId?.length) {
+            upperLayer.testId = upperLayer.testId.filter(
+              (entry: any) => entry.id !== data.testId,
+            );
+            await cacheService.setCache(
+              `${data.studentId}:testUpperLayer`,
+              upperLayer,
+            );
+          }
 
-                try {
-                    const data = JSON.parse(msg.content.toString());
+          channel.ack(msg);
+          console.log(
+            "✅ Update The Student Test Analytics  Evaluated SuccessFully",
+          );
+        } catch (err) {
+          console.error(
+            "❌ Processing failed for  Student Test Analytics :",
+            err,
+          );
 
-                    console.log(`📥 Processing Student Test Analytics Update for User: ${data.studentId}`);
-  
-                    await analytics.persistTestAnalytics(data.testId, data.studentId, data.report);
-                   
-                    await reddisConfigForCaching.deletingAnanlyticsData(
-                        `${data.studentId}:${data.testId}:${data.created_at}`
-                    );
-
-                    const upperLayer: cachingDataTestUpperLayer =
-                        await reddisConfigForCaching.gettingAnanlyticsData(`${data.studentId}:testUpperLayer`);
-
-                    if (upperLayer?.testId?.length) {
-                        upperLayer.testId = upperLayer.testId.filter(
-                            (entry: any) => entry.id !== data.testId
-                        );
-                        await reddisConfigForCaching.settingAnanlyticsData(
-                            `${data.studentId}:testUpperLayer`,
-                            upperLayer
-                        );
-                    }
-
-
-                    channel.ack(msg);
-                    console.log("✅ Update The Student Test Analytics  Evaluated SuccessFully");
-
-                } catch (err) {
-                    console.error("❌ Processing failed for  Student Test Analytics :", err);
-
-
-                    channel.nack(msg, false, false);
-                }
-            });
-
-        } catch (error: any) {
-            console.error("❌ Error in   Student Test Analytics  Consumer:", error);
-            throw error;
+          channel.nack(msg, false, false);
         }
+      });
+    } catch (error: any) {
+      console.error("❌ Error in   Student Test Analytics  Consumer:", error);
+      throw error;
     }
+  }
 }

@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UpdateTestDetailsConsumer = void 0;
 const testStatus_db_1 = require("../../repositories/testStatus.db");
-const reddisService_1 = require("../../services/reddisService");
+const dashboardCacheService_1 = require("../../services/dashboardCacheService");
 class UpdateTestDetailsConsumer {
     connection;
     constructor(connection) {
@@ -34,7 +34,7 @@ class UpdateTestDetailsConsumer {
                     await testStatus_db_1.testStatus.updatingTestDetails(data);
                     // ---------------------------
                     // ── DB confirmed — now safe to delete from Redis ───
-                    await reddisService_1.reddisService.deleteTestUpdateData(data.userId, data.testId);
+                    await dashboardCacheService_1.dashboardCacheService.deleteTestUpdateData(data.userId, data.testId);
                     channel.ack(msg);
                     console.log("✅ Test Data Updated Successfully");
                 }

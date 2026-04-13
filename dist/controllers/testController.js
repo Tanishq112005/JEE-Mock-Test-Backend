@@ -12,7 +12,7 @@ const client_1 = require("@prisma/client");
 const testEvalution_producer_1 = require("../rabbitmq/producers/testEvalution-producer");
 const testEvaluationService_1 = require("../services/testEvaluationService");
 const caching_1 = require("../lib/caching");
-const reddisService_1 = require("../services/reddisService");
+const dashboardCacheService_1 = require("../services/dashboardCacheService");
 const paper_db_1 = require("../repositories/paper.db");
 class TestController {
     constructor() { }
@@ -39,7 +39,7 @@ class TestController {
                 return res.status(404).json(new ApiError_1.default("Test session not found"));
             }
             // ── Try Redis cache first ────────────────────────────────
-            const cachedUpdateData = await reddisService_1.reddisService.getTestUpdateDataFromReddis(userId, testStatusId, createdAtStr);
+            const cachedUpdateData = await dashboardCacheService_1.dashboardCacheService.getTestUpdateDataFromReddis(userId, testStatusId, createdAtStr);
             // ── Redis MISS — return pure DB data ─────────────────────
             if (!cachedUpdateData) {
                 console.log(`⚠️ Redis MISS for testId: ${testStatusId}, returning DB data`);
@@ -122,7 +122,7 @@ class TestController {
             // ── Push to queue AND cache in Redis in parallel ──────────
             await Promise.all([
                 updateTestDetails_producer_1.updatingTestDetailsProducer.updateData(details),
-                reddisService_1.reddisService.upsertTestUpdateData(userId, testId, createdAtStr, details),
+                dashboardCacheService_1.dashboardCacheService.upsertTestUpdateData(userId, testId, createdAtStr, details),
             ]);
             return res.status(200).json(new ApiResponse_1.default("Pushed in queue"));
         }
@@ -145,7 +145,7 @@ class TestController {
                 // ── Verify against Redis in case it's still processing as COMPLETED ──
                 if (latestStatus === 'IN_PROGRESS' || latestStatus === 'PAUSED') {
                     try {
-                        const upperLayer = await caching_1.reddisConfigForCaching.gettingAnanlyticsData(`${userId}:testUpperLayer`);
+                        const upperLayer = await caching_1.cacheService.getCache(`${userId}:testUpperLayer`);
                         if (upperLayer && Array.isArray(upperLayer.testId)) {
                             const isCompleted = upperLayer.testId.some((t) => t.id === testStatusDetails[0].id);
                             if (isCompleted) {
@@ -219,7 +219,7 @@ class TestController {
             if (!testEvaluate) {
                 return res.status(400).json(new ApiError_1.default("Evaluation failed. Cannot submit test."));
             }
-            let gettingUserUpperLayer = await caching_1.reddisConfigForCaching.gettingAnanlyticsData(`${userId}:testUpperLayer`);
+            let gettingUserUpperLayer = await caching_1.cacheService.getCache(`${userId}:testUpperLayer`);
             if (!gettingUserUpperLayer || !Array.isArray(gettingUserUpperLayer.testId)) {
                 gettingUserUpperLayer = { testId: [] };
             }
@@ -230,9 +230,9 @@ class TestController {
             gettingUserUpperLayer.testId.push(dataToInsert);
             // ── Persist analytics + clean up in-progress cache ────────
             await Promise.all([
-                caching_1.reddisConfigForCaching.settingAnanlyticsData(`${userId}:testUpperLayer`, gettingUserUpperLayer),
-                caching_1.reddisConfigForCaching.settingAnanlyticsData(`${userId}:${testId}:${created_at_string}`, testEvaluate),
-                reddisService_1.reddisService.deleteTestUpdateData(userId, testId),
+                caching_1.cacheService.setCache(`${userId}:testUpperLayer`, gettingUserUpperLayer),
+                caching_1.cacheService.setCache(`${userId}:${testId}:${created_at_string}`, testEvaluate),
+                dashboardCacheService_1.dashboardCacheService.deleteTestUpdateData(userId, testId),
             ]);
             console.log("CONTROLLER created_at_string:", created_at_string);
             await testEvalution_producer_1.testEvaluationProducer.evaluateTheData({
@@ -272,7 +272,7 @@ class TestController {
             // ── Check Redis Analytics UpperLayer for recent test submissions ──
             let upperLayer = null;
             try {
-                upperLayer = await caching_1.reddisConfigForCaching.gettingAnanlyticsData(`${userId}:testUpperLayer`);
+                upperLayer = await caching_1.cacheService.getCache(`${userId}:testUpperLayer`);
             }
             catch (err) {
                 console.error("Error fetching redis upper layer:", err);

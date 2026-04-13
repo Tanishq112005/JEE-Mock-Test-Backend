@@ -273,15 +273,15 @@ class TestSyncService {
     async cleanupRedis(studentId, testStatusId) {
         try {
             const upperLayerKey = `${studentId}:testUpperLayer`;
-            const upperLayer = await caching_1.reddisConfigForCaching.gettingAnanlyticsData(upperLayerKey);
+            const upperLayer = await caching_1.cacheService.getCache(upperLayerKey);
             if (!upperLayer?.testId?.length)
                 return;
             const entry = upperLayer.testId.find((e) => e.id === testStatusId);
             if (!entry)
                 return;
-            await caching_1.reddisConfigForCaching.deletingAnanlyticsData(`${studentId}:${testStatusId}:${entry.created_at}`);
+            await caching_1.cacheService.deleteCache(`${studentId}:${testStatusId}:${entry.created_at}`);
             upperLayer.testId = upperLayer.testId.filter((e) => e.id !== testStatusId);
-            await caching_1.reddisConfigForCaching.settingAnanlyticsData(upperLayerKey, upperLayer);
+            await caching_1.cacheService.setCache(upperLayerKey, upperLayer);
         }
         catch (err) {
             // Non-critical — DB already has the data

@@ -24,13 +24,13 @@ export class HashRingService {
     for (let i = 0; i < this.VIRTUAL_NODES; i++) {
       const nodeKey = config.host + ":" + config.port + "-VNODE-" + i;
       const hash = this.generateHash(nodeKey);
-      
+
       this.hashRing.push(hash);
       this.ringMap.set(hash, config);
     }
-    
+
     // Sort ascending for clockwise traversal
-    this.hashRing.sort(function(a, b) {
+    this.hashRing.sort(function (a, b) {
       return a - b;
     });
   }
@@ -42,7 +42,7 @@ export class HashRingService {
     for (let i = 0; i < this.VIRTUAL_NODES; i++) {
       const nodeKey = config.host + ":" + config.port + "-VNODE-" + i;
       const hash = this.generateHash(nodeKey);
-      
+
       const index = this.hashRing.indexOf(hash);
       if (index > -1) {
         this.hashRing.splice(index, 1);
@@ -56,7 +56,7 @@ export class HashRingService {
     if (this.hashRing.length === 0) return undefined;
 
     const userHash = this.generateHash(userId);
-    let targetNodeHash = this.hashRing[0]; 
+    let targetNodeHash = this.hashRing[0];
 
     for (let i = 0; i < this.hashRing.length; i++) {
       if (this.hashRing[i] >= userHash) {
@@ -77,7 +77,7 @@ export class HashRingService {
     if (this.hashRing.length === 0) return undefined;
 
     const userHash = this.generateHash(userId);
-    let targetNodeHash = this.hashRing[0]; 
+    let targetNodeHash = this.hashRing[0];
 
     for (let i = 0; i < this.hashRing.length; i++) {
       if (this.hashRing[i] >= userHash) {
@@ -96,5 +96,38 @@ export class HashRingService {
     this.instanceMap.clear();
     this.hashRing = [];
     this.ringMap.clear();
+  }
+
+  public getActiveNodes(): RedisInstanceConfig[] {
+    return Array.from(this.instanceMap.keys());
+  }
+
+  // NAYA: Host aur Port ke basis par Node delete karna aur Disconnect karna
+  public async removeNodeByHostPort(
+    host: string,
+    port: number,
+  ): Promise<boolean> {
+    let targetConfig: RedisInstanceConfig | null = null;
+    let targetClient: RedisClientType | null = null;
+
+    // 1. Array mein target server ko dhoondho
+    for (let [config, client] of this.instanceMap.entries()) {
+      if (config.host === host && config.port === port) {
+        targetConfig = config;
+        targetClient = client;
+        break;
+      }
+    }
+
+    if (targetConfig && targetClient) {
+      console.log(`Disconnecting Redis Node: ${host}:${port}`);
+      // 2. Pehle Redis connection close karo
+      await targetClient.disconnect();
+      // 3. Phir usko Hash Ring se hata do
+      this.removeNode(targetConfig);
+      return true;
+    }
+
+    return false; // Agar server nahi mila
   }
 }

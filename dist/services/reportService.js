@@ -4,7 +4,7 @@ exports.reportService = void 0;
 const database_1 = require("../lib/database");
 const analytics_db_1 = require("../repositories/analytics.db");
 const subject_db_1 = require("../repositories/subject.db");
-const reddisService_1 = require("./reddisService");
+const dashboardCacheService_1 = require("./dashboardCacheService");
 const uniqueCountService_1 = require("./uniqueCountService");
 // ── Actual Prisma questionType enum values (NOT MCQ/NUMERICAL/MSQ) ───────────
 const KNOWN_QUESTION_TYPES = [
@@ -43,7 +43,7 @@ class ReportService {
     // ══════════════════════════════════════════
     async allTestResult(studentId) {
         const [reddisTestData, testWiseData] = await Promise.all([
-            reddisService_1.reddisService.reddisTestData(studentId),
+            dashboardCacheService_1.dashboardCacheService.reddisTestData(studentId),
             analytics_db_1.analytics.testWiseData(studentId),
         ]);
         // ── Redis tests ────────────────────────────────────────────────────────
@@ -352,7 +352,7 @@ class ReportService {
     async chapterReport(studentId, examFilter) {
         const [dbChapters, reddisData] = await Promise.all([
             analytics_db_1.analytics.chapterWiseAnalytics(studentId),
-            reddisService_1.reddisService.reddisTestData(studentId),
+            dashboardCacheService_1.dashboardCacheService.reddisTestData(studentId),
         ]);
         const calcAcc = (earned, max) => max > 0 ? parseFloat(((earned / max) * 100).toFixed(2)) : 0;
         const chapterMap = {};
@@ -451,7 +451,7 @@ class ReportService {
             analytics_db_1.analytics.subjectAnanlytics(studentId),
             analytics_db_1.analytics.examWiseAnalytics(studentId),
             analytics_db_1.analytics.questionWiseAnalytics(studentId),
-            reddisService_1.reddisService.reddisPraticeWiseData(studentId),
+            dashboardCacheService_1.dashboardCacheService.reddisPraticeWiseData(studentId),
             this.db.subjects.findMany({ select: { id: true, name: true } }),
         ]);
         const calcAcc = (earned, max) => max > 0 ? parseFloat(((earned / max) * 100).toFixed(2)) : 0;

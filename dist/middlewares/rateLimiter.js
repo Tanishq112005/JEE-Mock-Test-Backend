@@ -6,27 +6,31 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.RateLimiter = void 0;
 const ApiError_1 = __importDefault(require("../utils/ApiError"));
 const redis_1 = require("../lib/redis");
+const redisManager_1 = __importDefault(require("../lib/redisManager")); // Import our new singleton
 class RateLimiter {
-    redis;
     maxAttempts;
     windowSize;
     keyPrefix;
-    constructor(redis, max_attempts, window_size, keyPrefix) {
-        this.redis = redis_1.redisClient;
+    // Constructor se 'redis' hata diya gaya hai
+    constructor(max_attempts, window_size, keyPrefix) {
         this.maxAttempts = max_attempts;
         this.windowSize = window_size;
         this.keyPrefix = keyPrefix;
     }
     limit = async (req, res, next) => {
         try {
+            // 1. Identifier nikalo (email, phone, ya IP)
             const identifier = req.body.email || req.body.phoneNumber || req.ip;
             if (!identifier) {
                 return next(new ApiError_1.default("Missing identifier for rate limiting", 400));
             }
+            // 2. MAGIC STEP: Is specific identifier ke liye sahi Redis server dhundo
+            const redisClient = redisManager_1.default.getAuthRedis(identifier);
             const key = redis_1.redisConfig.getRedisLimitKey(this.keyPrefix, identifier);
             const currentTime = Date.now();
             const windowStart = currentTime - (this.windowSize * 1000);
-            const multi = this.redis.multi();
+            // 3. Dynamic client ka multi() use karo
+            const multi = redisClient.multi();
             multi.zRemRangeByScore(key, 0, windowStart);
             multi.zCard(key);
             multi.zAdd(key, { score: currentTime, value: currentTime.toString() });
@@ -40,6 +44,7 @@ class RateLimiter {
         }
         catch (error) {
             console.error("Rate Limiter Error:", error);
+            // Agar Redis fail ho jaye, toh hum request ko block nahi karte, aage badhne dete hain
             next();
         }
     };

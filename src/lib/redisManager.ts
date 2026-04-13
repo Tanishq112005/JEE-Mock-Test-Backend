@@ -11,22 +11,25 @@ class RedisManager {
   constructor() {}
 
   // Common Connection Logic
-  private async connect(connectionData: RedisInstanceConfig): Promise<RedisClientType> {
+  private async connect(
+    connectionData: RedisInstanceConfig,
+  ): Promise<RedisClientType> {
     try {
       const instance = createClient({
         username: connectionData.username,
         password: connectionData.password,
         socket: {
           host: connectionData.host,
-          port: connectionData.port || parseInt(REDIS_PORT as string, 10) || 6379,
+          port:
+            connectionData.port || parseInt(REDIS_PORT as string, 10) || 6379,
         },
       });
-      
-      instance.on("error", function(err: any) {
+
+      instance.on("error", function (err: any) {
         console.error(`Redis Error [${connectionData.host}]:`, err);
       });
-      
-      instance.on("connect", function() {
+
+      instance.on("connect", function () {
         console.log(`Redis Connected Successfully [${connectionData.host}]`);
       });
 
@@ -69,7 +72,8 @@ class RedisManager {
 
   public getDashboardRedis(userId: string): RedisClientType {
     const client = this.dashboardRing.getNodeClient(userId);
-    if (!client) throw new Error("No Redis instances available in Dashboard Ring.");
+    if (!client)
+      throw new Error("No Redis instances available in Dashboard Ring.");
     return client;
   }
 
@@ -79,11 +83,34 @@ class RedisManager {
   public async disconnectAll() {
     console.log("Disconnecting Auth Ring...");
     await this.authRing.disconnectAll();
-    
+
     console.log("Disconnecting Dashboard Ring...");
     await this.dashboardRing.disconnectAll();
-    
+
     console.log("✅ All Redis clusters shut down successfully.");
+  }
+  // 1. Saare active Redis nodes dekhne ke liye
+  public getActiveClusters() {
+    return {
+      authNodes: this.authRing.getActiveNodes(),
+      dashboardNodes: this.dashboardRing.getActiveNodes(),
+    };
+  }
+
+  // 2. Auth Ring se specific server hatana
+  public async removeAuthInstance(
+    host: string,
+    port: number,
+  ): Promise<boolean> {
+    return await this.authRing.removeNodeByHostPort(host, port);
+  }
+
+  // 3. Dashboard Ring se specific server hatana
+  public async removeDashboardInstance(
+    host: string,
+    port: number,
+  ): Promise<boolean> {
+    return await this.dashboardRing.removeNodeByHostPort(host, port);
   }
 }
 

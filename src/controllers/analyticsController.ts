@@ -1,4 +1,4 @@
-import { reddisConfigForCaching } from "../lib/caching";
+import { cacheService } from "../lib/caching";
 import { analytics } from "../repositories/analytics.db";
 import { reportService } from "../services/reportService";
 import ApiError from "../utils/ApiError";
@@ -21,7 +21,7 @@ class AnalyticsController {
             }
 
           
-            const testData = await reddisConfigForCaching.gettingAnanlyticsData(
+            const testData = await cacheService.getCache(
                 `${studentId}:${testId}:${created_at}`
             );
 

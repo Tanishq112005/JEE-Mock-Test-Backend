@@ -14,12 +14,11 @@ const generateOtp_1 = require("../utils/generateOtp");
 const jwtToken_1 = require("../utils/jwtToken");
 const password_1 = require("../utils/password");
 const redis_1 = require("../lib/redis");
+const redisManager_1 = __importDefault(require("../lib/redisManager")); // Fixed the import typo here
 class AuthController {
     db;
-    redis;
     constructor(dbClient) {
         this.db = dbClient;
-        this.redis = redis_1.redisClient;
     }
     createUser = async (req, res) => {
         const { name, email, password, type } = req.body;
@@ -33,7 +32,7 @@ class AuthController {
             };
             const checkingUserPresent = await user_db_1.user.checkingUserPresent(email);
             if (checkingUserPresent && checkingUserPresent.is_verified) {
-                return res.status(409).json(new ApiError_1.default("user is already exists"));
+                return res.status(409).json(new ApiError_1.default("User already exists"));
             }
             if (!checkingUserPresent) {
                 const creatingUser = await user_db_1.user.creatingUser(signinPayload);
@@ -41,18 +40,17 @@ class AuthController {
             const otp = (0, generateOtp_1.random6digitnumber)();
             const redis_key = redis_1.redisConfig.getRedisEmailKey(email);
             const otp_expire_time = Number(env_1.OTP_EXPIRE_TIME) || 300;
-            const paylod = {
+            const payload = {
                 email_to: email,
                 subject: "Verify Account",
                 content: `Your verification OTP is ${otp} and it will expire after ${otp_expire_time / 60} minutes`,
             };
-            await email_producer_1.emailProducer.sendOtp(paylod);
-            if (!this.redis) {
-                console.log("reddis client is missing");
-                res.status(404).json(new ApiError_1.default("redis client is missing "));
-            }
-            console.log("4. Saving to Redis...");
-            await this.redis.set(redis_key, otp, "EX", otp_expire_time);
+            await email_producer_1.emailProducer.sendOtp(payload);
+            // 1. Get the correct Redis Auth instance for this specific email
+            const redisClient = redisManager_1.default.getAuthRedis(email);
+            console.log(`4. Saving to Redis Node [${redisManager_1.default.authRing.getNodeConfig(email)?.host}]...`);
+            // 2. Use setEx for modern node-redis syntax
+            await redisClient.setEx(redis_key, otp_expire_time, String(otp));
             console.log("5. Saved to Redis");
             return res.status(200).json(new ApiResponse_1.default("OTP is Sent Successfully"));
         }
@@ -66,11 +64,14 @@ class AuthController {
         const { email, otp } = req.body;
         try {
             const key = redis_1.redisConfig.getRedisEmailKey(email);
-            const storedOtp = await this.redis.get(key);
+            // Fetch the specific Redis instance assigned to this email
+            const redisClient = redisManager_1.default.getAuthRedis(email);
+            const storedOtp = await redisClient.get(key);
             if (!storedOtp || storedOtp !== String(otp)) {
                 return res.status(404).json(new ApiError_1.default("OTP is expired or invalid"));
             }
-            await this.redis.del(key);
+            // OTP verified, now delete it to prevent reuse
+            await redisClient.del(key);
             await user_db_1.user.changingIsVerifiedStatus(email);
             const informationOfUser = await user_db_1.user.checkingUserPresent(email);
             // creating the student right now always 
@@ -78,17 +79,14 @@ class AuthController {
             const payload = { id: informationOfUser.id, email: informationOfUser.email, name: informationOfUser.name, type: informationOfUser.type };
             const accessToken = (0, jwtToken_1.generateAccessToken)(payload);
             const refreshToken = (0, jwtToken_1.generateRefershToken)({ id: informationOfUser.id }, "1d");
-            ;
             await user_db_1.user.updateRefershToken(email, refreshToken);
             const isProduction = process.env.NODE_ENV === "production";
             res.cookie("refreshToken", refreshToken, {
                 httpOnly: true,
-                // Only true in production (HTTPS). False for localhost (HTTP).
                 secure: isProduction,
-                // "None" requires Secure=true. Use "Lax" for localhost.
                 sameSite: isProduction ? "none" : "lax",
                 maxAge: 30 * 24 * 60 * 60 * 1000,
-                path: "/" // Add this to ensure cookie works on all routes
+                path: "/"
             });
             return res
                 .status(200)
@@ -109,11 +107,14 @@ class AuthController {
         }
         try {
             const key = redis_1.redisConfig.getRedisEmailKey(email);
-            const storedOtp = await this.redis.get(key);
+            // Fetch the correct Redis instance
+            const redisClient = redisManager_1.default.getAuthRedis(email);
+            const storedOtp = await redisClient.get(key);
             if (!storedOtp || storedOtp !== String(otp)) {
                 return res.status(400).json(new ApiError_1.default("OTP is expired or invalid"));
             }
-            await this.redis.del(key);
+            // Delete OTP after successful verification
+            await redisClient.del(key);
             const userDetails = await user_db_1.user.userDetails(email);
             if (!userDetails) {
                 return res.status(404).json(new ApiError_1.default("User account not found"));
@@ -122,7 +123,7 @@ class AuthController {
             const accessToken = (0, jwtToken_1.generateAccessToken)(payload);
             return res
                 .status(200)
-                .json(new ApiResponse_1.default("Your Password is Changed , Please Login Again", {
+                .json(new ApiResponse_1.default("Your Password is Changed, Please Login Again", {
                 accessToken: accessToken,
             }));
         }
@@ -143,10 +144,12 @@ class AuthController {
                 const payload = {
                     email_to: email,
                     subject: "Forgot Password OTP",
-                    content: `OTP To Reset Password is ${otp} , it will expiry after ${otp_expire_time / 60} minutes`,
+                    content: `OTP To Reset Password is ${otp}, it will expire after ${otp_expire_time / 60} minutes`,
                 };
                 await email_producer_1.emailProducer.sendOtp(payload);
-                await this.redis.set(redis_key, otp, "EX", otp_expire_time);
+                // Fetch the correct Redis instance
+                const redisClient = redisManager_1.default.getAuthRedis(email);
+                await redisClient.setEx(redis_key, otp_expire_time, String(otp));
             }
             return res
                 .status(200)
@@ -167,7 +170,7 @@ class AuthController {
                 const { verifyAccessToken } = require("../utils/jwtToken");
                 const decoded = verifyAccessToken(accessToken);
                 if (decoded && decoded.id) {
-                    originalUserId = decoded.id; // Extracts the true User.id
+                    originalUserId = decoded.id;
                 }
             }
             const userId = originalUserId;
@@ -221,14 +224,14 @@ class AuthController {
             const isProduction = process.env.NODE_ENV === "production";
             res.cookie("refreshToken", refreshToken, {
                 httpOnly: true,
-                secure: isProduction, // Now this variable exists!
+                secure: isProduction,
                 sameSite: isProduction ? "none" : "lax",
                 maxAge: 30 * 24 * 60 * 60 * 1000,
                 path: "/"
             });
             return res
                 .status(200)
-                .json(new ApiResponse_1.default("User is found , and successfully login", {
+                .json(new ApiResponse_1.default("User is found, and successfully logged in", {
                 accessToken: accessToken,
             }));
         }
@@ -252,7 +255,7 @@ class AuthController {
             if (userDetails.refersh_token != incomingRefreshToken) {
                 return res
                     .status(401)
-                    .json(new ApiError_1.default("Refersh Token is inncorrect"));
+                    .json(new ApiError_1.default("Refresh Token is incorrect"));
             }
             const newAccessToken = (0, jwtToken_1.generateAccessToken)({ id: userId, name: userDetails.name, email: userDetails.email, type: userDetails.type });
             return res
