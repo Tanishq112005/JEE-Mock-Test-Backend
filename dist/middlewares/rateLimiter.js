@@ -28,7 +28,7 @@ class RateLimiter {
             const redisClient = redisManager_1.default.getAuthRedis(identifier);
             const key = redis_1.redisConfig.getRedisLimitKey(this.keyPrefix, identifier);
             const currentTime = Date.now();
-            const windowStart = currentTime - (this.windowSize * 1000);
+            const windowStart = currentTime - this.windowSize * 1000;
             // 3. Dynamic client ka multi() use karo
             const multi = redisClient.multi();
             multi.zRemRangeByScore(key, 0, windowStart);
@@ -38,7 +38,9 @@ class RateLimiter {
             const results = await multi.exec();
             const requestCount = results ? results[1] : 0;
             if (requestCount > this.maxAttempts) {
-                return res.status(429).json(new ApiError_1.default(`Too many requests. Please try again in ${this.windowSize} seconds.`, 429));
+                return res
+                    .status(429)
+                    .json(new ApiError_1.default(`Too many requests. Please try again in ${this.windowSize} seconds.`, 429));
             }
             next();
         }

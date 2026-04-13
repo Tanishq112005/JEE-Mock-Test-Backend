@@ -78,7 +78,7 @@ class RedisManager {
     getActiveClusters() {
         return {
             authNodes: this.authRing.getActiveNodes(),
-            dashboardNodes: this.dashboardRing.getActiveNodes()
+            dashboardNodes: this.dashboardRing.getActiveNodes(),
         };
     }
     // 2. Auth Ring se specific server hatana

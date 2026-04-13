@@ -28,7 +28,7 @@ class AuthController {
                 name: name,
                 email: email,
                 password: hashedPassword,
-                type: type
+                type: type,
             };
             const checkingUserPresent = await user_db_1.user.checkingUserPresent(email);
             if (checkingUserPresent && checkingUserPresent.is_verified) {
@@ -74,9 +74,14 @@ class AuthController {
             await redisClient.del(key);
             await user_db_1.user.changingIsVerifiedStatus(email);
             const informationOfUser = await user_db_1.user.checkingUserPresent(email);
-            // creating the student right now always 
+            // creating the student right now always
             await user_db_1.user.creatingStudent(informationOfUser.id);
-            const payload = { id: informationOfUser.id, email: informationOfUser.email, name: informationOfUser.name, type: informationOfUser.type };
+            const payload = {
+                id: informationOfUser.id,
+                email: informationOfUser.email,
+                name: informationOfUser.name,
+                type: informationOfUser.type,
+            };
             const accessToken = (0, jwtToken_1.generateAccessToken)(payload);
             const refreshToken = (0, jwtToken_1.generateRefershToken)({ id: informationOfUser.id }, "1d");
             await user_db_1.user.updateRefershToken(email, refreshToken);
@@ -86,11 +91,9 @@ class AuthController {
                 secure: isProduction,
                 sameSite: isProduction ? "none" : "lax",
                 maxAge: 30 * 24 * 60 * 60 * 1000,
-                path: "/"
+                path: "/",
             });
-            return res
-                .status(200)
-                .json(new ApiResponse_1.default("Account verified and logged in successfully", {
+            return res.status(200).json(new ApiResponse_1.default("Account verified and logged in successfully", {
                 accessToken: accessToken,
             }));
         }
@@ -119,11 +122,14 @@ class AuthController {
             if (!userDetails) {
                 return res.status(404).json(new ApiError_1.default("User account not found"));
             }
-            const payload = { id: userDetails.id, name: userDetails.name, email: userDetails.email, type: userDetails.type };
+            const payload = {
+                id: userDetails.id,
+                name: userDetails.name,
+                email: userDetails.email,
+                type: userDetails.type,
+            };
             const accessToken = (0, jwtToken_1.generateAccessToken)(payload);
-            return res
-                .status(200)
-                .json(new ApiResponse_1.default("Your Password is Changed, Please Login Again", {
+            return res.status(200).json(new ApiResponse_1.default("Your Password is Changed, Please Login Again", {
                 accessToken: accessToken,
             }));
         }
@@ -183,7 +189,9 @@ class AuthController {
             }
             const hashedPassword = await (0, password_1.hashPassword)(password);
             await user_db_1.user.updatePassword(userId, hashedPassword);
-            return res.status(200).json(new ApiResponse_1.default("Password is changed successfully. Please log in again."));
+            return res
+                .status(200)
+                .json(new ApiResponse_1.default("Password is changed successfully. Please log in again."));
         }
         catch (err) {
             return res
@@ -207,10 +215,10 @@ class AuthController {
                 id: userId,
                 name: userdetails.name,
                 email: userdetails.email,
-                type: userdetails.type
+                type: userdetails.type,
             };
             const jwtPayloadRefershToken = {
-                id: userId
+                id: userId,
             };
             const accessToken = (0, jwtToken_1.generateAccessToken)(jwtPayloadAccessToken);
             var refreshToken;
@@ -227,11 +235,9 @@ class AuthController {
                 secure: isProduction,
                 sameSite: isProduction ? "none" : "lax",
                 maxAge: 30 * 24 * 60 * 60 * 1000,
-                path: "/"
+                path: "/",
             });
-            return res
-                .status(200)
-                .json(new ApiResponse_1.default("User is found, and successfully logged in", {
+            return res.status(200).json(new ApiResponse_1.default("User is found, and successfully logged in", {
                 accessToken: accessToken,
             }));
         }
@@ -253,14 +259,15 @@ class AuthController {
             const userId = decoded.id;
             const userDetails = await user_db_1.user.userDetailsThroughId(userId);
             if (userDetails.refersh_token != incomingRefreshToken) {
-                return res
-                    .status(401)
-                    .json(new ApiError_1.default("Refresh Token is incorrect"));
+                return res.status(401).json(new ApiError_1.default("Refresh Token is incorrect"));
             }
-            const newAccessToken = (0, jwtToken_1.generateAccessToken)({ id: userId, name: userDetails.name, email: userDetails.email, type: userDetails.type });
-            return res
-                .status(200)
-                .json(new ApiResponse_1.default("Access token refreshed", {
+            const newAccessToken = (0, jwtToken_1.generateAccessToken)({
+                id: userId,
+                name: userDetails.name,
+                email: userDetails.email,
+                type: userDetails.type,
+            });
+            return res.status(200).json(new ApiResponse_1.default("Access token refreshed", {
                 accessToken: newAccessToken,
             }));
         }

@@ -117,7 +117,12 @@ class ReportService {
         for (const qType of allQTypes) {
             const relevant = tests.filter((t) => t.questionWise?.[qType] != null);
             if (relevant.length === 0) {
-                result[qType] = { avgScore: 0, avgAccuracy: 0, avgCorrect: 0, avgWrong: 0 };
+                result[qType] = {
+                    avgScore: 0,
+                    avgAccuracy: 0,
+                    avgCorrect: 0,
+                    avgWrong: 0,
+                };
                 continue;
             }
             const marks = relevant.map((t) => t.questionWise[qType].marks ?? 0);
@@ -146,7 +151,9 @@ class ReportService {
                 return oa.totalScore;
             if (oa.marks != null)
                 return oa.marks;
-            return (t.math?.marks ?? 0) + (t.physics?.marks ?? 0) + (t.chemistry?.marks ?? 0);
+            return ((t.math?.marks ?? 0) +
+                (t.physics?.marks ?? 0) +
+                (t.chemistry?.marks ?? 0));
         };
         const getMaxMarks = (t) => {
             const oa = t.overAllAnalytics ?? t.overall ?? {};
@@ -154,7 +161,9 @@ class ReportService {
                 return oa.maxScore;
             if (oa.maxMarks != null)
                 return oa.maxMarks;
-            return (t.math?.maxMarks ?? 0) + (t.physics?.maxMarks ?? 0) + (t.chemistry?.maxMarks ?? 0);
+            return ((t.math?.maxMarks ?? 0) +
+                (t.physics?.maxMarks ?? 0) +
+                (t.chemistry?.maxMarks ?? 0));
         };
         const getTime = (t) => {
             const oa = t.overAllAnalytics ?? t.overall ?? {};
@@ -167,7 +176,8 @@ class ReportService {
         const latestAcc = this.calcAccuracy(getMarks(latest), getMaxMarks(latest));
         const prevAcc = this.avgOf(previous.map((t) => this.calcAccuracy(getMarks(t), getMaxMarks(t))));
         const latestTime = getQ(latest) > 0
-            ? parseFloat((getTime(latest) / getQ(latest)).toFixed(2)) : 0;
+            ? parseFloat((getTime(latest) / getQ(latest)).toFixed(2))
+            : 0;
         const prevTime = this.avgOf(previous.map((t) => {
             const q = getQ(t);
             return q > 0 ? parseFloat((getTime(t) / q).toFixed(2)) : 0;
@@ -210,7 +220,9 @@ class ReportService {
                 return oa.totalScore;
             if (oa.marks != null)
                 return oa.marks;
-            return (t.math?.marks ?? 0) + (t.physics?.marks ?? 0) + (t.chemistry?.marks ?? 0);
+            return ((t.math?.marks ?? 0) +
+                (t.physics?.marks ?? 0) +
+                (t.chemistry?.marks ?? 0));
         };
         const getMaxMarks = (t) => {
             const oa = t.overAllAnalytics ?? t.overall ?? {};
@@ -218,7 +230,9 @@ class ReportService {
                 return oa.maxScore;
             if (oa.maxMarks != null)
                 return oa.maxMarks;
-            return (t.math?.maxMarks ?? 0) + (t.physics?.maxMarks ?? 0) + (t.chemistry?.maxMarks ?? 0);
+            return ((t.math?.maxMarks ?? 0) +
+                (t.physics?.maxMarks ?? 0) +
+                (t.chemistry?.maxMarks ?? 0));
         };
         const getTime = (t) => {
             const oa = t.overAllAnalytics ?? t.overall ?? {};
@@ -412,10 +426,46 @@ class ReportService {
                 if (!chapterMap[rCh.chapterId]) {
                     chapterMap[rCh.chapterId] = {
                         chapterId: rCh.chapterId,
-                        practiceJeeMain: { attempts: 0, timeSpent: 0, marksEarned: 0, maxPossible: 0, correct: 0, wrong: 0, partial: 0, accuracy: 0 },
-                        practiceJeeAdvanced: { attempts: 0, timeSpent: 0, marksEarned: 0, maxPossible: 0, correct: 0, wrong: 0, partial: 0, accuracy: 0 },
-                        testJeeMain: { attempts: 0, timeSpent: 0, marksEarned: 0, maxPossible: 0, correct: 0, wrong: 0, partial: 0, accuracy: 0 },
-                        testJeeAdvanced: { attempts: 0, timeSpent: 0, marksEarned: 0, maxPossible: 0, correct: 0, wrong: 0, partial: 0, accuracy: 0 },
+                        practiceJeeMain: {
+                            attempts: 0,
+                            timeSpent: 0,
+                            marksEarned: 0,
+                            maxPossible: 0,
+                            correct: 0,
+                            wrong: 0,
+                            partial: 0,
+                            accuracy: 0,
+                        },
+                        practiceJeeAdvanced: {
+                            attempts: 0,
+                            timeSpent: 0,
+                            marksEarned: 0,
+                            maxPossible: 0,
+                            correct: 0,
+                            wrong: 0,
+                            partial: 0,
+                            accuracy: 0,
+                        },
+                        testJeeMain: {
+                            attempts: 0,
+                            timeSpent: 0,
+                            marksEarned: 0,
+                            maxPossible: 0,
+                            correct: 0,
+                            wrong: 0,
+                            partial: 0,
+                            accuracy: 0,
+                        },
+                        testJeeAdvanced: {
+                            attempts: 0,
+                            timeSpent: 0,
+                            marksEarned: 0,
+                            maxPossible: 0,
+                            correct: 0,
+                            wrong: 0,
+                            partial: 0,
+                            accuracy: 0,
+                        },
                     };
                 }
                 const section = isJeeMain
@@ -484,12 +534,20 @@ class ReportService {
             totalMaxPossible: totalMax,
             accuracy: calcAcc(totalMarks, totalMax),
             avgTimePerQuestion: totalAttempts > 0
-                ? parseFloat((totalTime / totalAttempts).toFixed(2)) : 0,
+                ? parseFloat((totalTime / totalAttempts).toFixed(2))
+                : 0,
         };
         // Subjects
         const subjectMap = {};
         for (const s of allSubjects) {
-            subjectMap[s.id] = { subjectId: s.id, subjectName: s.name, attempts: 0, timeSpent: 0, marksEarned: 0, maxPossible: 0 };
+            subjectMap[s.id] = {
+                subjectId: s.id,
+                subjectName: s.name,
+                attempts: 0,
+                timeSpent: 0,
+                marksEarned: 0,
+                maxPossible: 0,
+            };
         }
         for (const s of subjectAnalytics) {
             const sid = s.subjectId;
@@ -521,12 +579,24 @@ class ReportService {
         // Question types
         const qtMap = {};
         for (const qt of KNOWN_QUESTION_TYPES) {
-            qtMap[qt] = { questionType: qt, attempts: 0, timeSpent: 0, marksEarned: 0, maxPossible: 0 };
+            qtMap[qt] = {
+                questionType: qt,
+                attempts: 0,
+                timeSpent: 0,
+                marksEarned: 0,
+                maxPossible: 0,
+            };
         }
         for (const qt of questionTypeAnalytics) {
             const type = qt.questioType;
             if (!qtMap[type])
-                qtMap[type] = { questionType: type, attempts: 0, timeSpent: 0, marksEarned: 0, maxPossible: 0 };
+                qtMap[type] = {
+                    questionType: type,
+                    attempts: 0,
+                    timeSpent: 0,
+                    marksEarned: 0,
+                    maxPossible: 0,
+                };
             qtMap[type].attempts += qt.practiceAttempts ?? 0;
             qtMap[type].timeSpent += qt.practiceTimeSpent ?? 0;
             qtMap[type].marksEarned += qt.practiceMarksEarned ?? 0;
@@ -536,7 +606,13 @@ class ReportService {
             if (!q?.type)
                 continue;
             if (!qtMap[q.type])
-                qtMap[q.type] = { questionType: q.type, attempts: 0, timeSpent: 0, marksEarned: 0, maxPossible: 0 };
+                qtMap[q.type] = {
+                    questionType: q.type,
+                    attempts: 0,
+                    timeSpent: 0,
+                    marksEarned: 0,
+                    maxPossible: 0,
+                };
             qtMap[q.type].attempts += 1;
             qtMap[q.type].timeSpent += q.timeSpent ?? 0;
             qtMap[q.type].marksEarned += q.marks ?? 0;
@@ -549,7 +625,9 @@ class ReportService {
             marksEarned: qt.marksEarned,
             maxPossible: qt.maxPossible,
             accuracy: calcAcc(qt.marksEarned, qt.maxPossible),
-            avgTimePerQuestion: qt.attempts > 0 ? parseFloat((qt.timeSpent / qt.attempts).toFixed(2)) : 0,
+            avgTimePerQuestion: qt.attempts > 0
+                ? parseFloat((qt.timeSpent / qt.attempts).toFixed(2))
+                : 0,
         }));
         // Exams
         const examMap = {};
@@ -566,7 +644,13 @@ class ReportService {
             if (!q?.examName)
                 continue;
             if (!examMap[q.examName])
-                examMap[q.examName] = { examName: q.examName, attempts: 0, timeSpent: 0, marksEarned: 0, maxPossible: 0 };
+                examMap[q.examName] = {
+                    examName: q.examName,
+                    attempts: 0,
+                    timeSpent: 0,
+                    marksEarned: 0,
+                    maxPossible: 0,
+                };
             examMap[q.examName].attempts += 1;
             examMap[q.examName].timeSpent += q.timeSpent ?? 0;
             examMap[q.examName].marksEarned += q.marks ?? 0;
@@ -602,9 +686,18 @@ class ReportService {
         ]);
         const calcAcc = (earned, max) => max > 0 ? parseFloat(((earned / max) * 100).toFixed(2)) : 0;
         const subjectWiseUnique = {
-            Mathematics: { uniqueAttempted: 0, totalQuestions: subjectTotals["Mathematics"]?.totalQuestion ?? 0 },
-            Physics: { uniqueAttempted: 0, totalQuestions: subjectTotals["Physics"]?.totalQuestion ?? 0 },
-            Chemistry: { uniqueAttempted: 0, totalQuestions: subjectTotals["Chemistry"]?.totalQuestion ?? 0 },
+            Mathematics: {
+                uniqueAttempted: 0,
+                totalQuestions: subjectTotals["Mathematics"]?.totalQuestion ?? 0,
+            },
+            Physics: {
+                uniqueAttempted: 0,
+                totalQuestions: subjectTotals["Physics"]?.totalQuestion ?? 0,
+            },
+            Chemistry: {
+                uniqueAttempted: 0,
+                totalQuestions: subjectTotals["Chemistry"]?.totalQuestion ?? 0,
+            },
         };
         if (attemptedQuestions.questionIds.length > 0) {
             const questionSubjects = await this.db.questions.findMany({
@@ -626,9 +719,15 @@ class ReportService {
                     id: true,
                     papers: {
                         select: {
-                            year: true, month: true, day: true, date: true,
-                            shift: true, mode: true, totalMarks: true,
-                            totalDuration: true, totalQuestions: true,
+                            year: true,
+                            month: true,
+                            day: true,
+                            date: true,
+                            shift: true,
+                            mode: true,
+                            totalMarks: true,
+                            totalDuration: true,
+                            totalQuestions: true,
                             exam: { select: { name: true } },
                         },
                     },
@@ -641,7 +740,15 @@ class ReportService {
         const buildSubjectBlock = (t, key, name) => {
             const s = t[key];
             if (!s)
-                return { subjectName: name, marks: 0, correct: 0, wrong: 0, timeTaken: 0, totalQuestions: 0, accuracy: 0 };
+                return {
+                    subjectName: name,
+                    marks: 0,
+                    correct: 0,
+                    wrong: 0,
+                    timeTaken: 0,
+                    totalQuestions: 0,
+                    accuracy: 0,
+                };
             return {
                 subjectName: name,
                 marks: s.marks ?? 0,
@@ -655,7 +762,13 @@ class ReportService {
         const buildQuestionWise = (t) => {
             const qtBlock = {};
             for (const qt of KNOWN_QUESTION_TYPES) {
-                qtBlock[qt] = { questionType: qt, marks: 0, correct: 0, wrong: 0, accuracy: 0 };
+                qtBlock[qt] = {
+                    questionType: qt,
+                    marks: 0,
+                    correct: 0,
+                    wrong: 0,
+                    accuracy: 0,
+                };
             }
             if (t.questionWise && typeof t.questionWise === "object") {
                 for (const [qtType, qtData] of Object.entries(t.questionWise)) {
@@ -677,7 +790,9 @@ class ReportService {
                 return oa.totalScore;
             if (oa.marks != null)
                 return oa.marks;
-            return (t.math?.marks ?? 0) + (t.physics?.marks ?? 0) + (t.chemistry?.marks ?? 0);
+            return ((t.math?.marks ?? 0) +
+                (t.physics?.marks ?? 0) +
+                (t.chemistry?.marks ?? 0));
         };
         const getMaxMarks = (t) => {
             const oa = t.overAllAnalytics ?? t.overall ?? {};
@@ -685,7 +800,9 @@ class ReportService {
                 return oa.maxScore;
             if (oa.maxMarks != null)
                 return oa.maxMarks;
-            return (t.math?.maxMarks ?? 0) + (t.physics?.maxMarks ?? 0) + (t.chemistry?.maxMarks ?? 0);
+            return ((t.math?.maxMarks ?? 0) +
+                (t.physics?.maxMarks ?? 0) +
+                (t.chemistry?.maxMarks ?? 0));
         };
         const getTime = (t) => {
             const oa = t.overAllAnalytics ?? t.overall ?? {};

@@ -38,7 +38,7 @@ app.use((0, cors_1.default)({
         callback(null, true);
     },
     credentials: true,
-    optionsSuccessStatus: 200
+    optionsSuccessStatus: 200,
 }));
 // ==========================================
 // 2. HEALTH CHECK
@@ -49,16 +49,16 @@ app.use("/health", function (req, res) {
 // ==========================================
 // 3. API ROUTES
 // ==========================================
-app.use('/api/auth', auth_1.authRoutes);
-app.use('/api/subject', subject_1.subjectRoutes);
-app.use('/api/exam', exam_1.examRoutes);
-app.use('/api/chapter', chapter_1.chapterRoutes);
-app.use('/api/paper', paper_1.paperRoutes);
-app.use('/api/question', question_1.questionRoutes);
-app.use('/api/testStatus', testStatus_1.testStatusRoutes);
-app.use('/api/email', email_1.emailRoutes);
-app.use('/api/analytics', analytics_1.analyticsRoutes);
-app.use('/api/redis', redis_1.adminRedisRoutes);
+app.use("/api/auth", auth_1.authRoutes);
+app.use("/api/subject", subject_1.subjectRoutes);
+app.use("/api/exam", exam_1.examRoutes);
+app.use("/api/chapter", chapter_1.chapterRoutes);
+app.use("/api/paper", paper_1.paperRoutes);
+app.use("/api/question", question_1.questionRoutes);
+app.use("/api/testStatus", testStatus_1.testStatusRoutes);
+app.use("/api/email", email_1.emailRoutes);
+app.use("/api/analytics", analytics_1.analyticsRoutes);
+app.use("/api/redis", redis_1.adminRedisRoutes);
 // --- SEARCH API (For Frontend Autocomplete) ---
 app.post("/api/search/chapter", async (req, res) => {
     try {
@@ -69,13 +69,13 @@ app.post("/api/search/chapter", async (req, res) => {
         const results = await similarity_1.searchEngine.findChapter(query);
         return res.json({
             success: true,
-            matches: results.map(r => ({
+            matches: results.map((r) => ({
                 chapterName: r.name,
                 subject: r.subject,
                 chapterSlug: r.slug,
                 confidence: r.score,
-                details: r.matchDetails // { vector: "0.85", keyword: "1.00", ... }
-            }))
+                details: r.matchDetails, // { vector: "0.85", keyword: "1.00", ... }
+            })),
         });
     }
     catch (error) {

@@ -10,25 +10,24 @@ const uniqueCountService_1 = require("../services/uniqueCountService");
 const ApiError_1 = __importDefault(require("../utils/ApiError"));
 const ApiResponse_1 = __importDefault(require("../utils/ApiResponse"));
 class ChapterWiseController {
-    constructor() {
-    }
+    constructor() { }
     /* first the user click on the group name
-                   |
-        click on the chapter name
-                   |
-        give all the question according of the chapter
-                   |
-        in the pack of the jee mains and the jee adavanced group , decending order wise
-                   |
-         when the user click on question then , frontend gives me the question id
-                   |
-         now through the question id
-                   |
-        1. all the previous attempt status of the question
-        2. if the question leaved by the user incompleted then then again comes and solve from the previos time
-    */
-    // in the chapter Controller the group name controller is already present 
-    // now when the user clicks on the chapter then presenting all the problems name of the user 
+                     |
+          click on the chapter name
+                     |
+          give all the question according of the chapter
+                     |
+          in the pack of the jee mains and the jee adavanced group , decending order wise
+                     |
+           when the user click on question then , frontend gives me the question id
+                     |
+           now through the question id
+                     |
+          1. all the previous attempt status of the question
+          2. if the question leaved by the user incompleted then then again comes and solve from the previos time
+      */
+    // in the chapter Controller the group name controller is already present
+    // now when the user clicks on the chapter then presenting all the problems name of the user
     submitQuestion = async (req, res) => {
         try {
             const { questionId, timeSpent, userAnswer, created_at } = req.body;
@@ -38,10 +37,10 @@ class ChapterWiseController {
                 questionId: questionId,
                 timeSpent: timeSpent,
                 userAnswer: userAnswer,
-                created_at: created_at
+                created_at: created_at,
             });
             // ── 2. Mark bitmap if correct ────────────────────────────────
-            if (evaluatedQuestion.verdict === 'correct') {
+            if (evaluatedQuestion.verdict === "correct") {
                 await uniqueCountService_1.questionBitmapRegistry.markAttempted(studentId, questionId);
             }
             // ── 3. Update Redis upper layer (with null guard) ────────────
@@ -71,10 +70,14 @@ class ChapterWiseController {
             //     examName:      evaluatedQuestion.examName,
             //     created_at,
             // });
-            return res.status(200).json(new ApiResponse_1.default("Question submitted successfully", evaluatedQuestion));
+            return res
+                .status(200)
+                .json(new ApiResponse_1.default("Question submitted successfully", evaluatedQuestion));
         }
         catch (err) {
-            return res.status(500).json(new ApiError_1.default("Error in submitting the question", err));
+            return res
+                .status(500)
+                .json(new ApiError_1.default("Error in submitting the question", err));
         }
     };
 }

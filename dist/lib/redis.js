@@ -12,8 +12,8 @@ class RedisConfig {
             password: env_1.REDIS_PASSWORD,
             socket: {
                 host: env_1.REDIS_HOST,
-                port: port
-            }
+                port: port,
+            },
         });
         this.client.on("error", (err) => console.log("Redis Client Error:", err));
         this.client.on("connect", () => console.log("Redis Connected Successfully"));

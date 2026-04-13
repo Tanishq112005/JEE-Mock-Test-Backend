@@ -16,7 +16,7 @@ class CacheService {
     getClientForKey(key) {
         // Keys are generally formulated as `${studentId}:...`
         // We extract the first part to ensure all a student's data routes to the exact same server instance.
-        const userId = key.split(':')[0];
+        const userId = key.split(":")[0];
         // If there's no colon, it will just hash by the key itself, which still deterministically routes it.
         return redisManager_1.default.getDashboardRedis(userId);
     }
