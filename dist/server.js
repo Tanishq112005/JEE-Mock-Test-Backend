@@ -23,6 +23,8 @@ const email_1 = require("./routes/email");
 const analytics_1 = require("./routes/analytics");
 const uniqueCountService_1 = require("./services/uniqueCountService");
 const redis_1 = require("./routes/redis");
+const redisManager_1 = __importDefault(require("./lib/redisManager"));
+const env_2 = require("./config/env");
 const app = (0, express_1.default)();
 const port = env_1.PORT || 3000;
 // ==========================================
@@ -96,6 +98,15 @@ const startServer = async () => {
         // so the question upload service works instantly.
         console.log("🧠 Initializing Hybrid Search Engine...");
         await similarity_1.searchEngine.initialize();
+        console.log("💍 Initializing Standard Redis Clusters from .env...");
+        if (env_2.REDIS_HOST) {
+            await redisManager_1.default.addDashboardInstances([
+                { host: env_2.REDIS_HOST, port: Number(env_2.REDIS_PORT), username: env_2.REDIS_USERNAME, password: env_2.REDIS_PASSWORD, email: '' }
+            ]);
+            await redisManager_1.default.addAuthInstances([
+                { host: env_2.REDIS_HOST, port: Number(env_2.REDIS_PORT), username: env_2.REDIS_USERNAME, password: env_2.REDIS_PASSWORD, email: '' }
+            ]);
+        }
         await uniqueCountService_1.questionBitmapRegistry.load();
         // D. Start HTTP Server
         app.listen(port, () => {

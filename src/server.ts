@@ -22,6 +22,8 @@ import { emailRoutes } from "./routes/email";
 import { analyticsRoutes } from "./routes/analytics";
 import { questionBitmapRegistry } from "./services/uniqueCountService";
 import { adminRedisRoutes } from "./routes/redis";
+import redisManager from "./lib/redisManager";
+import { REDIS_HOST, REDIS_PORT, REDIS_USERNAME, REDIS_PASSWORD } from "./config/env";
 
 const app = express();
 const port = PORT || 3000;
@@ -107,6 +109,17 @@ const startServer = async () => {
     // so the question upload service works instantly.
     console.log("🧠 Initializing Hybrid Search Engine...");
     await searchEngine.initialize();
+
+    console.log("💍 Initializing Standard Redis Clusters from .env...");
+    if (REDIS_HOST) {
+        await redisManager.addDashboardInstances([
+          { host: REDIS_HOST as string, port: Number(REDIS_PORT), username: REDIS_USERNAME as string, password: REDIS_PASSWORD as string, email: '' } as any
+        ]);
+        await redisManager.addAuthInstances([
+          { host: REDIS_HOST as string, port: Number(REDIS_PORT), username: REDIS_USERNAME as string, password: REDIS_PASSWORD as string, email: '' } as any
+        ]);
+    }
+
     await questionBitmapRegistry.load();
 
     // D. Start HTTP Server
