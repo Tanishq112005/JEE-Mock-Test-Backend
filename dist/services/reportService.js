@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.reportService = void 0;
 const database_1 = require("../lib/database");
@@ -478,10 +511,12 @@ class ReportService {
             const pId = test.paperMeta?.id || test.paperId || test.id;
             uniqueTestIdsSet.add(String(pId));
         }
+        const practiceAnalytics = await this.buildPracticeAnalytics(studentId);
         return {
             studentId,
             totalUniqueMockTests: uniqueTestIdsSet.size,
             generatedAt: new Date(),
+            practiceAnalytics,
             report: this.buildReport(allTestData, lastNPerGroup),
             lastNTests: {
                 last3: this.buildReport(allTestData, 3),
@@ -489,6 +524,79 @@ class ReportService {
                 last10: this.buildReport(allTestData, 10),
             },
             allTests: allTestData,
+        };
+    }
+    // ══════════════════════════════════════════
+    // PRACTICE ANALYTICS BALANCE Builders
+    // ══════════════════════════════════════════
+    async buildPracticeAnalytics(studentId) {
+        const { chapterWisePractice } = await Promise.resolve().then(() => __importStar(require("../repositories/chapterWisePractice.db")));
+        const { chapterWiseCacheService } = await Promise.resolve().then(() => __importStar(require("./chapterWiseCacheService")));
+        const activeAttempts = await chapterWiseCacheService.getAllActiveAttempts(studentId);
+        const dbAttempts = await chapterWisePractice.getAllPracticeAttemptsRaw(studentId);
+        const mergedMap = new Map();
+        for (const record of dbAttempts) {
+            mergedMap.set(record.questionId, {
+                questionId: record.questionId,
+                subject: record.question?.subjects?.name || "Unknown",
+                type: record.question?.type || "Unknown",
+                timeSpent: record.timeSpent || 0,
+                isCorrect: record.isCorrect || false,
+                status: record.questionStatus,
+            });
+        }
+        for (const [qId, active] of Object.entries(activeAttempts)) {
+            const existing = mergedMap.get(qId);
+            if (existing) {
+                existing.timeSpent = active.timeSpent || existing.timeSpent;
+                existing.status = active.status || existing.status;
+                if (active.isCorrect !== undefined) {
+                    existing.isCorrect = active.isCorrect;
+                }
+                if (active.marksObtained !== undefined) {
+                    existing.marks = active.marksObtained;
+                }
+            }
+        }
+        let totalAttempted = 0;
+        let totalCorrect = 0;
+        let totalTimeSpent = 0;
+        const subjectBalance = {
+            Mathematics: { attempted: 0, correct: 0, timeSpent: 0 },
+            Physics: { attempted: 0, correct: 0, timeSpent: 0 },
+            Chemistry: { attempted: 0, correct: 0, timeSpent: 0 }
+        };
+        const questionBalance = {};
+        for (const record of mergedMap.values()) {
+            totalTimeSpent += record.timeSpent;
+            const isAttempted = record.status === "answered" || record.isCorrect !== null;
+            if (isAttempted) {
+                totalAttempted++;
+                if (record.isCorrect)
+                    totalCorrect++;
+                if (subjectBalance[record.subject]) {
+                    subjectBalance[record.subject].attempted++;
+                    subjectBalance[record.subject].timeSpent += record.timeSpent;
+                    if (record.isCorrect)
+                        subjectBalance[record.subject].correct++;
+                }
+                if (!questionBalance[record.type]) {
+                    questionBalance[record.type] = { attempted: 0, correct: 0, timeSpent: 0 };
+                }
+                questionBalance[record.type].attempted++;
+                questionBalance[record.type].timeSpent += record.timeSpent;
+                if (record.isCorrect)
+                    questionBalance[record.type].correct++;
+            }
+        }
+        const practiceAccuracy = totalAttempted > 0 ? parseFloat(((totalCorrect / totalAttempted) * 100).toFixed(4)) : 0;
+        const avgTime = totalAttempted > 0 ? parseFloat((totalTimeSpent / totalAttempted).toFixed(4)) : 0;
+        return {
+            practiceAccuracy,
+            avgTime,
+            subjectWiseBalance: subjectBalance,
+            questionWiseBalance: questionBalance,
+            totalTimeSpent
         };
     }
     // ══════════════════════════════════════════

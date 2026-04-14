@@ -4,80 +4,154 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.chapterWiseController = void 0;
-const caching_1 = require("../lib/caching");
 const questionEvalutionService_1 = require("../services/questionEvalutionService");
-const uniqueCountService_1 = require("../services/uniqueCountService");
 const ApiError_1 = __importDefault(require("../utils/ApiError"));
 const ApiResponse_1 = __importDefault(require("../utils/ApiResponse"));
+const chapterWiseCacheService_1 = require("../services/chapterWiseCacheService");
+const updateChapterAttempt_producer_1 = require("../rabbitmq/producers/updateChapterAttempt-producer");
+const submitChapterAttempt_producer_1 = require("../rabbitmq/producers/submitChapterAttempt-producer");
+const client_1 = require("@prisma/client");
+const chapter_db_1 = require("../repositories/chapter.db");
+const chapterWisePractice_db_1 = require("../repositories/chapterWisePractice.db");
 class ChapterWiseController {
     constructor() { }
-    /* first the user click on the group name
-                     |
-          click on the chapter name
-                     |
-          give all the question according of the chapter
-                     |
-          in the pack of the jee mains and the jee adavanced group , decending order wise
-                     |
-           when the user click on question then , frontend gives me the question id
-                     |
-           now through the question id
-                     |
-          1. all the previous attempt status of the question
-          2. if the question leaved by the user incompleted then then again comes and solve from the previos time
-      */
-    // in the chapter Controller the group name controller is already present
-    // now when the user clicks on the chapter then presenting all the problems name of the user
-    submitQuestion = async (req, res) => {
+    // api for getting the group name 
+    // need the subject name 
+    groupName = async (req, res) => {
         try {
-            const { questionId, timeSpent, userAnswer, created_at } = req.body;
-            const studentId = req.user;
-            // ── 1. Evaluate once ─────────────────────────────────────────
-            const evaluatedQuestion = await questionEvalutionService_1.practiceQuestionEvaluation.evaluate({
-                questionId: questionId,
-                timeSpent: timeSpent,
-                userAnswer: userAnswer,
-                created_at: created_at,
-            });
-            // ── 2. Mark bitmap if correct ────────────────────────────────
-            if (evaluatedQuestion.verdict === "correct") {
-                await uniqueCountService_1.questionBitmapRegistry.markAttempted(studentId, questionId);
+            let { subjectName } = req.query;
+            if (!subjectName ||
+                !Object.values(client_1.SubjectName).includes(subjectName)) {
+                return res.status(400).json(new ApiError_1.default("Invalid subject name"));
             }
-            // ── 3. Update Redis upper layer (with null guard) ────────────
-            let gettingUpperPractice = await caching_1.cacheService.getCache(`${studentId}:praticeUpperLayer`);
-            if (!gettingUpperPractice) {
-                gettingUpperPractice = { praticeStatus: [] };
-            }
-            gettingUpperPractice.praticeStatus.push({ questionId, created_at });
-            // ── 4. Save to Redis (both keys in parallel) ─────────────────
-            await Promise.all([
-                caching_1.cacheService.setCache(`${studentId}:praticeUpperLayer`, gettingUpperPractice),
-                caching_1.cacheService.setCache(`${studentId}:${questionId}:${created_at}`, evaluatedQuestion),
-            ]);
-            // ── 5. Send to queue for worker to persist to DB ─────────────
-            //  await yourQueueService.send({
-            //     studentId,
-            //     subjectId:     evaluatedQuestion.subjectId,
-            //     questionId,
-            //     verdict:       evaluatedQuestion.verdict,
-            //     marks:         evaluatedQuestion.marks,
-            //     positiveMarks: evaluatedQuestion.positiveMarks,
-            //     type:          evaluatedQuestion.type,
-            //     timeSpent:     evaluatedQuestion.timeSpent,
-            //     userAnswer:    evaluatedQuestion.userAnswer,
-            //     isVisited:     true,
-            //     chapterId:     evaluatedQuestion.chapterId,
-            //     examName:      evaluatedQuestion.examName,
-            //     created_at,
-            // });
+            const finalResponse = await chapter_db_1.chapter.gettingDetailedGroups(subjectName);
             return res
                 .status(200)
-                .json(new ApiResponse_1.default("Question submitted successfully", evaluatedQuestion));
+                .json(new ApiResponse_1.default(`Group Of the ${subjectName} are: `, finalResponse));
         }
         catch (err) {
             return res
                 .status(500)
-                .json(new ApiError_1.default("Error in submitting the question", err));
+                .json(new ApiError_1.default("Error in getting the group", err));
+        }
+    };
+    // API to get chapters for a particular group
+    getChaptersByGroups = async (req, res) => {
+        try {
+            const { groupName } = req.query;
+            if (!groupName) {
+                return res.status(400).json(new ApiError_1.default("groupName is required"));
+            }
+            const chapters = await chapter_db_1.chapter.gettingChapter({ group: groupName });
+            return res
+                .status(200)
+                .json(new ApiResponse_1.default(`Chapters for group ${groupName}`, chapters));
+        }
+        catch (err) {
+            return res
+                .status(500)
+                .json(new ApiError_1.default("Error fetching chapters by group", err));
+        }
+    };
+    // api for the getting the chapter question 
+    // and the problem text 
+    // status of the problem 
+    // need the chapterId 
+    getChapterInfo = async (req, res) => {
+        try {
+            const { chapterId } = req.params;
+            const userId = req.user;
+            if (!chapterId)
+                return res.status(400).json(new ApiError_1.default("chapterId is required"));
+            const stats = await chapterWisePractice_db_1.chapterWisePractice.getChapterInfo(chapterId, userId);
+            return res
+                .status(200)
+                .json(new ApiResponse_1.default("Chapter Stats fetched", stats));
+        }
+        catch (err) {
+            return res
+                .status(500)
+                .json(new ApiError_1.default("Error fetching chapter stats", err));
+        }
+    };
+    getQuestionAttemptsHistory = async (req, res) => {
+        try {
+            const { questionId } = req.params;
+            const userId = req.user;
+            if (!questionId)
+                return res.status(400).json(new ApiError_1.default("questionId is required"));
+            const history = await chapterWisePractice_db_1.chapterWisePractice.getQuestionAttemptsHistory(questionId, userId);
+            return res
+                .status(200)
+                .json(new ApiResponse_1.default("Question history fetched", history));
+        }
+        catch (err) {
+            return res
+                .status(500)
+                .json(new ApiError_1.default("Error fetching question history", err));
+        }
+    };
+    updateTimeSpentStatus = async (req, res) => {
+        try {
+            const { questionId } = req.params;
+            const userId = req.user;
+            const { status, timeSpent, userAnswer } = req.body;
+            const payload = {
+                studentId: userId,
+                questionId,
+                status: status || client_1.AttemptStatus.notAnswered,
+                timeSpent: timeSpent || 0,
+                userAnswer: userAnswer || [],
+            };
+            // 1. Cache to Redis for immediate fast access
+            await chapterWiseCacheService_1.chapterWiseCacheService.upsertAttemptData(userId, questionId, payload);
+            // 2. Queue for Postgres persistence
+            await updateChapterAttempt_producer_1.updateChapterAttemptProducer.updateAttemptData(payload);
+            return res
+                .status(200)
+                .json(new ApiResponse_1.default("Question progress updated continuously", payload));
+        }
+        catch (err) {
+            return res
+                .status(500)
+                .json(new ApiError_1.default("Error updating progress continuously", err));
+        }
+    };
+    submitImmediateEvaluate = async (req, res) => {
+        try {
+            const { questionId } = req.params;
+            const userId = req.user;
+            const { status, timeSpent, userAnswerRaw, } = req.body;
+            const result = await questionEvalutionService_1.practiceQuestionEvaluation.evaluate({
+                questionId: questionId,
+                userAnswer: userAnswerRaw || [],
+                timeSpent: timeSpent || 0,
+                created_at: new Date()
+            });
+            const payload = {
+                studentId: userId,
+                questionId,
+                status: status || client_1.AttemptStatus.answered,
+                timeSpent: timeSpent || 0,
+                userAnswer: userAnswerRaw || [],
+                isCorrect: result.verdict === "correct",
+                marksObtained: result.marks,
+            };
+            // Set to Redis first so user can check immediate history
+            await chapterWiseCacheService_1.chapterWiseCacheService.upsertAttemptData(userId, questionId, payload);
+            // Push to main submit queue which fully persists it and evaluated results
+            await submitChapterAttempt_producer_1.submitChapterAttemptProducer.submitAttemptData(payload);
+            // We immediately send the evaluated result to the user
+            return res.status(200).json(new ApiResponse_1.default("Question submitted and evaluated", {
+                marksObtained: result.marks,
+                verdict: result.verdict,
+                isCorrect: result.verdict === "correct",
+            }));
+        }
+        catch (err) {
+            return res
+                .status(500)
+                .json(new ApiError_1.default("Error evaluating answer", err));
         }
     };
 }
