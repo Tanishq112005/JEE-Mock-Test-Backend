@@ -274,13 +274,17 @@ class TestSyncService {
                 : 0,
         }));
         // OverallStats — only fields that exist in the interface
+        const paperMeta = testContext.papers;
+        const realTotalTimeTaken = paperMeta && typeof paperMeta.totalDuration === 'number' && typeof testContext.timeLeft === 'number'
+            ? (paperMeta.totalDuration * 60) - testContext.timeLeft
+            : totalTimeTaken;
         const overall = {
             totalQuestions,
             totalAttempted,
             totalCorrect,
             totalPartial,
             overallAccuracy: overallAcc,
-            totalTimeTaken,
+            totalTimeTaken: realTotalTimeTaken >= 0 ? realTotalTimeTaken : totalTimeTaken,
             averageTimePerQuestion: avgTimePerQ,
         };
         return {

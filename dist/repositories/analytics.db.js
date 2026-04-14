@@ -45,21 +45,49 @@ class Analytics {
     // Returns shape that reportService builders consume
     // ══════════════════════════════════════════════════════════════════════════
     async testWiseData(studentId) {
-        const rows = await this.db.testAttemptSummary.findMany({
-            where: { studentId },
-            include: {
-                subjectResults: true,
-                questionTypeResults: true,
-                testStatus: {
-                    include: {
-                        papers: {
-                            include: { exam: true },
+        const [rows, chapterSnapshots] = await Promise.all([
+            this.db.testAttemptSummary.findMany({
+                where: { studentId },
+                include: {
+                    subjectResults: true,
+                    questionTypeResults: true,
+                    testStatus: {
+                        include: {
+                            papers: {
+                                include: { exam: true },
+                            },
                         },
                     },
                 },
-            },
-            orderBy: { created_at: "desc" },
-        });
+                orderBy: { created_at: "desc" },
+            }),
+            this.db.testChapterAnalytics.findMany({
+                where: { studentId },
+            }),
+        ]);
+        const chaptersByTest = {};
+        for (const snap of chapterSnapshots) {
+            if (!chaptersByTest[snap.testStatusId]) {
+                chaptersByTest[snap.testStatusId] = [];
+            }
+            chaptersByTest[snap.testStatusId].push({
+                chapterId: snap.chapterId,
+                chapterName: snap.chapterName,
+                subjectName: snap.subjectName,
+                totalQuestions: snap.totalQuestions,
+                attempt: snap.attempt,
+                correct: snap.correct,
+                partial: snap.partial,
+                wrong: snap.wrong,
+                positiveMarks: snap.positiveMarks,
+                maxMarks: snap.maxPossible,
+                partialMarks: snap.partialMarks,
+                negativeMarks: snap.negativeMarks,
+                marks: snap.marksEarned,
+                timeTaken: snap.timeTaken,
+                accuracy: snap.accuracy,
+            });
+        }
         return rows.map((test) => {
             const paper = test.testStatus.papers;
             // ── Subject blocks (null-safe) ─────────────────────────────────────────
@@ -69,7 +97,7 @@ class Analytics {
                     return null;
                 return {
                     marks: raw.marks,
-                    maxMarks: raw.positiveMarks, // used by reportService calcAccuracy
+                    maxMarks: raw.maxMarks, // used by reportService calcAccuracy
                     correct: raw.correct,
                     wrong: raw.wrong,
                     partial: raw.partial,
@@ -85,7 +113,7 @@ class Analytics {
             for (const qt of test.questionTypeResults) {
                 questionTypes[qt.questionType] = {
                     marks: qt.marks,
-                    maxMarks: qt.positiveMarks, // used by reportService calcAccuracy
+                    maxMarks: qt.maxMarks, // used by reportService calcAccuracy
                     correct: qt.correct,
                     wrong: qt.wrong,
                     partial: qt.partial,
@@ -128,7 +156,7 @@ class Analytics {
                     totalDuration: paper.totalDuration ?? null,
                     totalQuestions: paper.totalQuestions ?? null,
                 },
-                chapterWise: [],
+                chapterWise: chaptersByTest[test.testStatusId] || [],
             };
         });
     }

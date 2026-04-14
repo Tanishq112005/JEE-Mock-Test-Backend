@@ -198,7 +198,7 @@ class ReportService {
             chemistry: item.chemistry,
             overAllAnalytics: item.overAllAnalytics,
             questionWise: item.questionTypes ?? {},
-            chapterWise: [],
+            chapterWise: item.chapterWise ?? [],
         }));
         // ── Dedup: DB wins if same testId exists in both ────────────────────────
         const dbIds = new Set(testWiseArray.map((t) => t.id));

@@ -1,11 +1,7 @@
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.questionBitmapRegistry = void 0;
 const redis_1 = require("../lib/redis");
-const redisManager_1 = __importDefault(require("../lib/redisManager"));
 const database_1 = require("../lib/database");
 // ─── Types ────────────────────────────────────────────────────────────────────
 // ─── Registry ─────────────────────────────────────────────────────────────────
@@ -126,11 +122,10 @@ class QuestionBitmapRegistry {
         const key = this.studentKey(studentId);
         // GETBIT then SETBIT — two ops, but GETSET is not available for bits.
         // Acceptable because this runs per question attempt, not in a hot inner loop.
-        const client = redisManager_1.default.getDashboardRedis(studentId);
-        const previousValue = await client.getBit(key, bitIndex);
+        const previousValue = await this.redis.getBit(key, bitIndex);
         const isFirstAttempt = previousValue === 0;
         if (isFirstAttempt) {
-            await client.setBit(key, bitIndex, 1);
+            await this.redis.setBit(key, bitIndex, 1);
         }
         return { isFirstAttempt, bitIndex };
     }
@@ -147,8 +142,7 @@ class QuestionBitmapRegistry {
         const key = this.studentKey(studentId);
         const results = new Map();
         // Phase 1: GET all current bits in one pipeline
-        const client = redisManager_1.default.getDashboardRedis(studentId);
-        const getPipeline = client.multi();
+        const getPipeline = this.redis.multi();
         const indexedQuestions = [];
         for (const questionId of questionIds) {
             let bitIndex = this.questionToIndex.get(questionId);
@@ -161,7 +155,7 @@ class QuestionBitmapRegistry {
         }
         const currentBits = await getPipeline.exec();
         // Phase 2: SET bits only for first-time questions
-        const setPipeline = client.multi();
+        const setPipeline = this.redis.multi();
         let setCount = 0;
         indexedQuestions.forEach(({ questionId, bitIndex }, i) => {
             const currentBit = currentBits[i];
@@ -189,13 +183,12 @@ class QuestionBitmapRegistry {
             return false;
         const key = this.studentKey(studentId);
         // Check if key exists first (avoid false negative on missing key)
-        const client = redisManager_1.default.getDashboardRedis(studentId);
-        const keyExists = await client.exists(key);
+        const keyExists = await this.redis.exists(key);
         if (!keyExists) {
             // Cold start — check DB directly and warm cache
             return this.coldStartCheck(studentId, questionId);
         }
-        const bit = await client.getBit(key, bitIndex);
+        const bit = await this.redis.getBit(key, bitIndex);
         return bit === 1;
     }
     /**
@@ -204,8 +197,7 @@ class QuestionBitmapRegistry {
      */
     async getUniqueAttemptCount(studentId) {
         this.ensureLoaded();
-        const client = redisManager_1.default.getDashboardRedis(studentId);
-        return await client.bitCount(this.studentKey(studentId));
+        return await this.redis.bitCount(this.studentKey(studentId));
     }
     /**
      * Get all questionIds this student has attempted (bitmap → questionId list).
@@ -213,16 +205,15 @@ class QuestionBitmapRegistry {
      */
     async getAttemptedQuestionIds(studentId) {
         this.ensureLoaded();
-        const client = redisManager_1.default.getDashboardRedis(studentId);
         const key = this.studentKey(studentId);
-        const totalUnique = await client.bitCount(key);
+        const totalUnique = await this.redis.bitCount(key);
         if (totalUnique === 0)
             return { totalUnique: 0, questionIds: [] };
         // Read raw bitmap bytes and decode manually
         // Redis GETRANGE returns the raw string (bitmap bytes)
         const maxIndex = (await this.redis.get(this.COUNTER_KEY)) ?? "0";
         const maxByte = Math.ceil((parseInt(maxIndex, 10) + 1) / 8);
-        const rawBitmap = await client.getRange(key, 0, maxByte - 1);
+        const rawBitmap = await this.redis.getRange(key, 0, maxByte - 1);
         if (!rawBitmap)
             return { totalUnique, questionIds: [] };
         const questionIds = [];
@@ -273,8 +264,7 @@ class QuestionBitmapRegistry {
             return;
         const key = this.studentKey(studentId);
         // Set bits for all known attempted questions
-        const client = redisManager_1.default.getDashboardRedis(studentId);
-        const pipeline = client.multi();
+        const pipeline = this.redis.multi();
         for (const questionId of allIds) {
             const bitIndex = this.questionToIndex.get(questionId);
             if (bitIndex !== undefined) {
@@ -288,8 +278,7 @@ class QuestionBitmapRegistry {
      * Wipe a student's bitmap (e.g. for testing or account reset).
      */
     async clearStudentBitmap(studentId) {
-        const client = redisManager_1.default.getDashboardRedis(studentId);
-        await client.del(this.studentKey(studentId));
+        await this.redis.del(this.studentKey(studentId));
         console.log(`[QuestionBitmapRegistry] Cleared bitmap for student ${studentId}.`);
     }
     // ── LOOKUP HELPERS ───────────────────────────────────────────────────────────
@@ -331,8 +320,7 @@ class QuestionBitmapRegistry {
             // Warm the bitmap so future calls are fast
             const bitIndex = this.questionToIndex.get(questionId);
             if (bitIndex !== undefined) {
-                const client = redisManager_1.default.getDashboardRedis(studentId);
-                await client.setBit(this.studentKey(studentId), bitIndex, 1);
+                await this.redis.setBit(this.studentKey(studentId), bitIndex, 1);
             }
         }
         return seen;
