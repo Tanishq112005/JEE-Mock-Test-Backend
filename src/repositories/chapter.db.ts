@@ -109,6 +109,28 @@ class Chapter {
     }
   };
 
+  public gettingDetailedGroups = async (subjectName: string) => {
+    try {
+      const subjectParts = await this.db.subjects.findUnique({
+        where: { name: subjectName as SubjectName },
+        include: { chapters: { select: { group: true }, distinct: ["group"] } }
+      });
+
+      if (!subjectParts) {
+        throw new ApiError("Subject not found");
+      }
+
+      return subjectParts.chapters.map((ch, index) => ({
+        id: `${subjectParts.id}-group-${index}`,
+        subjectId: subjectParts.id,
+        subjectName: subjectParts.name,
+        groupName: ch.group
+      }));
+    } catch(err) {
+      throw err;
+    }
+  };
+
   public gettingChapterId = async (chapterName: string): Promise<chapters> => {
     const chapter = await this.db.chapters.findUnique({
       where: { name: chapterName },

@@ -17,6 +17,8 @@
     "start:prod:worker:testEvalution": "node dist/worker/testEvalutionWorker.js",
     "start:prod:worker:studentAnalytics": "node dist/worker/studentTestAnalyticsWorker.js",
     "start:prod:worker:emailAdding": "node dist/worker/emailAddingWorker.js",
+    "start:prod:worker:updateChapter": "node dist/worker/updateChapterAttemptWorker.js",
+    "start:prod:worker:submitChapter": "node dist/worker/submitChapterAttemptWorker.js",
     "dev:api": "npx ts-node src/server.ts",
     "dev:worker:email": "npx ts-node src/worker/emailWorker.ts",
     "dev:worker:update": "npx ts-node src/worker/updateTestDetailsWorker.ts",
@@ -24,7 +26,9 @@
     "dev:worker:testEvalution": "npx ts-node src/worker/testEvalutionWorker.ts",
     "dev:worker:studentAnalytics": "npx ts-node src/worker/studentTestAnalyticsWorker.ts",
     "dev:worker:emailAdding": "npx ts-node src/worker/emailAddingWorker.ts",
-    "start": "concurrently \"npm run dev:api\" \"npm run dev:worker:email\" \"npm run dev:worker:update\" \"npm run dev:worker:watchdog\" \"npm run dev:worker:testEvalution\"  \"npm run dev:worker:studentAnalytics\" \"npm run dev:worker:emailAdding\" --names \"API,EMAIL,UPDATE,WATCH,EVAL,ANALYTICS,EAMILADDING\" --prefix-colors \"blue,magenta,yellow,green,cyan,red,black\""
+    "dev:worker:updateChapter": "npx ts-node src/worker/updateChapterAttemptWorker.ts",
+    "dev:worker:submitChapter": "npx ts-node src/worker/submitChapterAttemptWorker.ts",
+    "start": "concurrently \"npm run dev:api\" \"npm run dev:worker:email\" \"npm run dev:worker:update\" \"npm run dev:worker:watchdog\" \"npm run dev:worker:testEvalution\" \"npm run dev:worker:studentAnalytics\" \"npm run dev:worker:emailAdding\" \"npm run dev:worker:updateChapter\" \"npm run dev:worker:submitChapter\" --names \"API,EMAIL,UPDATE,WATCH,EVAL,ANALYTICS,EMAIL_ADD,CH_UPDATE,CH_SUBMIT\" --prefix-colors \"blue,magenta,yellow,green,cyan,red,black,white,gray\""
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.958.0",

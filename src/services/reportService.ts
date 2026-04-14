@@ -612,10 +612,13 @@ class ReportService {
       uniqueTestIdsSet.add(String(pId));
     }
 
+    const practiceAnalytics = await this.buildPracticeAnalytics(studentId);
+
     return {
       studentId,
       totalUniqueMockTests: uniqueTestIdsSet.size,
       generatedAt: new Date(),
+      practiceAnalytics,
       report: this.buildReport(allTestData, lastNPerGroup),
       lastNTests: {
         last3: this.buildReport(allTestData, 3),
@@ -623,6 +626,91 @@ class ReportService {
         last10: this.buildReport(allTestData, 10),
       },
       allTests: allTestData,
+    };
+  }
+
+  // ══════════════════════════════════════════
+  // PRACTICE ANALYTICS BALANCE Builders
+  // ══════════════════════════════════════════
+  
+  async buildPracticeAnalytics(studentId: string) {
+    const { chapterWisePractice } = await import("../repositories/chapterWisePractice.db");
+    const { chapterWiseCacheService } = await import("./chapterWiseCacheService");
+
+    const activeAttempts = await chapterWiseCacheService.getAllActiveAttempts(studentId);
+    const dbAttempts = await chapterWisePractice.getAllPracticeAttemptsRaw(studentId);
+
+    const mergedMap = new Map<string, any>();
+
+    for (const record of dbAttempts) {
+       mergedMap.set(record.questionId, {
+          questionId: record.questionId,
+          subject: record.question?.subjects?.name || "Unknown",
+          type: record.question?.type || "Unknown",
+          timeSpent: record.timeSpent || 0,
+          isCorrect: record.isCorrect || false,
+          status: record.questionStatus,
+       });
+    }
+
+    for (const [qId, active] of Object.entries(activeAttempts)) {
+       const existing = mergedMap.get(qId);
+       if (existing) {
+         existing.timeSpent = active.timeSpent || existing.timeSpent;
+         existing.status = active.status || existing.status;
+         if (active.isCorrect !== undefined) {
+           existing.isCorrect = active.isCorrect;
+         }
+         if (active.marksObtained !== undefined) {
+           existing.marks = active.marksObtained;
+         }
+       }
+    }
+
+    let totalAttempted = 0;
+    let totalCorrect = 0;
+    let totalTimeSpent = 0;
+    
+    const subjectBalance: Record<string, any> = {
+       Mathematics: { attempted: 0, correct: 0, timeSpent: 0 },
+       Physics: { attempted: 0, correct: 0, timeSpent: 0 },
+       Chemistry: { attempted: 0, correct: 0, timeSpent: 0 }
+    };
+
+    const questionBalance: Record<string, any> = {};
+
+    for (const record of mergedMap.values()) {
+        totalTimeSpent += record.timeSpent;
+        
+        const isAttempted = record.status === "answered" || record.isCorrect !== null;
+        if (isAttempted) {
+           totalAttempted++;
+           if (record.isCorrect) totalCorrect++;
+           
+           if (subjectBalance[record.subject]) {
+              subjectBalance[record.subject].attempted++;
+              subjectBalance[record.subject].timeSpent += record.timeSpent;
+              if (record.isCorrect) subjectBalance[record.subject].correct++;
+           }
+
+           if (!questionBalance[record.type]) {
+              questionBalance[record.type] = { attempted: 0, correct: 0, timeSpent: 0 };
+           }
+           questionBalance[record.type].attempted++;
+           questionBalance[record.type].timeSpent += record.timeSpent;
+           if (record.isCorrect) questionBalance[record.type].correct++;
+        }
+    }
+
+    const practiceAccuracy = totalAttempted > 0 ? parseFloat(((totalCorrect / totalAttempted) * 100).toFixed(4)) : 0;
+    const avgTime = totalAttempted > 0 ? parseFloat((totalTimeSpent / totalAttempted).toFixed(4)) : 0;
+
+    return {
+       practiceAccuracy,
+       avgTime,
+       subjectWiseBalance: subjectBalance,
+       questionWiseBalance: questionBalance,
+       totalTimeSpent
     };
   }
 
