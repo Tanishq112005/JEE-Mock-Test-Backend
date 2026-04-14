@@ -28,6 +28,7 @@ class TestEvaluation {
                 partial: 0,
                 wrong: 0,
                 positiveMarks: 0,
+                maxMarks: 0,
                 partialMarks: 0,
                 negativeMarks: 0,
                 marks: 0,
@@ -69,6 +70,7 @@ class TestEvaluation {
                             partial: 0,
                             wrong: 0,
                             positiveMarks: 0,
+                            maxMarks: 0,
                             partialMarks: 0,
                             negativeMarks: 0,
                             marks: 0,
@@ -134,10 +136,14 @@ class TestEvaluation {
                 else if (q.subject === "Chemistry")
                     chemistryTimeTaken += q.timeSpent;
                 const qtStat = questionTypeStats[q.type];
-                if (qtStat)
+                if (qtStat) {
                     qtStat.timeTaken += q.timeSpent;
+                    qtStat.maxMarks += q.totalPositiveMarks;
+                }
                 if (q.chapterId && chapterStats.has(q.chapterId)) {
-                    chapterStats.get(q.chapterId).timeTaken += q.timeSpent;
+                    const ch = chapterStats.get(q.chapterId);
+                    ch.timeTaken += q.timeSpent;
+                    ch.maxMarks += q.totalPositiveMarks;
                 }
                 // FIX: Check if question was ACTUALLY attempted (not just visited)
                 const isAttempted = q.verdict === "correct" ||
@@ -161,6 +167,10 @@ class TestEvaluation {
                         }
                         qtStat.marks =
                             qtStat.positiveMarks + qtStat.partialMarks - qtStat.negativeMarks;
+                        qtStat.accuracy =
+                            qtStat.attempt > 0
+                                ? this.formatFloat((qtStat.correct / qtStat.attempt) * 100)
+                                : 0;
                     }
                     // ── Chapter tracking ──
                     if (q.chapterId && chapterStats.has(q.chapterId)) {
@@ -181,7 +191,7 @@ class TestEvaluation {
                         ch.marks = ch.positiveMarks + ch.partialMarks - ch.negativeMarks;
                         ch.accuracy =
                             ch.attempt > 0
-                                ? this.formatFloat(((ch.correct + ch.partial) / ch.attempt) * 100)
+                                ? this.formatFloat((ch.correct / ch.attempt) * 100)
                                 : 0;
                     }
                     // ── Subject tracking ──

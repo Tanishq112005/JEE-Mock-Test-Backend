@@ -604,6 +604,7 @@ model SubjectTestResult {
   wrong            Int
   
   marks            Float
+  maxMarks         Float              @default(0.0)
   positiveMarks    Float
   partialMarks     Float
   negativeMarks    Float
@@ -629,6 +630,7 @@ model QuestionTypeTestResult {
   wrong            Int
   
   marks            Float
+  maxMarks         Float              @default(0.0)
   positiveMarks    Float
   partialMarks     Float
   negativeMarks    Float

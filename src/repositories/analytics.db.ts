@@ -62,21 +62,50 @@ class Analytics {
   // ══════════════════════════════════════════════════════════════════════════
 
   async testWiseData(studentId: string) {
-    const rows = await this.db.testAttemptSummary.findMany({
-      where:   { studentId },
-      include: {
-        subjectResults:      true,
-        questionTypeResults: true,
-        testStatus: {
-          include: {
-            papers: {
-              include: { exam: true },
+    const [rows, chapterSnapshots] = await Promise.all([
+      this.db.testAttemptSummary.findMany({
+        where:   { studentId },
+        include: {
+          subjectResults:      true,
+          questionTypeResults: true,
+          testStatus: {
+            include: {
+              papers: {
+                include: { exam: true },
+              },
             },
           },
         },
-      },
-      orderBy: { created_at: "desc" },
-    });
+        orderBy: { created_at: "desc" },
+      }),
+      this.db.testChapterAnalytics.findMany({
+        where: { studentId },
+      }),
+    ]);
+
+    const chaptersByTest: Record<string, any[]> = {};
+    for (const snap of chapterSnapshots) {
+      if (!chaptersByTest[snap.testStatusId]) {
+        chaptersByTest[snap.testStatusId] = [];
+      }
+      chaptersByTest[snap.testStatusId].push({
+        chapterId:      snap.chapterId,
+        chapterName:    snap.chapterName,
+        subjectName:    snap.subjectName,
+        totalQuestions: snap.totalQuestions,
+        attempt:        snap.attempt,
+        correct:        snap.correct,
+        partial:        snap.partial,
+        wrong:          snap.wrong,
+        positiveMarks:  snap.positiveMarks,
+        maxMarks:       snap.maxPossible,
+        partialMarks:   snap.partialMarks,
+        negativeMarks:  snap.negativeMarks,
+        marks:          snap.marksEarned,
+        timeTaken:      snap.timeTaken,
+        accuracy:       snap.accuracy,
+      });
+    }
 
     return rows.map((test) => {
       const paper = test.testStatus.papers;
@@ -89,7 +118,7 @@ class Analytics {
         if (!raw) return null;
         return {
           marks:          raw.marks,
-          maxMarks:       raw.positiveMarks,   // used by reportService calcAccuracy
+          maxMarks:       raw.maxMarks,   // used by reportService calcAccuracy
           correct:        raw.correct,
           wrong:          raw.wrong,
           partial:        raw.partial,
@@ -106,7 +135,7 @@ class Analytics {
       for (const qt of test.questionTypeResults) {
         questionTypes[qt.questionType] = {
           marks:          qt.marks,
-          maxMarks:       qt.positiveMarks,    // used by reportService calcAccuracy
+          maxMarks:       qt.maxMarks,    // used by reportService calcAccuracy
           correct:        qt.correct,
           wrong:          qt.wrong,
           partial:        qt.partial,
@@ -155,7 +184,7 @@ class Analytics {
           totalQuestions: paper.totalQuestions ?? null,
         },
 
-        chapterWise: [],
+        chapterWise: chaptersByTest[test.testStatusId] || [],
       };
     });
   }
@@ -297,6 +326,7 @@ class Analytics {
         partial:        ch.partial,
         wrong:          ch.wrong,
         positiveMarks:  ch.positiveMarks,
+        maxMarks:       ch.maxPossible, // or whatever the source had, wait... in chapterSnapshots we had `ch.maxPossible`
         partialMarks:   ch.partialMarks,
         negativeMarks:  ch.negativeMarks,
         marks:          ch.marksEarned,
@@ -442,6 +472,7 @@ class Analytics {
       wrong:          s.wrong,
       marks:          s.marks,
       positiveMarks:  s.positiveMarks,
+      maxMarks:       s.maxMarks,
       partialMarks:   s.paritalMarks,  // typo kept
       negativeMarks:  s.negativeMarks,
       timeTaken:      s.timeTaken,
@@ -577,7 +608,7 @@ class Analytics {
         testJeeMainAttempts:    ch.attempt,
         testJeeMainTimeSpent:   ch.timeTaken,
         testJeeMainMarksEarned: ch.marks,
-        testJeeMainMaxPossible: ch.positiveMarks,
+        testJeeMainMaxPossible: ch.maxMarks,
         testJeeMainCorrect:     ch.correct,
         testJeeMainWrong:       ch.wrong,
         testJeeMainPartial:     ch.partial,
@@ -587,7 +618,7 @@ class Analytics {
         testJeeAdvancedAttempts:    ch.attempt,
         testJeeAdvancedTimeSpent:   ch.timeTaken,
         testJeeAdvancedMarksEarned: ch.marks,
-        testJeeAdvancedMaxPossible: ch.positiveMarks,
+        testJeeAdvancedMaxPossible: ch.maxMarks,
         testJeeAdvancedCorrect:     ch.correct,
         testJeeAdvancedWrong:       ch.wrong,
         testJeeAdvancedPartial:     ch.partial,
@@ -597,7 +628,7 @@ class Analytics {
         testJeeMainAttempts:    { increment: ch.attempt },
         testJeeMainTimeSpent:   { increment: ch.timeTaken },
         testJeeMainMarksEarned: { increment: ch.marks },
-        testJeeMainMaxPossible: { increment: ch.positiveMarks },
+        testJeeMainMaxPossible: { increment: ch.maxMarks },
         testJeeMainCorrect:     { increment: ch.correct },
         testJeeMainWrong:       { increment: ch.wrong },
         testJeeMainPartial:     { increment: ch.partial },
@@ -607,7 +638,7 @@ class Analytics {
         testJeeAdvancedAttempts:    { increment: ch.attempt },
         testJeeAdvancedTimeSpent:   { increment: ch.timeTaken },
         testJeeAdvancedMarksEarned: { increment: ch.marks },
-        testJeeAdvancedMaxPossible: { increment: ch.positiveMarks },
+        testJeeAdvancedMaxPossible: { increment: ch.maxMarks },
         testJeeAdvancedCorrect:     { increment: ch.correct },
         testJeeAdvancedWrong:       { increment: ch.wrong },
         testJeeAdvancedPartial:     { increment: ch.partial },
@@ -635,13 +666,13 @@ class Analytics {
           testAttempts:    stats.attempt,
           testTimeSpent:   stats.timeTaken,
           testMarksEarned: stats.marks,
-          testMaxPossible: stats.positiveMarks,
+          testMaxPossible: stats.maxMarks,
         },
         update: {
           testAttempts:    { increment: stats.attempt },
           testTimeSpent:   { increment: stats.timeTaken },
           testMarksEarned: { increment: stats.marks },
-          testMaxPossible: { increment: stats.positiveMarks },
+          testMaxPossible: { increment: stats.maxMarks },
           updated_at:      new Date(),
         },
       }),

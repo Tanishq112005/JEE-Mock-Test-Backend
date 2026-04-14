@@ -10,6 +10,7 @@ export interface SubjectStats {
   marks:          number;
   timeTaken:      number;
   positiveMarks:  number;
+  maxMarks:       number;
   paritalMarks:   number; // keeping typo for consistency
   negativeMarks:  number;
   correct:        number;
@@ -27,6 +28,7 @@ export interface QuestionTypeStat {
   partial:        number;
   wrong:          number;
   positiveMarks:  number;
+  maxMarks:       number;
   partialMarks:   number;
   negativeMarks:  number;
   marks:          number;
@@ -46,6 +48,7 @@ export interface ChapterStat {
   partial:        number;
   wrong:          number;
   positiveMarks:  number;
+  maxMarks:       number;
   partialMarks:   number;
   negativeMarks:  number;
   marks:          number;
@@ -91,6 +94,7 @@ export interface QuestionTypeStat {
     partial:        number;
     wrong:          number;
     positiveMarks:  number;
+    maxMarks:       number;
     partialMarks:   number;
     negativeMarks:  number;
     marks:          number;
@@ -108,6 +112,7 @@ export interface ChapterStat {
     partial:        number;
     wrong:          number;
     positiveMarks:  number;
+    maxMarks:       number;
     partialMarks:   number;
     negativeMarks:  number;
     marks:          number;

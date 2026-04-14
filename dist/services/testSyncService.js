@@ -209,10 +209,10 @@ class TestSyncService {
         }
         // ── Compute overall ───────────────────────────────────────────────────────
         const totalQuestions = questions.length;
-        const totalMaxMarks = Object.values(subjectAcc).reduce((s, a) => s + a.positiveMarks, 0);
+        const totalMaxMarks = Object.values(subjectAcc).reduce((s, a) => s + a.maxMarks, 0);
         const totalMarks = Object.values(subjectAcc).reduce((s, a) => s + a.marks, 0);
-        const overallAcc = totalMaxMarks > 0
-            ? parseFloat(((totalMarks / totalMaxMarks) * 100).toFixed(2))
+        const overallAcc = totalAttempted > 0
+            ? parseFloat(((totalCorrect / totalAttempted) * 100).toFixed(2))
             : 0;
         const avgTimePerQ = totalQuestions > 0
             ? parseFloat((totalTimeTaken / totalQuestions).toFixed(2))
@@ -226,11 +226,12 @@ class TestSyncService {
             wrong: acc.wrong,
             marks: acc.marks,
             positiveMarks: acc.positiveMarks,
+            maxMarks: acc.maxMarks,
             paritalMarks: acc.partialMarks, // intentional typo kept from your type
             negativeMarks: acc.negativeMarks,
             timeTaken: acc.timeTaken,
-            accuracy: acc.positiveMarks > 0
-                ? parseFloat(((acc.marks / acc.positiveMarks) * 100).toFixed(2))
+            accuracy: acc.attempt > 0
+                ? parseFloat(((acc.correct / acc.attempt) * 100).toFixed(2))
                 : 0,
         });
         // questionTypes: keyed by actual Prisma enum value e.g. "SingleCorrect"
@@ -244,11 +245,12 @@ class TestSyncService {
                 wrong: acc.wrong,
                 marks: acc.marks,
                 positiveMarks: acc.positiveMarks,
+                maxMarks: acc.maxMarks,
                 partialMarks: acc.partialMarks,
                 negativeMarks: acc.negativeMarks,
                 timeTaken: acc.timeTaken,
-                accuracy: acc.positiveMarks > 0
-                    ? parseFloat(((acc.marks / acc.positiveMarks) * 100).toFixed(2))
+                accuracy: acc.attempt > 0
+                    ? parseFloat(((acc.correct / acc.attempt) * 100).toFixed(2))
                     : 0,
             };
         }
@@ -263,11 +265,12 @@ class TestSyncService {
             wrong: c.wrong,
             marks: c.marks,
             positiveMarks: c.positiveMarks,
+            maxMarks: c.maxMarks,
             partialMarks: c.partialMarks,
             negativeMarks: c.negativeMarks,
             timeTaken: c.timeTaken,
-            accuracy: c.positiveMarks > 0
-                ? parseFloat(((c.marks / c.positiveMarks) * 100).toFixed(2))
+            accuracy: c.attempt > 0
+                ? parseFloat(((c.correct / c.attempt) * 100).toFixed(2))
                 : 0,
         }));
         // OverallStats — only fields that exist in the interface
@@ -323,6 +326,7 @@ class TestSyncService {
             wrong: 0,
             marks: 0,
             positiveMarks: 0,
+            maxMarks: 0,
             partialMarks: 0,
             negativeMarks: 0,
             timeTaken: 0,
@@ -332,11 +336,13 @@ class TestSyncService {
         acc.totalQuestions++;
         acc.timeTaken += data.timeSpent;
         acc.marks += data.marks;
-        acc.positiveMarks += data.positiveMarks;
+        acc.maxMarks += data.positiveMarks;
         if (data.isAttempted)
             acc.attempt++;
-        if (data.isCorrect)
+        if (data.isCorrect) {
             acc.correct++;
+            acc.positiveMarks += data.positiveMarks;
+        }
         if (data.isPartial) {
             acc.partial++;
             acc.partialMarks += data.partialMarks;
