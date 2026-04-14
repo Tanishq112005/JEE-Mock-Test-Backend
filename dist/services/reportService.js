@@ -93,7 +93,21 @@ class ReportService {
             return oa.wrong;
         return ((t.math?.wrong ?? 0) + (t.physics?.wrong ?? 0) + (t.chemistry?.wrong ?? 0));
     }
+    // ── UPDATED LOGIC HERE ──────────────────────────────────────────────────────
     getTime(t) {
+        // 1. Calculate from timeLeft if it exists in the mapped object
+        if (t.timeLeft != null && t.totalDuration != null) {
+            let durationInSeconds = t.totalDuration;
+            // Safety check: If totalDuration is in minutes (e.g., 180), convert to seconds.
+            // If it's already in seconds (e.g., 10800), skip the conversion.
+            if (durationInSeconds < 1000) {
+                durationInSeconds *= 60;
+            }
+            const calculatedTimeTaken = durationInSeconds - t.timeLeft;
+            // Math.max ensures we don't return negative time in case of a DB anomaly
+            return Math.max(0, calculatedTimeTaken);
+        }
+        // 2. Existing Fallbacks
         const oa = t.overAllAnalytics ?? t.overall ?? {};
         if (oa.timeTaken != null)
             return oa.timeTaken;
@@ -186,7 +200,10 @@ class ReportService {
             overall: item.testData?.overall ?? null,
             questionWise: item.testData?.questionTypes ?? {},
             chapterWise: item.testData?.chapterWise ?? [],
+            timeLeft: item.testData?.timeLeft, // Map if available in redis
+            totalDuration: item.testData?.totalDuration,
         }));
+        // ── UPDATED LOGIC HERE ──────────────────────────────────────────────────────
         const testWiseArray = testWiseData.map((item) => ({
             id: item.testStatusId,
             created_at: new Date(item.created_at),
@@ -199,6 +216,8 @@ class ReportService {
             overAllAnalytics: item.overAllAnalytics,
             questionWise: item.questionTypes ?? {},
             chapterWise: item.chapterWise ?? [],
+            timeLeft: item.timeLeft, // Injecting timeLeft from DB
+            totalDuration: item.paperMeta?.totalDuration || item.paperMeta?.duration, // Injecting total duration
         }));
         // ── Dedup: DB wins if same testId exists in both ────────────────────────
         const dbIds = new Set(testWiseArray.map((t) => t.id));
@@ -224,7 +243,7 @@ class ReportService {
         const wrong = valid.map((t) => t[subject].wrong ?? 0);
         const time = valid.map((t) => t[subject].timeTaken ?? 0);
         const totalQ = valid.map((t) => t[subject].totalQuestions ?? 0);
-        const _this = this; // Capture this context for the map loop
+        const _this = this;
         return {
             avgScore: this.avgOf(marks),
             avgMaxScore: this.avgOf(maxMarks),
@@ -796,6 +815,7 @@ class ReportService {
             exams: examReport,
         };
     }
+    // ── UPDATED STUDENT SNAPSHOT LOGIC ───────────────────────────────────────────
     async studentSnapshot(studentId) {
         const [allTestData, practiceData, attemptedQuestions, subjectTotals] = await Promise.all([
             this.allTestResult(studentId),
@@ -857,6 +877,10 @@ class ReportService {
         }
         const _this = this;
         const last5Tests = last5Raw.map(function (t) {
+            // Inject paper details into the mapped object so getTime() works properly
+            if (paperDetailsMap[t.id]) {
+                t.totalDuration = paperDetailsMap[t.id].totalDuration;
+            }
             const finalMarks = _this.getMarks(t);
             const finalMaxMarks = _this.getMaxMarks(t);
             const finalCorrect = _this.getCorrect(t);
@@ -873,7 +897,7 @@ class ReportService {
                     wrong: finalWrong,
                     accuracy: _this.calcAccuracy(finalCorrect, finalWrong),
                     percentage: _this.calcPercentage(finalMarks, finalMaxMarks),
-                    timeTaken: _this.getTime(t),
+                    timeTaken: _this.getTime(t), // Will now accurately use DB totalDuration
                 },
                 subjects: {
                     math: _this.buildSubjectBlock(t, "math", "Mathematics"),
