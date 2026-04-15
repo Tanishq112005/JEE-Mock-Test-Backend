@@ -66,22 +66,39 @@ class ChapterWiseController {
     }
   };
   
-  // api for the getting the chapter question 
-  // and the problem text 
-  // status of the problem 
-  // need the chapterId 
+  // API #3: Get chapter questions and stats by chapter name
+  // Route param :chapterName is the human-readable chapter name (e.g. "Kinematics")
+  // It is resolved to a chapterId internally before querying the DB.
   public getChapterInfo = async (req: any, res: any) => {
     try {
-      const { chapterId } = req.params;
+      const { chapterName } = req.params;
       const userId = req.user;
 
-      if (!chapterId)
-        return res.status(400).json(new ApiError("chapterId is required"));
+      if (!chapterName)
+        return res.status(400).json(new ApiError("chapterName is required"));
 
-      const stats = await chapterWisePractice.getChapterInfo(chapterId, userId);
-      return res
-        .status(200)
-        .json(new ApiResponse("Chapter Stats fetched", stats));
+      // Resolve chapter name → chapter record
+      let chapterRecord: any;
+      try {
+        chapterRecord = await chapter.gettingChapterId(chapterName);
+      } catch (err : any) {
+        return res
+          .status(404)
+          .json(new ApiError(`Chapter "${chapterName}" not found. Verify the chapter name.` , err));
+      }
+
+      const stats = await chapterWisePractice.getChapterInfo(
+        chapterRecord.id,
+        userId,
+      );
+
+      return res.status(200).json(
+        new ApiResponse("Chapter Stats fetched", {
+          chapterId: chapterRecord.id,
+          chapterName: chapterRecord.name,
+          ...stats,
+        }),
+      );
     } catch (err) {
       return res
         .status(500)
