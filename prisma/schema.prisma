@@ -110,6 +110,41 @@ enum ExamMode {
   @@schema("public")
 }
 
+
+enum Class {
+   class_12
+   class_11
+   Dropper
+   class_10_or_below
+
+    @@schema("public")
+
+}
+
+
+enum Category {
+  General 
+  General_PwD
+  General_EWS
+  General_EWS_PwD
+  OBC_NCL
+  OBC_NCL_PwD
+  SC
+  SC_PwD
+  ST
+  ST_PwD
+  
+
+   @@schema("public")
+}
+
+enum Gender {
+  Male 
+  Female
+  Other
+
+  @@schema("public")
+}
 // ==========================================
 // 1. USER MANAGEMENT
 // ==========================================
@@ -132,16 +167,17 @@ model user {
 model studentProfile {
   id                 String  @id @default(uuid())
   user_id            String  @unique
-  class              Int?
-  institution        String?
+  class              Class?
+  category           Category?
   phone              BigInt? @unique
   phone_country_code String?
-
+  gender             Gender?
   // Gamification & Standing
   streak        Int @default(0)
   maximumStreak Int @default(0)
   globalRank    Int @default(1)
-
+  
+  stage         Int @default(0) 
   // Relationships
   testSession         testStatus[]
   chapterWiseStatus   chapterWiseQuestionAttemptStatus[]

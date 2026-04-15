@@ -1,4 +1,0 @@
--- AlterTable
-ALTER TABLE "papers" ADD COLUMN     "totalInteger" INTEGER NOT NULL DEFAULT 0,
-ADD COLUMN     "totalMultiChoice" INTEGER NOT NULL DEFAULT 0,
-ADD COLUMN     "totoalSingleChoice" INTEGER NOT NULL DEFAULT 0;
