@@ -1,12 +1,21 @@
 import express from "express";
 import { rabbitMQClient } from "../rabbitmq/connection/rabbitmq-connection";
 import { UpdateChapterAttemptConsumer } from "../rabbitmq/consumers/updateChapterAttempt-consumer";
+import redisManager from "../lib/redisManager";
+import { REDIS_HOST, REDIS_PORT, REDIS_USERNAME, REDIS_PASSWORD } from "../config/env";
 
 const startUpdateChapterWorker = async () => {
   try {
     console.log("🔄 Starting Update Chapter Attempt Worker Service...");
 
     await rabbitMQClient.connect();
+
+    // Initialise the Dashboard Redis ring so cacheService works in this worker process
+    if (REDIS_HOST) {
+      await redisManager.addDashboardInstances([
+        { host: REDIS_HOST as string, port: Number(REDIS_PORT), username: REDIS_USERNAME as string, password: REDIS_PASSWORD as string, email: '' } as any
+      ]);
+    }
 
     const updateConsumer = new UpdateChapterAttemptConsumer(rabbitMQClient);
     await updateConsumer.start();

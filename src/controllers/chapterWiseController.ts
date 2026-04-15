@@ -167,14 +167,14 @@ class ChapterWiseController {
         userAnswerRaw, 
       } = req.body;
 
-     
+      const studentId = req.user ; 
       const result = await practiceQuestionEvaluation.evaluate({
         questionId: questionId,
         userAnswer: userAnswerRaw || [],
         timeSpent: timeSpent || 0,
         created_at: new Date()
       });
-
+      
       const payload = {
         studentId: userId,
         questionId,
@@ -184,7 +184,11 @@ class ChapterWiseController {
         isCorrect: result.verdict === "correct",
         marksObtained: result.marks,
       };
+      
 
+      if(result.verdict === "correct"){
+        await questionBitmapRegistry.markAttempted(studentId , questionId) ; 
+      }
       // Set to Redis first so user can check immediate history
       await chapterWiseCacheService.upsertAttemptData(userId, questionId, payload);
 

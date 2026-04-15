@@ -1,12 +1,25 @@
 import express from "express";
 import { rabbitMQClient } from "../rabbitmq/connection/rabbitmq-connection";
 import { SubmitChapterAttemptConsumer } from "../rabbitmq/consumers/submitChapterAttempt-consumer";
+import redisManager from "../lib/redisManager";
+import { REDIS_HOST, REDIS_PORT, REDIS_USERNAME, REDIS_PASSWORD } from "../config/env";
+import { questionBitmapRegistry } from "../services/uniqueCountService";
 
 const startSubmitChapterWorker = async () => {
   try {
     console.log("🔄 Starting Submit Chapter Attempt Worker Service...");
 
     await rabbitMQClient.connect();
+
+    // Initialise the Dashboard Redis ring so cacheService works in this worker process
+    if (REDIS_HOST) {
+      await redisManager.addDashboardInstances([
+        { host: REDIS_HOST as string, port: Number(REDIS_PORT), username: REDIS_USERNAME as string, password: REDIS_PASSWORD as string, email: '' } as any
+      ]);
+    }
+
+    // Load the bitmap registry so questionBitmapRegistry.markAttempted() works
+    await questionBitmapRegistry.load();
 
     const submitConsumer = new SubmitChapterAttemptConsumer(rabbitMQClient);
     await submitConsumer.start();

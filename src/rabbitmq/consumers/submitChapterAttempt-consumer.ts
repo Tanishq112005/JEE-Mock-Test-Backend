@@ -1,6 +1,7 @@
 import { ConsumeMessage } from "amqplib";
 import { chapterWisePractice } from "../../repositories/chapterWisePractice.db";
 import { chapterWiseCacheService } from "../../services/chapterWiseCacheService";
+import { questionBitmapRegistry } from "../../services/uniqueCountService";
 
 export class SubmitChapterAttemptConsumer {
   private connection: any;
@@ -42,6 +43,8 @@ export class SubmitChapterAttemptConsumer {
               marksObtained: data.marksObtained,
               isFinalSubmit: true
           });
+
+      
 
           // DB confirmed — now safe to delete from Redis
           await chapterWiseCacheService.deleteAttemptData(

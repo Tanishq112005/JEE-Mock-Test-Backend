@@ -7,8 +7,8 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  schemas   = ["public", "email"]
+  provider = "postgresql"
+  schemas  = ["public", "email"]
 }
 
 // ==========================================
@@ -16,13 +16,14 @@ datasource db {
 // ==========================================
 
 enum Day {
-  Monday 
-  Tuesday 
-  Wednesday 
-  Thursday 
+  Monday
+  Tuesday
+  Wednesday
+  Thursday
   Friday
   Saturday
   Sunday
+
   @@schema("public")
 }
 
@@ -39,26 +40,30 @@ enum Month {
   October
   November
   December
+
   @@schema("public")
 }
 
 enum UserType {
   Student
   Developer
+
   @@schema("public")
 }
 
 enum ExamName {
   JEE_MAIN
   JEE_ADVANCED
+
   @@schema("public")
 }
 
 enum Shift {
-  Paper_1 
-  Paper_2 
-  Morning 
+  Paper_1
+  Paper_2
+  Morning
   Evening
+
   @@schema("public")
 }
 
@@ -66,6 +71,7 @@ enum SubjectName {
   Physics
   Chemistry
   Mathematics
+
   @@schema("public")
 }
 
@@ -74,6 +80,7 @@ enum AttemptStatus {
   notAnswered
   markedForReview
   visited
+
   @@schema("public")
 }
 
@@ -81,6 +88,7 @@ enum TestState {
   IN_PROGRESS
   PAUSED
   COMPLETED
+
   @@schema("public")
 }
 
@@ -91,12 +99,14 @@ enum questionType {
   ComprehensionSingleCorrect
   ComprehensionMultiCorrect
   ComprehensionInteger
+
   @@schema("public")
 }
 
 enum ExamMode {
   online
   offline
+
   @@schema("public")
 }
 
@@ -110,7 +120,7 @@ model user {
   email           String          @unique
   type            UserType        @default(Student)
   password        String          @unique
-  refersh_token    String?         @unique
+  refersh_token   String?         @unique
   lastVisited     DateTime        @default(now())
   created_at      DateTime        @default(now())
   is_verified     Boolean
@@ -120,37 +130,37 @@ model user {
 }
 
 model studentProfile {
-  id                 String     @id @default(uuid())
-  user_id            String     @unique
+  id                 String  @id @default(uuid())
+  user_id            String  @unique
   class              Int?
   institution        String?
-  phone              BigInt?    @unique
+  phone              BigInt? @unique
   phone_country_code String?
-  
+
   // Gamification & Standing
-  streak             Int        @default(0) 
-  maximumStreak      Int        @default(0)
-  globalRank         Int        @default(1)
+  streak        Int @default(0)
+  maximumStreak Int @default(0)
+  globalRank    Int @default(1)
 
   // Relationships
-  testSession              testStatus[]
-  chapterWiseStatus        chapterWiseQuestionAttemptStatus[]
-  bookMarkedQuestion       bookmarkedQuestion[]
-  dailyActivity            DailyActivityLog[] 
-  testQuestionAttempt      testQuestionAttemptStatus[]
+  testSession         testStatus[]
+  chapterWiseStatus   chapterWiseQuestionAttemptStatus[]
+  bookMarkedQuestion  bookmarkedQuestion[]
+  dailyActivity       DailyActivityLog[]
+  testQuestionAttempt testQuestionAttemptStatus[]
 
   // Analytics Relations
-  overallAnalytics         StudentOverallAnalytics?
-  subjectAnalytics         SubjectAnalytics[]
-  chapterAnalytics         ChapterAnalytics[]
-  examAnalytics            ExamAnalytics[]
-  questionAnalytics        StudentQuestionAnalytics[]
-  testSummaries            TestAttemptSummary[]
-  testChapterAnalytics     TestChapterAnalytics[]      // ✅ NEW
+  overallAnalytics     StudentOverallAnalytics?
+  subjectAnalytics     SubjectAnalytics[]
+  chapterAnalytics     ChapterAnalytics[]
+  examAnalytics        ExamAnalytics[]
+  questionAnalytics    StudentQuestionAnalytics[]
+  testSummaries        TestAttemptSummary[]
+  testChapterAnalytics TestChapterAnalytics[] // ✅ NEW
 
-  created_at          DateTime   @default(now())
-  updated_at          DateTime   @default(now())
-  user                user       @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+  user       user     @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@schema("public")
 }
@@ -160,8 +170,8 @@ model studentProfile {
 // ==========================================
 
 model exam {
-  id     String     @id @default(uuid())
-  name   ExamName   @unique
+  id     String   @id @default(uuid())
+  name   ExamName @unique
   papers papers[]
 
   @@schema("public")
@@ -170,7 +180,7 @@ model exam {
 model subjects {
   id               String             @id @default(uuid())
   name             SubjectName        @unique
-  totalQuestion    Int             @default(0)
+  totalQuestion    Int                @default(0)
   chapters         chapters[]
   questions        questions[]
   subjectAnalytics SubjectAnalytics[]
@@ -179,20 +189,20 @@ model subjects {
 }
 
 model chapters {
-  id               String             @id @default(uuid())
-  name             String             @unique
-  subjectId        String
-  group            String
-  class            Int
-  chapterNumber    Int
-  
-  isJeeMain        Boolean            @default(false)
-  isJeeAdvanced    Boolean            @default(false)
+  id            String @id @default(uuid())
+  name          String @unique
+  subjectId     String
+  group         String
+  class         Int
+  chapterNumber Int
+
+  isJeeMain     Boolean @default(false)
+  isJeeAdvanced Boolean @default(false)
 
   questions            questions[]
   chapterAnalytics     ChapterAnalytics[]
-  testChapterAnalytics TestChapterAnalytics[]   // ✅ NEW
-  subjects             subjects           @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  testChapterAnalytics TestChapterAnalytics[] // ✅ NEW
+  subjects             subjects               @relation(fields: [subjectId], references: [id], onDelete: Cascade)
 
   @@schema("public")
 }
@@ -202,36 +212,36 @@ model chapters {
 // ==========================================
 
 model papers {
-  id                String               @id @default(uuid())
-  examId            String
-  
-  year              Int?
-  mode              ExamMode
-  month             Month
-  day               Day           
-  date              String
-  shift             Shift
-  totalMarks        Int?                 @default(0)
-  totalDuration     Int?                 @default(0)
-  totalQuestions    Int?                 @default(0)
-  
-  exam              exam                 @relation(fields: [examId], references: [id], onDelete: Cascade)
-  questions         questions[]
-  testSession       testStatus[]
-  markingSchemes    paperMarkingScheme[]
-  globalStats       PaperGlobalStats?
+  id     String @id @default(uuid())
+  examId String
+
+  year           Int?
+  mode           ExamMode
+  month          Month
+  day            Day
+  date           String
+  shift          Shift
+  totalMarks     Int?     @default(0)
+  totalDuration  Int?     @default(0)
+  totalQuestions Int?     @default(0)
+
+  exam           exam                 @relation(fields: [examId], references: [id], onDelete: Cascade)
+  questions      questions[]
+  testSession    testStatus[]
+  markingSchemes paperMarkingScheme[]
+  globalStats    PaperGlobalStats?
 
   @@schema("public")
 }
 
 model paperMarkingScheme {
-  id            String             @id @default(uuid())
+  id            String       @id @default(uuid())
   paperId       String
   questionType  questionType
-  positiveMarks Int 
-  negativeMarks Int 
-  isPartial     Boolean            @default(false)
-  paper         papers             @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  positiveMarks Int
+  negativeMarks Int
+  isPartial     Boolean      @default(false)
+  paper         papers       @relation(fields: [paperId], references: [id], onDelete: Cascade)
 
   @@unique([paperId, questionType])
   @@schema("public")
@@ -242,38 +252,38 @@ model paperMarkingScheme {
 // ==========================================
 
 model questions {
-  id                   String                             @id @default(uuid())
-  subjectId            String
-  chapterId            String?
-  paperId              String?
-  
-  class                Int
-  content              String 
-  image                String[]
-  type                 questionType
-  questionNumber       Int 
+  id        String  @id @default(uuid())
+  subjectId String
+  chapterId String?
+  paperId   String?
 
-  comprehensionContent String? 
+  class          Int
+  content        String
+  image          String[]
+  type           questionType
+  questionNumber Int
+
+  comprehensionContent String?
   comprehensionImage   String[]
-  
-  positiveMarks        Int
-  negativeMarks        Int
-  isOutOfSyllabus      Boolean                            @default(false)
-  isBonus              Boolean                            @default(false)
-  correctAnswer        String[] 
-  
-  options              options?
-  solution             solution?
-  
-  papers               papers?                            @relation(fields: [paperId], references: [id], onDelete: Cascade)
-  chapters             chapters?                          @relation(fields: [chapterId], references: [id], onDelete: Cascade)
-  subjects             subjects                           @relation(fields: [subjectId], references: [id], onDelete: Cascade)
-  
-  attempts             testQuestionAttemptStatus[]
-  chapterWiseAttempts  chapterWiseQuestionAttemptStatus[]
-  globalStats          QuestionGlobalStats?
-  bookmarkedBy         bookmarkedQuestion[]
-  activeInTests        testStatus[]                       @relation("ActiveQuestion")
+
+  positiveMarks   Int
+  negativeMarks   Int
+  isOutOfSyllabus Boolean  @default(false)
+  isBonus         Boolean  @default(false)
+  correctAnswer   String[]
+
+  options  options?
+  solution solution?
+
+  papers   papers?   @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  chapters chapters? @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  subjects subjects  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  attempts            testQuestionAttemptStatus[]
+  chapterWiseAttempts chapterWiseQuestionAttemptStatus[]
+  globalStats         QuestionGlobalStats?
+  bookmarkedBy        bookmarkedQuestion[]
+  activeInTests       testStatus[]                       @relation("ActiveQuestion")
 
   @@schema("public")
 }
@@ -310,23 +320,23 @@ model solution {
 // ==========================================
 
 model testStatus {
-  id                 String                      @id @default(uuid())
-  studentId          String
-  paperId            String
-  
-  status             TestState                   @default(IN_PROGRESS)
-  timeLeft           Int
-  activeQuestionId   String?
-  isAnalyzed         Boolean                     @default(false) 
-  
-  created_at         DateTime                    @default(now())
-  updated_at         DateTime                    @default(now())
+  id        String @id @default(uuid())
+  studentId String
+  paperId   String
 
-  user               studentProfile              @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  papers             papers                      @relation(fields: [paperId], references: [id], onDelete: Cascade)
-  activeSection      String?
-  activeQuestion     questions?                  @relation("ActiveQuestion", fields: [activeQuestionId], references: [id])
-  
+  status           TestState @default(IN_PROGRESS)
+  timeLeft         Int
+  activeQuestionId String?
+  isAnalyzed       Boolean   @default(false)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  user           studentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  papers         papers         @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  activeSection  String?
+  activeQuestion questions?     @relation("ActiveQuestion", fields: [activeQuestionId], references: [id])
+
   testQuestionStatus testQuestionAttemptStatus[]
   summary            TestAttemptSummary?
 
@@ -335,24 +345,24 @@ model testStatus {
 }
 
 model testQuestionAttemptStatus {
-  id                  String         @id @default(uuid())
-  questionId          String
-  testStatusId        String
-  studentId           String
-  isCorrect           Boolean        @default(false)
-  status              AttemptStatus  @default(notAnswered)
-  marksObtained       Float          @default(0.0) 
-  timeSpent           Int
-  userAnswer          String[]       
-  isVisited           Boolean        @default(false)
-  markedForReview     Boolean        @default(false)
-  isAnalyzed          Boolean        @default(false) 
-  updated_at          DateTime       @default(now())
-  
+  id              String        @id @default(uuid())
+  questionId      String
+  testStatusId    String
+  studentId       String
+  isCorrect       Boolean       @default(false)
+  status          AttemptStatus @default(notAnswered)
+  marksObtained   Float         @default(0.0)
+  timeSpent       Int
+  userAnswer      String[]
+  isVisited       Boolean       @default(false)
+  markedForReview Boolean       @default(false)
+  isAnalyzed      Boolean       @default(false)
+  updated_at      DateTime      @default(now())
+
   testStatus          testStatus     @relation(fields: [testStatusId], references: [id], onDelete: Cascade)
   questions           questions      @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  testQuestionAttempt studentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade) 
-  
+  testQuestionAttempt studentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
   @@unique([questionId, testStatusId])
   @@schema("public")
 }
@@ -367,7 +377,7 @@ model chapterWiseQuestionAttemptStatus {
   timeSpent      Int
   userAnswer     String[]
   created_at     DateTime       @default(now())
-  isAnalyzed     Boolean        @default(false) 
+  isAnalyzed     Boolean        @default(false)
   question       questions      @relation(fields: [questionId], references: [id], onDelete: Cascade)
   user           studentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
@@ -380,49 +390,49 @@ model chapterWiseQuestionAttemptStatus {
 // ==========================================
 
 model StudentOverallAnalytics {
-  id                     String         @id @default(uuid())
-  studentId              String         @unique
+  id        String @id @default(uuid())
+  studentId String @unique
 
   // --- PRACTICE MODE STATS ---
-  practiceAttempts       Int            @default(0)   
-  practiceTimeSpent      Int            @default(0)   
-  practiceMarksEarned    Float          @default(0.0)
-  practiceMaxPossible    Float          @default(0.0)
-  uniquePracticeAttempts Int            @default(0)   
+  practiceAttempts       Int   @default(0)
+  practiceTimeSpent      Int   @default(0)
+  practiceMarksEarned    Float @default(0.0)
+  practiceMaxPossible    Float @default(0.0)
+  uniquePracticeAttempts Int   @default(0)
 
   // --- MOCK TEST MODE STATS ---
-  testAttempts           Int            @default(0)   
-  testTimeSpent          Int            @default(0)   
-  testMarksEarned        Float          @default(0.0)
-  testMaxPossible        Float          @default(0.0)
-  uniqueTestAttempts     Int            @default(0)   
+  testAttempts       Int   @default(0)
+  testTimeSpent      Int   @default(0)
+  testMarksEarned    Float @default(0.0)
+  testMaxPossible    Float @default(0.0)
+  uniqueTestAttempts Int   @default(0)
 
-  updated_at             DateTime       @default(now())
-  student                studentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  updated_at DateTime       @default(now())
+  student    studentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@schema("public")
 }
 
 model SubjectAnalytics {
-  id                  String         @id @default(uuid())
-  studentId           String
-  subjectId           String
+  id        String @id @default(uuid())
+  studentId String
+  subjectId String
 
   // --- PRACTICE STATS ---
-  practiceAttempts    Int            @default(0)
-  practiceTimeSpent   Int            @default(0)
-  practiceMarksEarned Float          @default(0.0)
-  practiceMaxPossible Float          @default(0.0)
+  practiceAttempts    Int   @default(0)
+  practiceTimeSpent   Int   @default(0)
+  practiceMarksEarned Float @default(0.0)
+  practiceMaxPossible Float @default(0.0)
 
   // --- TEST STATS ---
-  testAttempts        Int            @default(0)
-  testTimeSpent       Int            @default(0)
-  testMarksEarned     Float          @default(0.0)
-  testMaxPossible     Float          @default(0.0)
+  testAttempts    Int   @default(0)
+  testTimeSpent   Int   @default(0)
+  testMarksEarned Float @default(0.0)
+  testMaxPossible Float @default(0.0)
 
-  updated_at          DateTime       @default(now())
-  student             studentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  subject             subjects       @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  updated_at DateTime       @default(now())
+  student    studentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  subject    subjects       @relation(fields: [subjectId], references: [id], onDelete: Cascade)
 
   @@unique([studentId, subjectId])
   @@schema("public")
@@ -430,51 +440,51 @@ model SubjectAnalytics {
 
 // ✅ UPDATED — 4 sections: practice/test × JEE_MAIN/JEE_ADVANCED
 model ChapterAnalytics {
-  id                 String         @id @default(uuid())
-  studentId          String
-  chapterId          String
+  id        String @id @default(uuid())
+  studentId String
+  chapterId String
 
   // --- PRACTICE JEE MAIN ---
-  practiceJeeMainAttempts      Int    @default(0)
-  practiceJeeMainTimeSpent     Int    @default(0)
-  practiceJeeMainMarksEarned   Float  @default(0.0)
-  practiceJeeMainMaxPossible   Float  @default(0.0)
-  practiceJeeMainCorrect       Int    @default(0)
-  practiceJeeMainWrong         Int    @default(0)
-  practiceJeeMainPartial       Int    @default(0)
+  practiceJeeMainAttempts    Int   @default(0)
+  practiceJeeMainTimeSpent   Int   @default(0)
+  practiceJeeMainMarksEarned Float @default(0.0)
+  practiceJeeMainMaxPossible Float @default(0.0)
+  practiceJeeMainCorrect     Int   @default(0)
+  practiceJeeMainWrong       Int   @default(0)
+  practiceJeeMainPartial     Int   @default(0)
 
   // --- PRACTICE JEE ADVANCED ---
-  practiceJeeAdvancedAttempts      Int    @default(0)
-  practiceJeeAdvancedTimeSpent     Int    @default(0)
-  practiceJeeAdvancedMarksEarned   Float  @default(0.0)
-  practiceJeeAdvancedMaxPossible   Float  @default(0.0)
-  practiceJeeAdvancedCorrect       Int    @default(0)
-  practiceJeeAdvancedWrong         Int    @default(0)
-  practiceJeeAdvancedPartial       Int    @default(0)
+  practiceJeeAdvancedAttempts    Int   @default(0)
+  practiceJeeAdvancedTimeSpent   Int   @default(0)
+  practiceJeeAdvancedMarksEarned Float @default(0.0)
+  practiceJeeAdvancedMaxPossible Float @default(0.0)
+  practiceJeeAdvancedCorrect     Int   @default(0)
+  practiceJeeAdvancedWrong       Int   @default(0)
+  practiceJeeAdvancedPartial     Int   @default(0)
 
   // --- TEST JEE MAIN ---
-  testJeeMainAttempts      Int    @default(0)
-  testJeeMainTimeSpent     Int    @default(0)
-  testJeeMainMarksEarned   Float  @default(0.0)
-  testJeeMainMaxPossible   Float  @default(0.0)
-  testJeeMainCorrect       Int    @default(0)
-  testJeeMainWrong         Int    @default(0)
-  testJeeMainPartial       Int    @default(0)
+  testJeeMainAttempts    Int   @default(0)
+  testJeeMainTimeSpent   Int   @default(0)
+  testJeeMainMarksEarned Float @default(0.0)
+  testJeeMainMaxPossible Float @default(0.0)
+  testJeeMainCorrect     Int   @default(0)
+  testJeeMainWrong       Int   @default(0)
+  testJeeMainPartial     Int   @default(0)
 
   // --- TEST JEE ADVANCED ---
-  testJeeAdvancedAttempts      Int    @default(0)
-  testJeeAdvancedTimeSpent     Int    @default(0)
-  testJeeAdvancedMarksEarned   Float  @default(0.0)
-  testJeeAdvancedMaxPossible   Float  @default(0.0)
-  testJeeAdvancedCorrect       Int    @default(0)
-  testJeeAdvancedWrong         Int    @default(0)
-  testJeeAdvancedPartial       Int    @default(0)
+  testJeeAdvancedAttempts    Int   @default(0)
+  testJeeAdvancedTimeSpent   Int   @default(0)
+  testJeeAdvancedMarksEarned Float @default(0.0)
+  testJeeAdvancedMaxPossible Float @default(0.0)
+  testJeeAdvancedCorrect     Int   @default(0)
+  testJeeAdvancedWrong       Int   @default(0)
+  testJeeAdvancedPartial     Int   @default(0)
 
-  updated_at         DateTime         @default(now())
+  updated_at DateTime @default(now())
 
-  student            studentProfile       @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  chapter            chapters             @relation(fields: [chapterId], references: [id], onDelete: Cascade)
-  testSnapshots      TestChapterAnalytics[]
+  student       studentProfile         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  chapter       chapters               @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  testSnapshots TestChapterAnalytics[]
 
   @@unique([studentId, chapterId])
   @@schema("public")
@@ -482,31 +492,31 @@ model ChapterAnalytics {
 
 // ✅ NEW — per-test chapter snapshot (one row per chapter per test)
 model TestChapterAnalytics {
-  id             String         @id @default(uuid())
-  studentId      String
-  chapterId      String
-  testStatusId   String
-  examName       ExamName
+  id           String   @id @default(uuid())
+  studentId    String
+  chapterId    String
+  testStatusId String
+  examName     ExamName
 
-  chapterName    String
-  subjectName    String
+  chapterName String
+  subjectName String
 
   totalQuestions Int
-  attempt        Int            @default(0)
-  correct        Int            @default(0)
-  partial        Int            @default(0)
-  wrong          Int            @default(0)
+  attempt        Int @default(0)
+  correct        Int @default(0)
+  partial        Int @default(0)
+  wrong          Int @default(0)
 
-  marksEarned    Float          @default(0.0)
-  maxPossible    Float          @default(0.0)
-  positiveMarks  Float          @default(0.0)
-  partialMarks   Float          @default(0.0)
-  negativeMarks  Float          @default(0.0)
+  marksEarned   Float @default(0.0)
+  maxPossible   Float @default(0.0)
+  positiveMarks Float @default(0.0)
+  partialMarks  Float @default(0.0)
+  negativeMarks Float @default(0.0)
 
-  timeTaken      Int            @default(0)
-  accuracy       Float          @default(0.0)
+  timeTaken Int   @default(0)
+  accuracy  Float @default(0.0)
 
-  created_at     DateTime       @default(now())
+  created_at DateTime @default(now())
 
   student          studentProfile   @relation(fields: [studentId], references: [id], onDelete: Cascade)
   chapter          chapters         @relation(fields: [chapterId], references: [id], onDelete: Cascade)
@@ -517,49 +527,49 @@ model TestChapterAnalytics {
 }
 
 model ExamAnalytics {
-  id                  String         @id @default(uuid())
-  studentId           String
-  examName            ExamName
+  id        String   @id @default(uuid())
+  studentId String
+  examName  ExamName
 
   // --- PRACTICE STATS ---
-  practiceAttempts    Int            @default(0)
-  practiceTimeSpent   Int            @default(0)
-  practiceMarksEarned Float          @default(0.0)
-  practiceMaxPossible Float          @default(0.0)
+  practiceAttempts    Int   @default(0)
+  practiceTimeSpent   Int   @default(0)
+  practiceMarksEarned Float @default(0.0)
+  practiceMaxPossible Float @default(0.0)
 
   // --- TEST STATS ---
-  testAttempts        Int            @default(0)
-  testTimeSpent       Int            @default(0)
-  testMarksEarned     Float          @default(0.0)
-  testMaxPossible     Float          @default(0.0)
-  testsCompleted      Int            @default(0)
-  
-  updated_at          DateTime       @default(now()) 
-  student             studentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  testAttempts    Int   @default(0)
+  testTimeSpent   Int   @default(0)
+  testMarksEarned Float @default(0.0)
+  testMaxPossible Float @default(0.0)
+  testsCompleted  Int   @default(0)
+
+  updated_at DateTime       @default(now())
+  student    studentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@unique([studentId, examName])
   @@schema("public")
 }
 
 model StudentQuestionAnalytics {
-  id                  String         @id @default(uuid())
-  studentId           String
-  questioType         questionType
+  id          String       @id @default(uuid())
+  studentId   String
+  questioType questionType
 
   // --- PRACTICE STATS ---
-  practiceAttempts    Int            @default(0)
-  practiceTimeSpent   Int            @default(0)
-  practiceMarksEarned Float          @default(0.0)
-  practiceMaxPossible Float          @default(0.0)
+  practiceAttempts    Int   @default(0)
+  practiceTimeSpent   Int   @default(0)
+  practiceMarksEarned Float @default(0.0)
+  practiceMaxPossible Float @default(0.0)
 
   // --- TEST STATS ---
-  testAttempts        Int            @default(0)
-  testTimeSpent       Int            @default(0)
-  testMarksEarned     Float          @default(0.0)
-  testMaxPossible     Float          @default(0.0)
+  testAttempts    Int   @default(0)
+  testTimeSpent   Int   @default(0)
+  testMarksEarned Float @default(0.0)
+  testMaxPossible Float @default(0.0)
 
-  updated_at          DateTime        @default(now())
-  student             studentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  updated_at DateTime       @default(now())
+  student    studentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@unique([studentId, questioType])
   @@schema("public")
@@ -570,75 +580,75 @@ model StudentQuestionAnalytics {
 // ==========================================
 
 model TestAttemptSummary {
-  id                  String                   @id @default(uuid())
-  testStatusId        String                   @unique
-  studentId           String
-  
-  totalScore          Float
-  maxScore            Float
-  percentage          Float
-  accuracy            Float
-  avgTimePerQ         Float                     @default(0.0)
-  timeTaken           Int
-  
+  id           String @id @default(uuid())
+  testStatusId String @unique
+  studentId    String
+
+  totalScore  Float
+  maxScore    Float
+  percentage  Float
+  accuracy    Float
+  avgTimePerQ Float @default(0.0)
+  timeTaken   Int
+
   subjectResults      SubjectTestResult[]
   questionTypeResults QuestionTypeTestResult[]
-  chapterSplits       Json?               
+  chapterSplits       Json?
 
-  created_at          DateTime                 @default(now())
-  testStatus          testStatus               @relation(fields: [testStatusId], references: [id], onDelete: Cascade)
-  student             studentProfile           @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  created_at DateTime       @default(now())
+  testStatus testStatus     @relation(fields: [testStatusId], references: [id], onDelete: Cascade)
+  student    studentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@schema("public")
 }
 
 model SubjectTestResult {
-  id               String             @id @default(uuid())
-  summaryId        String
-  subjectName      SubjectName
-  
-  totalQuestions   Int
-  attempted        Int
-  correct          Int
-  partial          Int
-  wrong            Int
-  
-  marks            Float
-  maxMarks         Float              @default(0.0)
-  positiveMarks    Float
-  partialMarks     Float
-  negativeMarks    Float
-  
-  timeTaken        Int
-  accuracy         Float
+  id          String      @id @default(uuid())
+  summaryId   String
+  subjectName SubjectName
 
-  summary          TestAttemptSummary @relation(fields: [summaryId], references: [id], onDelete: Cascade)
+  totalQuestions Int
+  attempted      Int
+  correct        Int
+  partial        Int
+  wrong          Int
+
+  marks         Float
+  maxMarks      Float @default(0.0)
+  positiveMarks Float
+  partialMarks  Float
+  negativeMarks Float
+
+  timeTaken Int
+  accuracy  Float
+
+  summary TestAttemptSummary @relation(fields: [summaryId], references: [id], onDelete: Cascade)
 
   @@unique([summaryId, subjectName])
   @@schema("public")
 }
 
 model QuestionTypeTestResult {
-  id               String             @id @default(uuid())
-  summaryId        String
-  questionType     questionType
-  
-  totalQuestions   Int
-  attempted        Int
-  correct          Int
-  partial          Int
-  wrong            Int
-  
-  marks            Float
-  maxMarks         Float              @default(0.0)
-  positiveMarks    Float
-  partialMarks     Float
-  negativeMarks    Float
-  
-  timeTaken        Int
-  accuracy         Float
+  id           String       @id @default(uuid())
+  summaryId    String
+  questionType questionType
 
-  summary          TestAttemptSummary @relation(fields: [summaryId], references: [id], onDelete: Cascade)
+  totalQuestions Int
+  attempted      Int
+  correct        Int
+  partial        Int
+  wrong          Int
+
+  marks         Float
+  maxMarks      Float @default(0.0)
+  positiveMarks Float
+  partialMarks  Float
+  negativeMarks Float
+
+  timeTaken Int
+  accuracy  Float
+
+  summary TestAttemptSummary @relation(fields: [summaryId], references: [id], onDelete: Cascade)
 
   @@unique([summaryId, questionType])
   @@schema("public")
@@ -652,9 +662,9 @@ model PaperGlobalStats {
   id               String   @id @default(uuid())
   paperId          String   @unique
   totalAttempts    Int      @default(0)
-  averageScore     Float    @default(0.0) 
-  highestScore     Float    @default(0.0) 
-  averageTimeTaken Int      @default(0)   
+  averageScore     Float    @default(0.0)
+  highestScore     Float    @default(0.0)
+  averageTimeTaken Int      @default(0)
   updated_at       DateTime @default(now())
   paper            papers   @relation(fields: [paperId], references: [id], onDelete: Cascade)
 
@@ -662,23 +672,23 @@ model PaperGlobalStats {
 }
 
 model QuestionGlobalStats {
-  id               String    @id @default(uuid())
-  questionId       String    @unique
-  
-  totalAttemptsInPratice          Int    @default(0) 
-  totalTimeSpentInPratice         Int    @default(0) 
-  totalMarksEarnedInPratice       Float  @default(0.0) 
-  maxPossibleMarksEarnedInPratice Float  @default(0.0) 
-  leastTimeInPratice              Float  @default(0.0)
-  
-  totalAttempts    Int       @default(0)
-  totalTimeSpent   Int       @default(0) 
-  totalMarksEarned Float     @default(0.0)
-  maxPossibleMarks Float     @default(0.0)
-  leastTimeInTest  Float     @default(0.0) 
-  
-  updated_at       DateTime  @default(now()) 
-  question         questions @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  id         String @id @default(uuid())
+  questionId String @unique
+
+  totalAttemptsInPratice          Int   @default(0)
+  totalTimeSpentInPratice         Int   @default(0)
+  totalMarksEarnedInPratice       Float @default(0.0)
+  maxPossibleMarksEarnedInPratice Float @default(0.0)
+  leastTimeInPratice              Float @default(0.0)
+
+  totalAttempts    Int   @default(0)
+  totalTimeSpent   Int   @default(0)
+  totalMarksEarned Float @default(0.0)
+  maxPossibleMarks Float @default(0.0)
+  leastTimeInTest  Float @default(0.0)
+
+  updated_at DateTime  @default(now())
+  question   questions @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
   @@schema("public")
 }
@@ -690,14 +700,14 @@ model QuestionGlobalStats {
 model DailyActivityLog {
   id               String         @id @default(uuid())
   studentId        String
-  date             DateTime       
-  questionsSolved  Int            @default(0) 
+  date             DateTime
+  questionsSolved  Int            @default(0)
   questionsCorrect Int            @default(0)
   testsTaken       Int            @default(0)
-  timeSpent        Int            @default(0) 
+  timeSpent        Int            @default(0)
   student          studentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
-  @@unique([studentId, date]) 
+  @@unique([studentId, date])
   @@schema("public")
 }
 
@@ -715,6 +725,7 @@ model bookmarkedQuestion {
 
 model Email {
   id    String @id @default(uuid())
-  email String @unique 
+  email String @unique
+
   @@schema("email")
 }
