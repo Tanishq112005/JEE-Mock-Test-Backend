@@ -117,13 +117,14 @@ class Chapter {
         }
     };
     gettingChapterId = async (chapterName) => {
-        const chapter = await this.db.chapters.findUnique({
-            where: { name: chapterName },
+        // Case-insensitive lookup so "kinematics" matches "Kinematics" etc.
+        const chapterRecord = await this.db.chapters.findFirst({
+            where: { name: { equals: chapterName } },
         });
-        if (!chapter) {
-            throw new ApiError_1.default("Chapter not found");
+        if (!chapterRecord) {
+            throw new ApiError_1.default(`Chapter "${chapterName}" not found. Check the exact chapter name stored in the database.`);
         }
-        return chapter;
+        return chapterRecord;
     };
 }
 exports.chapter = new Chapter(database_1.database);

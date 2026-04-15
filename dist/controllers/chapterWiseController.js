@@ -54,20 +54,31 @@ class ChapterWiseController {
                 .json(new ApiError_1.default("Error fetching chapters by group", err));
         }
     };
-    // api for the getting the chapter question 
-    // and the problem text 
-    // status of the problem 
-    // need the chapterId 
+    // API #3: Get chapter questions and stats by chapter name
+    // Route param :chapterName is the human-readable chapter name (e.g. "Kinematics")
+    // It is resolved to a chapterId internally before querying the DB.
     getChapterInfo = async (req, res) => {
         try {
-            const { chapterId } = req.params;
+            const { chapterName } = req.params;
             const userId = req.user;
-            if (!chapterId)
-                return res.status(400).json(new ApiError_1.default("chapterId is required"));
-            const stats = await chapterWisePractice_db_1.chapterWisePractice.getChapterInfo(chapterId, userId);
-            return res
-                .status(200)
-                .json(new ApiResponse_1.default("Chapter Stats fetched", stats));
+            if (!chapterName)
+                return res.status(400).json(new ApiError_1.default("chapterName is required"));
+            // Resolve chapter name → chapter record
+            let chapterRecord;
+            try {
+                chapterRecord = await chapter_db_1.chapter.gettingChapterId(chapterName);
+            }
+            catch (err) {
+                return res
+                    .status(404)
+                    .json(new ApiError_1.default(`Chapter "${chapterName}" not found. Verify the chapter name.`, err));
+            }
+            const stats = await chapterWisePractice_db_1.chapterWisePractice.getChapterInfo(chapterRecord.id, userId);
+            return res.status(200).json(new ApiResponse_1.default("Chapter Stats fetched", {
+                chapterId: chapterRecord.id,
+                chapterName: chapterRecord.name,
+                ...stats,
+            }));
         }
         catch (err) {
             return res
