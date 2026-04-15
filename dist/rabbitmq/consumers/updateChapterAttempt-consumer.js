@@ -36,7 +36,10 @@ class UpdateChapterAttemptConsumer {
                         marksObtained: 0,
                         isFinalSubmit: false
                     });
-                    // DB confirmed — now safe to delete from Redis
+                    // DB confirmed — now safe to clear Redis.
+                    // Redis only holds data not yet persisted to DB.
+                    // Once the worker confirms the write, Redis is cleared so the next
+                    // heartbeat/submit writes fresh live state.
                     await chapterWiseCacheService_1.chapterWiseCacheService.deleteAttemptData(data.studentId, data.questionId);
                     channel.ack(msg);
                     console.log("✅ Chapter Update Processed Successfully");

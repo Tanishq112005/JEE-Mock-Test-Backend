@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.chapterWiseController = void 0;
 const questionEvalutionService_1 = require("../services/questionEvalutionService");
+const uniqueCountService_1 = require("../services/uniqueCountService");
 const ApiError_1 = __importDefault(require("../utils/ApiError"));
 const ApiResponse_1 = __importDefault(require("../utils/ApiResponse"));
 const chapterWiseCacheService_1 = require("../services/chapterWiseCacheService");
@@ -122,6 +123,7 @@ class ChapterWiseController {
             const { questionId } = req.params;
             const userId = req.user;
             const { status, timeSpent, userAnswerRaw, } = req.body;
+            const studentId = req.user;
             const result = await questionEvalutionService_1.practiceQuestionEvaluation.evaluate({
                 questionId: questionId,
                 userAnswer: userAnswerRaw || [],
@@ -137,6 +139,9 @@ class ChapterWiseController {
                 isCorrect: result.verdict === "correct",
                 marksObtained: result.marks,
             };
+            if (result.verdict === "correct") {
+                await uniqueCountService_1.questionBitmapRegistry.markAttempted(studentId, questionId);
+            }
             // Set to Redis first so user can check immediate history
             await chapterWiseCacheService_1.chapterWiseCacheService.upsertAttemptData(userId, questionId, payload);
             // Push to main submit queue which fully persists it and evaluated results

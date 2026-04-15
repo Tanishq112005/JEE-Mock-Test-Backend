@@ -2,8 +2,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.chapterWiseCacheService = void 0;
 const caching_1 = require("../lib/caching");
+const TTL_SECONDS = 60 * 60 * 24; // 24 hours
 class ChapterWiseCacheService {
-    constructor() { }
     getCacheKey(userId, questionId) {
         return `${userId}:chapterWise:attempt:${questionId}`;
     }
@@ -13,10 +13,6 @@ class ChapterWiseCacheService {
     async upsertAttemptData(userId, questionId, data) {
         const key = this.getCacheKey(userId, questionId);
         const setKey = this.getActiveQuestionsSetKey(userId);
-        const client = caching_1.cacheService['getClientForKey'] ? caching_1.cacheService.getClientForKey(key) : null;
-        // Fallback if caching.ts abstracts it differently: we will just use cacheService.setCache
-        // But since caching.ts hides the redis client, we can simulate the SET by storing an array or using the raw client if accessible.
-        // Let's store an upper layer array similar to test updates
         let activeQuestions = await caching_1.cacheService.getCache(setKey) || [];
         if (!activeQuestions.includes(questionId)) {
             activeQuestions.push(questionId);
@@ -32,10 +28,8 @@ class ChapterWiseCacheService {
         const key = this.getCacheKey(userId, questionId);
         const setKey = this.getActiveQuestionsSetKey(userId);
         let activeQuestions = await caching_1.cacheService.getCache(setKey) || [];
-        if (activeQuestions.includes(questionId)) {
-            activeQuestions = activeQuestions.filter((id) => id !== questionId);
-            await caching_1.cacheService.setCache(setKey, activeQuestions);
-        }
+        activeQuestions = activeQuestions.filter((id) => id !== questionId);
+        await caching_1.cacheService.setCache(setKey, activeQuestions);
         await caching_1.cacheService.deleteCache(key);
     }
     async getAllActiveAttempts(userId) {
@@ -45,9 +39,8 @@ class ChapterWiseCacheService {
         for (const questionId of activeQuestions) {
             const key = this.getCacheKey(userId, questionId);
             const data = await caching_1.cacheService.getCache(key);
-            if (data) {
+            if (data)
                 attempts[questionId] = data;
-            }
         }
         return attempts;
     }

@@ -72,7 +72,7 @@ class ChapterWisePractice {
                 chapterWiseAttempts: {
                     where: { studentId },
                     orderBy: { created_at: "desc" },
-                    take: 1, // Optional context if frontend still needs latest user answer draft
+                    take: 1,
                 },
             },
         });
@@ -82,6 +82,11 @@ class ChapterWisePractice {
             const yearB = b.papers?.year ?? 0;
             return yearB - yearA;
         });
+        // Sync the bitmap from DB before reading it.
+        // This ensures correctness even when the bitmap is stale (e.g. questions answered
+        // before markAttempted() was wired into the submit consumer).
+        // Going forward this is a cheap no-op since the submit consumer keeps the bitmap live.
+        await uniqueCountService_1.questionBitmapRegistry.syncFromDB(studentId);
         // We check the bitmap to get ALL attempted questions for this student
         const { questionIds: attemptedIdsList } = await uniqueCountService_1.questionBitmapRegistry.getAttemptedQuestionIds(studentId);
         const attemptedSet = new Set(attemptedIdsList);
@@ -130,7 +135,7 @@ class ChapterWisePractice {
     }
     // API #5: Get attempt history for a specific question
     async getQuestionAttemptsHistory(questionId, studentId) {
-        // 1. Fetch from Redis in case there is a pending/active update not yet in DB
+        // 1. Fetch from Redis — this is the live state (pending / just-submitted, not yet in DB)
         const { chapterWiseCacheService } = await Promise.resolve().then(() => __importStar(require("../services/chapterWiseCacheService")));
         const activeRedisAttempt = await chapterWiseCacheService.getAttemptData(studentId, questionId);
         const chapterAttempts = await this.db.chapterWiseQuestionAttemptStatus.findMany({
@@ -148,57 +153,131 @@ class ChapterWisePractice {
             },
             orderBy: { updated_at: "desc" },
         });
+        // 2. If a live Redis entry exists, prepend it into chapterAttempts as a
+        //    synthetic pending record so the frontend sees it without a separate field.
+        const mergedChapterAttempts = activeRedisAttempt
+            ? [
+                {
+                    id: `pending-${questionId}`,
+                    questionId,
+                    studentId,
+                    questionStatus: activeRedisAttempt.status,
+                    isCorrect: activeRedisAttempt.isCorrect ?? false,
+                    marksObtained: activeRedisAttempt.marksObtained ?? 0,
+                    timeSpent: activeRedisAttempt.timeSpent,
+                    userAnswer: activeRedisAttempt.userAnswer,
+                    created_at: new Date(),
+                    isAnalyzed: false,
+                    isPending: true, // synthetic flag — not in DB yet
+                },
+                ...chapterAttempts,
+            ]
+            : chapterAttempts;
         return {
-            activeAttempt: activeRedisAttempt || null,
-            chapterAttempts,
+            chapterAttempts: mergedChapterAttempts,
             testAttempts,
         };
     }
-    // Upsert or insert new attempt
+    // Save or update attempt
     async saveQuestionAttempt(data) {
-        let latestAttempt = await this.db.chapterWiseQuestionAttemptStatus.findFirst({
+        const latestAttempt = await this.db.chapterWiseQuestionAttemptStatus.findFirst({
             where: {
                 studentId: data.studentId,
                 questionId: data.questionId,
             },
             orderBy: { created_at: "desc" },
         });
-        if (latestAttempt && !latestAttempt.isAnalyzed && !data.isFinalSubmit) {
-            // If the latest record is already 'answered', it means the final evaluation is saved.
-            // We should NOT overwrite it with a heartbeat update (stale time/status).
-            if (latestAttempt.questionStatus === client_1.AttemptStatus.answered) {
-                return latestAttempt;
-            }
-            return this.db.chapterWiseQuestionAttemptStatus.update({
-                where: { id: latestAttempt.id },
-                data: {
-                    timeSpent: data.timeSpent,
-                    userAnswer: data.userAnswer,
-                    questionStatus: data.status,
+        // ── FINAL SUBMIT PATH ──────────────────────────────────────────────────────
+        if (data.isFinalSubmit) {
+            // Find the current in-progress row (not yet answered).
+            // This is the row that belongs to the current attempt session.
+            const pendingAttempt = await this.db.chapterWiseQuestionAttemptStatus.findFirst({
+                where: {
+                    studentId: data.studentId,
+                    questionId: data.questionId,
+                    questionStatus: { not: client_1.AttemptStatus.answered },
                 },
+                orderBy: { created_at: "desc" },
             });
-        }
-        if (latestAttempt &&
-            latestAttempt.questionStatus !== client_1.AttemptStatus.answered) {
-            return this.db.chapterWiseQuestionAttemptStatus.update({
-                where: { id: latestAttempt.id },
+            if (pendingAttempt) {
+                // Normal path: finalize the current in-progress row
+                return this.db.chapterWiseQuestionAttemptStatus.update({
+                    where: { id: pendingAttempt.id },
+                    data: {
+                        timeSpent: data.timeSpent,
+                        userAnswer: data.userAnswer,
+                        questionStatus: data.status,
+                        isCorrect: data.isCorrect,
+                        marksObtained: data.marksObtained,
+                        isAnalyzed: false,
+                    },
+                });
+            }
+            if (latestAttempt) {
+                // Nack+retry protection: no in-progress row (already answered by a prior
+                // successful write). Update the latest row idempotently — do NOT create a duplicate.
+                return this.db.chapterWiseQuestionAttemptStatus.update({
+                    where: { id: latestAttempt.id },
+                    data: {
+                        timeSpent: data.timeSpent,
+                        userAnswer: data.userAnswer,
+                        questionStatus: data.status,
+                        isCorrect: data.isCorrect,
+                        marksObtained: data.marksObtained,
+                        isAnalyzed: false,
+                    },
+                });
+            }
+            // No rows at all — user submitted without any heartbeat (edge case)
+            return this.db.chapterWiseQuestionAttemptStatus.create({
                 data: {
-                    timeSpent: data.timeSpent,
-                    userAnswer: data.userAnswer,
+                    studentId: data.studentId,
+                    questionId: data.questionId,
                     questionStatus: data.status,
                     isCorrect: data.isCorrect,
                     marksObtained: data.marksObtained,
-                    isAnalyzed: data.isFinalSubmit ? false : latestAttempt.isAnalyzed,
+                    timeSpent: data.timeSpent,
+                    userAnswer: data.userAnswer,
+                    isAnalyzed: false,
                 },
             });
         }
+        // ── HEARTBEAT / UPDATE PATH ────────────────────────────────────────────────
+        if (latestAttempt) {
+            if (latestAttempt.questionStatus === client_1.AttemptStatus.answered) {
+                // The previous attempt is fully done. The user has opened the question
+                // again — create a NEW in-progress row for this fresh session.
+                return this.db.chapterWiseQuestionAttemptStatus.create({
+                    data: {
+                        studentId: data.studentId,
+                        questionId: data.questionId,
+                        questionStatus: data.status,
+                        isCorrect: false,
+                        marksObtained: 0,
+                        timeSpent: data.timeSpent,
+                        userAnswer: data.userAnswer,
+                        isAnalyzed: false,
+                    },
+                });
+            }
+            // Update the existing in-progress row
+            return this.db.chapterWiseQuestionAttemptStatus.update({
+                where: { id: latestAttempt.id },
+                data: {
+                    timeSpent: data.timeSpent,
+                    userAnswer: data.userAnswer,
+                    questionStatus: data.status,
+                },
+            });
+        }
+        // No prior rows — create the very first in-progress row
         return this.db.chapterWiseQuestionAttemptStatus.create({
             data: {
                 studentId: data.studentId,
                 questionId: data.questionId,
                 questionStatus: data.status,
-                isCorrect: data.isCorrect,
-                marksObtained: data.marksObtained,
+                isCorrect: false,
+                marksObtained: 0,
                 timeSpent: data.timeSpent,
                 userAnswer: data.userAnswer,
                 isAnalyzed: false,
