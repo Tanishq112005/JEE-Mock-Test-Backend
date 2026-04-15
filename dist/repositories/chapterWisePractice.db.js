@@ -135,26 +135,16 @@ class ChapterWisePractice {
     }
     // API #5: Get attempt history for a specific question
     async getQuestionAttemptsHistory(questionId, studentId) {
-        // 1. Fetch from Redis — this is the live state (pending / just-submitted, not yet in DB)
         const { chapterWiseCacheService } = await Promise.resolve().then(() => __importStar(require("../services/chapterWiseCacheService")));
+        const { cacheService } = await Promise.resolve().then(() => __importStar(require("../lib/caching")));
+        // ── 1. Check Redis for pending chapter-wise attempt ────────────────────────
         const activeRedisAttempt = await chapterWiseCacheService.getAttemptData(studentId, questionId);
+        // ── 2. Fetch DB chapter attempts ───────────────────────────────────────────
         const chapterAttempts = await this.db.chapterWiseQuestionAttemptStatus.findMany({
             where: { questionId, studentId },
             orderBy: { created_at: "desc" },
         });
-        const testAttempts = await this.db.testQuestionAttemptStatus.findMany({
-            where: { questionId, studentId },
-            include: {
-                testStatus: {
-                    include: {
-                        papers: { select: { exam: true, year: true, date: true } },
-                    },
-                },
-            },
-            orderBy: { updated_at: "desc" },
-        });
-        // 2. If a live Redis entry exists, prepend it into chapterAttempts as a
-        //    synthetic pending record so the frontend sees it without a separate field.
+        // ── 3. Merge Redis pending chapter attempt into chapterAttempts ───────────
         const mergedChapterAttempts = activeRedisAttempt
             ? [
                 {
@@ -168,14 +158,79 @@ class ChapterWisePractice {
                     userAnswer: activeRedisAttempt.userAnswer,
                     created_at: new Date(),
                     isAnalyzed: false,
-                    isPending: true, // synthetic flag — not in DB yet
+                    isPending: true,
                 },
                 ...chapterAttempts,
             ]
             : chapterAttempts;
+        // ── 4. Fetch DB test attempts ──────────────────────────────────────────────
+        const dbTestAttempts = await this.db.testQuestionAttemptStatus.findMany({
+            where: { questionId, studentId },
+            include: {
+                testStatus: {
+                    include: {
+                        papers: { select: { exam: true, year: true, date: true } },
+                    },
+                },
+            },
+            orderBy: { updated_at: "desc" },
+        });
+        // ── 5. Check Redis for pending test attempts ───────────────────────────────
+        // After submitTest, data lives in Redis under:
+        //   testUpperLayer  → { testId: [{ id, created_at }] }
+        //   ${studentId}:${testStatusId}:${created_at} → evaluation report (finalVerdict[])
+        // The analytics worker clears these keys after it has written to DB.
+        const pendingTestAttempts = [];
+        try {
+            const upperLayer = await cacheService.getCache(`${studentId}:testUpperLayer`);
+            if (upperLayer && Array.isArray(upperLayer.testId)) {
+                // Build a Set of testStatusIds already in DB so we don't double-show
+                const dbTestStatusIds = new Set(dbTestAttempts.map((a) => a.testStatusId));
+                for (const entry of upperLayer.testId) {
+                    // Only check tests NOT yet written to DB
+                    if (dbTestStatusIds.has(entry.id))
+                        continue;
+                    const evalReport = await cacheService.getCache(`${studentId}:${entry.id}:${entry.created_at}`);
+                    if (!evalReport?.finalVerdict)
+                        continue;
+                    const match = evalReport.finalVerdict.find((q) => q.questionId === questionId);
+                    if (!match)
+                        continue;
+                    pendingTestAttempts.push({
+                        id: `pending-test-${entry.id}-${questionId}`,
+                        questionId,
+                        testStatusId: entry.id,
+                        studentId,
+                        isCorrect: match.verdict === "correct",
+                        status: match.userAnswer?.length > 0 ? "answered" : "notAnswered",
+                        marksObtained: match.marks ?? 0,
+                        timeSpent: match.timeSpent ?? 0,
+                        userAnswer: match.userAnswer ?? [],
+                        isVisited: match.isVisited ?? false,
+                        markedForReview: match.markedForReview ?? false,
+                        isAnalyzed: false,
+                        updated_at: new Date(),
+                        isPending: true, // synthetic flag — analytics not yet in DB
+                        testStatus: {
+                            id: entry.id,
+                            studentId,
+                            status: "COMPLETED",
+                            created_at: entry.created_at,
+                            papers: null, // not available in Redis; frontend can ignore
+                        },
+                    });
+                }
+            }
+        }
+        catch (err) {
+            // Non-critical — DB test attempts are still returned
+            console.warn("[getQuestionAttemptsHistory] Redis test check failed:", err);
+        }
+        // Pending Redis entries go first, then DB entries
+        const mergedTestAttempts = [...pendingTestAttempts, ...dbTestAttempts];
         return {
             chapterAttempts: mergedChapterAttempts,
-            testAttempts,
+            testAttempts: mergedTestAttempts,
         };
     }
     // Save or update attempt
