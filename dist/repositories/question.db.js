@@ -537,5 +537,75 @@ class Question {
             throw err;
         }
     }
+    // =================================================================
+    // INTERNAL: GET QUESTIONS WITH SIGNED URLS (UNENCRYPTED)
+    // =================================================================
+    async getQuestionsWithSignedUrls(chapterId) {
+        const questionsRaw = await this.db.questions.findMany({
+            where: { chapterId },
+            include: {
+                options: true,
+                solution: true,
+                subjects: { select: { name: true } },
+                chapters: {
+                    select: { name: true, isJeeAdvanced: true, isJeeMain: true, chapterNumber: true },
+                },
+                papers: {
+                    select: { mode: true, shift: true, date: true, month: true, year: true, exam: { select: { name: true } } },
+                },
+            },
+            orderBy: { papers: { year: "desc" } },
+        });
+        const processedQuestions = await Promise.all(questionsRaw.map(async (q) => {
+            const subjectName = q.subjects?.name || null;
+            const chapterName = q.chapters?.name || null;
+            const examName = q.papers?.exam?.name || null;
+            const isJeeMain = q.chapters?.isJeeMain ?? false;
+            const isJeeAdvanced = q.chapters?.isJeeAdvanced ?? false;
+            const signedQuestionImages = this.signUrlArray(q.image);
+            const signedCompImages = this.signUrlArray(q.comprehensionImage);
+            const finalQuestionHtml = this.injectUrlsIntoHtml(q.content, signedQuestionImages);
+            const finalCompHtml = this.injectUrlsIntoHtml(q.comprehensionContent, signedCompImages);
+            let processedOptions = null;
+            if (q.options) {
+                const optAImgs = this.signUrlArray(q.options.optionAimage);
+                const optBImgs = this.signUrlArray(q.options.optionBimage);
+                const optCImgs = this.signUrlArray(q.options.optionCimage);
+                const optDImgs = this.signUrlArray(q.options.optionDimage);
+                processedOptions = {
+                    ...q.options,
+                    optionAtext: this.injectUrlsIntoHtml(q.options.optionAtext, optAImgs),
+                    optionBtext: this.injectUrlsIntoHtml(q.options.optionBtext, optBImgs),
+                    optionCtext: this.injectUrlsIntoHtml(q.options.optionCtext, optCImgs),
+                    optionDtext: this.injectUrlsIntoHtml(q.options.optionDtext, optDImgs),
+                    optionAimage: undefined, optionBimage: undefined, optionCimage: undefined, optionDimage: undefined,
+                };
+            }
+            let processedSolution = null;
+            if (q.solution) {
+                const solImages = this.signUrlArray(q.solution.image);
+                processedSolution = {
+                    ...q.solution,
+                    text: this.injectUrlsIntoHtml(q.solution.text, solImages),
+                    image: undefined,
+                };
+            }
+            return {
+                ...q,
+                content: finalQuestionHtml,
+                comprehensionContent: finalCompHtml,
+                subject: subjectName,
+                chapter: chapterName,
+                exam: examName,
+                paperTitle: q.papers?.year ? `${examName} ${q.papers.year}` : null,
+                isJeeMain,
+                isJeeAdvanced,
+                // CRITICAL: We do NOT set `papers: undefined` here so ChapterWisePractice can use it!
+                options: processedOptions,
+                solution: processedSolution,
+            };
+        }));
+        return processedQuestions;
+    }
 }
 exports.question = new Question(database_1.database);
