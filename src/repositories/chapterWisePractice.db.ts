@@ -7,6 +7,7 @@ import {
 import { database } from "../lib/database";
 import { questionBitmapRegistry } from "../services/uniqueCountService";
 import ApiError from "../utils/ApiError";
+import { question } from "./question.db";
 
 class ChapterWisePractice {
   private db: PrismaClient;
@@ -31,56 +32,38 @@ class ChapterWisePractice {
   }
 
   // API #3 & #4 combined logic: Get Chapter Info and Questions using Redis Bitmap
-  public async getChapterQuestionsWithStats(
+ public async getChapterQuestionsWithStats(
     chapterId: string,
     studentId: string,
   ) {
-    // Take all questions from DB for the chapter
-    const questions = await this.db.questions.findMany({
-      where: { chapterId },
-      include: {
-        papers: {
-          include: {
-            exam: true,
-          },
-        },
-        options: true,
-        solution: true,
-        chapterWiseAttempts: {
-          where: { studentId },
-          orderBy: { created_at: "desc" },
-          take: 1,
-        },
-      },
-    });
+    // 1. Fetch unencrypted questions with signed URLs and HTML formatting
+    const questionList = await question.getQuestionsWithSignedUrls(chapterId);
 
-    // Sort descending by paper year
-    questions.sort((a, b) => {
+    // 2. Sort descending by paper year
+    questionList.sort((a, b) => {
       const yearA = a.papers?.year ?? 0;
       const yearB = b.papers?.year ?? 0;
       return yearB - yearA;
     });
 
-    // Sync the bitmap from DB before reading it.
-    // This ensures correctness even when the bitmap is stale (e.g. questions answered
-    // before markAttempted() was wired into the submit consumer).
-    // Going forward this is a cheap no-op since the submit consumer keeps the bitmap live.
+    // 3. Sync the bitmap from DB before reading it.
     await questionBitmapRegistry.syncFromDB(studentId);
 
-    // We check the bitmap to get ALL attempted questions for this student
+    // 4. Check the bitmap to get ALL attempted questions
     const { questionIds: attemptedIdsList } =
       await questionBitmapRegistry.getAttemptedQuestionIds(studentId);
     const attemptedSet = new Set(attemptedIdsList);
-
 
     let totalMainQuestions = 0;
     let totalAdvancedQuestions = 0;
     let uniqueSolvedMain = 0;
     let uniqueSolvedAdvanced = 0;
 
-    // We augment the question JSON with the attempt status
-    const mappedQuestions = questions.map((q) => {
-      const isMains = q.papers?.exam?.name === ExamName.JEE_MAIN;
+    // 5. Augment the question JSON with attempt status
+    const mappedQuestions = questionList.map((q) => {
+      // You can use q.exam here because our new method maps it properly
+      const isMains = q.exam === ExamName.JEE_MAIN;
+      
       if (isMains) totalMainQuestions++;
       else totalAdvancedQuestions++;
 
@@ -91,8 +74,11 @@ class ChapterWisePractice {
         else uniqueSolvedAdvanced++;
       }
 
+      // 6. Strip internal Prisma relations before sending to the client
+      const { papers, chapters, subjects, paperId, chapterId, subjectId, image, comprehensionImage, ...cleanQuestion } = q;
+
       return {
-        ...q,
+        ...cleanQuestion,
         attemptStatus: isAttemptedSuccessfully
           ? "Successfully attempted"
           : "Not successfully done",
@@ -101,15 +87,15 @@ class ChapterWisePractice {
 
     return {
       stats: {
-        totalQuestions: questions.length,
+        totalQuestions: questionList.length,
         totalMainQuestions,
         totalAdvancedQuestions,
         uniqueSolvedMainQuestions: uniqueSolvedMain,
         uniqueSolvedAdvancedQuestions: uniqueSolvedAdvanced,
         totalUniqueSolved: uniqueSolvedMain + uniqueSolvedAdvanced,
       },
-      jeeMain: mappedQuestions.filter(q => q.papers?.exam?.name === ExamName.JEE_MAIN),
-      jeeAdvanced: mappedQuestions.filter(q => q.papers?.exam?.name === ExamName.JEE_ADVANCED),
+      jeeMain: mappedQuestions.filter(q => q.exam === ExamName.JEE_MAIN),
+      jeeAdvanced: mappedQuestions.filter(q => q.exam === ExamName.JEE_ADVANCED),
     };
   }
 
