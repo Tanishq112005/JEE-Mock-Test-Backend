@@ -3,6 +3,7 @@ import { database } from "../lib/database";
 import ApiError from "../utils/ApiError";
 import { user } from "../repositories/user.db";
 import ApiResponse from "../utils/ApiResponse";
+import { compare } from "bcrypt";
 
 class UserController {
 
@@ -137,9 +138,10 @@ class UserController {
            )
         }
         catch(err : any){
+            console.log(err) ; 
             return res.status(404).json(
                new ApiError(
-                "Student profile not found. Please complete your profile setup." , err )
+                "Student profile not found. Please complete your profile setup" , err )
             )
         }
     }

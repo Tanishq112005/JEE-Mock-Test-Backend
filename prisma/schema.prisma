@@ -158,7 +158,7 @@ model user {
   refersh_token   String?         @unique
   lastVisited     DateTime        @default(now())
   created_at      DateTime        @default(now())
-  is_verified     Boolean
+  is_verified     Boolean         @default(false) 
   student_profile studentProfile?
 
   @@schema("public")
