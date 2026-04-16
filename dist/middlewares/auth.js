@@ -28,7 +28,7 @@ const authMiddleware = async (req, res, next) => {
         return next();
     }
     catch (err) {
-        console.log("DEBUG [Middleware] Token Validation Failed");
+        console.log("DEBUG [Middleware] Token Validation Failed. Error:", err.message, err.stack);
         return res.status(401).json(new ApiError_1.default("Invalid or expired access token", ["Forbidden"]));
     }
 };

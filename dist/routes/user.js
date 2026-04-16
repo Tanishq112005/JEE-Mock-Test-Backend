@@ -1,0 +1,14 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.userRoutes = void 0;
+const express_1 = require("express");
+const auth_1 = require("../middlewares/auth");
+const userController_1 = require("../controllers/userController");
+const router = (0, express_1.Router)();
+router.get('/get', auth_1.authMiddleware, userController_1.userController.studentProfile);
+router.post('/stage1', auth_1.authMiddleware, userController_1.userController.stage1);
+router.post('/stage2', auth_1.authMiddleware, userController_1.userController.stage2);
+router.post('/stage3', auth_1.authMiddleware, userController_1.userController.stage3);
+router.get('/stageNumber', auth_1.authMiddleware, userController_1.userController.stageNumber);
+router.post('/update', auth_1.authMiddleware, userController_1.userController.updateData);
+exports.userRoutes = router;

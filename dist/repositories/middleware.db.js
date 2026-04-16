@@ -9,14 +9,18 @@ class Middleware {
     }
     async gettingStudentId(userId) {
         try {
-            const studentId = await this.db.studentProfile.findUnique({
+            const studentProfile = await this.db.studentProfile.findUnique({
                 where: {
                     user_id: userId
                 }
             });
-            console.log(studentId);
-            console.log(studentId?.id);
-            return studentId?.id;
+            console.log(studentProfile);
+            console.log(studentProfile?.id);
+            if (!studentProfile?.id) {
+                // Profile not created yet — treat as unauthorized so middleware returns 401
+                throw new Error(`No student profile found for userId: ${userId}`);
+            }
+            return studentProfile.id;
         }
         catch (err) {
             throw err;

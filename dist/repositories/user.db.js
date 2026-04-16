@@ -135,9 +135,149 @@ class User {
     }
     async creatingStudent(userId) {
         try {
-            const studentProfile = await this.db.studentProfile.create({
+            // Use upsert so re-verifying OTP (e.g. retry) doesn't throw a unique constraint error
+            await this.db.studentProfile.upsert({
+                where: { user_id: userId },
+                update: {}, // already exists — nothing to change
+                create: { user_id: userId }
+            });
+        }
+        catch (err) {
+            throw err;
+        }
+    }
+    async stageNumber(studentId) {
+        try {
+            const studentProfile = await this.db.studentProfile.findFirst({
+                where: {
+                    id: studentId
+                }
+            });
+            if (!studentProfile) {
+                throw "No Student Is Present In The DB";
+            }
+            return studentProfile.stage;
+        }
+        catch (err) {
+            throw err;
+        }
+    }
+    async stage1(className, studentId) {
+        try {
+            await this.db.studentProfile.update({
+                where: {
+                    id: studentId
+                },
                 data: {
-                    user_id: userId
+                    class: className,
+                    stage: 1
+                }
+            });
+        }
+        catch (err) {
+            throw err;
+        }
+    }
+    async stage2(gender, category, studentId) {
+        try {
+            await this.db.studentProfile.update({
+                where: {
+                    id: studentId
+                },
+                data: {
+                    category: category,
+                    gender: gender,
+                    stage: 2
+                }
+            });
+        }
+        catch (err) {
+            throw err;
+        }
+    }
+    async stage3(countryCode, mobileNumber, studentId) {
+        try {
+            await this.db.studentProfile.update({
+                where: {
+                    id: studentId
+                },
+                data: {
+                    phone_country_code: countryCode,
+                    phone: mobileNumber,
+                    stage: 3
+                }
+            });
+        }
+        catch (err) {
+            throw err;
+        }
+    }
+    async studentProfile(studentId) {
+        try {
+            const studentData = await this.db.studentProfile.findFirst({
+                where: {
+                    id: studentId
+                }
+            });
+            if (!studentData) {
+                throw new ApiError_1.default("No student profile found for this user. Try logging out and back in.");
+            }
+            const userId = studentData.user_id;
+            const userData = await this.db.user.findFirst({
+                where: {
+                    id: userId
+                }
+            });
+            const classData = studentData.class;
+            const finalPayload = {
+                name: userData?.name,
+                email: userData?.email,
+                class: studentData.class,
+                category: studentData.category,
+                mobileNumber: studentData.phone,
+                countryCode: studentData.phone_country_code,
+                gender: studentData.gender
+            };
+            return finalPayload;
+        }
+        catch (err) {
+            throw err;
+        }
+    }
+    async updateStudent(studentId, className, gender, category, name, countryCode, mobileNumber) {
+        try {
+            const studentData = await this.db.studentProfile.findFirst({
+                where: {
+                    id: studentId
+                }
+            });
+            if (!studentData) {
+                throw "No Such User Exists";
+            }
+            const userId = studentData.user_id;
+            const userData = await this.db.user.findFirst({
+                where: {
+                    id: userId
+                }
+            });
+            await this.db.studentProfile.update({
+                where: {
+                    id: studentId
+                },
+                data: {
+                    class: className,
+                    gender: gender,
+                    category: category,
+                    phone_country_code: countryCode,
+                    phone: mobileNumber
+                }
+            });
+            await this.db.user.update({
+                where: {
+                    id: userId
+                },
+                data: {
+                    name: name
                 }
             });
         }
