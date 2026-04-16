@@ -71,7 +71,8 @@ class UserController {
             return res.status(200).json(new ApiResponse_1.default("Student Profile Data", finalData));
         }
         catch (err) {
-            return res.status(404).json(new ApiError_1.default("Student profile not found. Please complete your profile setup.", err));
+            console.log(err);
+            return res.status(404).json(new ApiError_1.default("Student profile not found. Please complete your profile setup", err));
         }
     };
     updateData = async (req, res) => {

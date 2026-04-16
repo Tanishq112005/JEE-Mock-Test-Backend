@@ -36,7 +36,7 @@ class User {
                     email: email,
                     password: password,
                     is_verified: false,
-                    type: type
+                    type: type,
                 },
             });
         }
@@ -60,23 +60,23 @@ class User {
             throw err;
         }
     }
-    // updating the access token in the table 
+    // updating the access token in the table
     async updateRefershToken(email, refersh_token) {
         try {
             await this.db.user.update({
                 where: {
-                    email: email
+                    email: email,
                 },
                 data: {
-                    refersh_token: refersh_token
-                }
+                    refersh_token: refersh_token,
+                },
             });
         }
         catch (err) {
             throw err;
         }
     }
-    // updating the password in the table using the userid 
+    // updating the password in the table using the userid
     // src/repositories/user.db.ts
     async updatePassword(user_id, password) {
         try {
@@ -91,7 +91,7 @@ class User {
             // 2. Perform Update
             const updated = await this.db.user.update({
                 where: { id: user_id },
-                data: { password: password }
+                data: { password: password },
             });
             console.log("✅ REPO SUCCESS: Password hash updated in DB.");
             return updated;
@@ -101,14 +101,14 @@ class User {
             throw err;
         }
     }
-    // for finding the user in the table 
+    // for finding the user in the table
     async userDetails(email) {
         try {
             const userDetails = await this.db.user.findUnique({
                 where: {
                     email: email,
-                    is_verified: true
-                }
+                    is_verified: true,
+                },
             });
             return userDetails;
         }
@@ -116,13 +116,13 @@ class User {
             throw err;
         }
     }
-    // for finding the user through the id 
+    // for finding the user through the id
     async userDetailsThroughId(id) {
         try {
             const userDetails = await this.db.user.findUnique({
                 where: {
-                    id: id
-                }
+                    id: id,
+                },
             });
             if (!userDetails) {
                 throw new ApiError_1.default("No such type of the user exxists in the table");
@@ -139,7 +139,7 @@ class User {
             await this.db.studentProfile.upsert({
                 where: { user_id: userId },
                 update: {}, // already exists — nothing to change
-                create: { user_id: userId }
+                create: { user_id: userId },
             });
         }
         catch (err) {
@@ -150,8 +150,8 @@ class User {
         try {
             const studentProfile = await this.db.studentProfile.findFirst({
                 where: {
-                    id: studentId
-                }
+                    id: studentId,
+                },
             });
             if (!studentProfile) {
                 throw "No Student Is Present In The DB";
@@ -166,12 +166,12 @@ class User {
         try {
             await this.db.studentProfile.update({
                 where: {
-                    id: studentId
+                    id: studentId,
                 },
                 data: {
                     class: className,
-                    stage: 1
-                }
+                    stage: 1,
+                },
             });
         }
         catch (err) {
@@ -182,13 +182,13 @@ class User {
         try {
             await this.db.studentProfile.update({
                 where: {
-                    id: studentId
+                    id: studentId,
                 },
                 data: {
                     category: category,
                     gender: gender,
-                    stage: 2
-                }
+                    stage: 2,
+                },
             });
         }
         catch (err) {
@@ -199,13 +199,13 @@ class User {
         try {
             await this.db.studentProfile.update({
                 where: {
-                    id: studentId
+                    id: studentId,
                 },
                 data: {
                     phone_country_code: countryCode,
                     phone: mobileNumber,
-                    stage: 3
-                }
+                    stage: 3,
+                },
             });
         }
         catch (err) {
@@ -216,8 +216,8 @@ class User {
         try {
             const studentData = await this.db.studentProfile.findFirst({
                 where: {
-                    id: studentId
-                }
+                    id: studentId,
+                },
             });
             if (!studentData) {
                 throw new ApiError_1.default("No student profile found for this user. Try logging out and back in.");
@@ -225,18 +225,17 @@ class User {
             const userId = studentData.user_id;
             const userData = await this.db.user.findFirst({
                 where: {
-                    id: userId
-                }
+                    id: userId,
+                },
             });
-            const classData = studentData.class;
             const finalPayload = {
                 name: userData?.name,
                 email: userData?.email,
                 class: studentData.class,
                 category: studentData.category,
-                mobileNumber: studentData.phone,
+                mobileNumber: studentData.phone?.toString(),
                 countryCode: studentData.phone_country_code,
-                gender: studentData.gender
+                gender: studentData.gender,
             };
             return finalPayload;
         }
@@ -248,8 +247,8 @@ class User {
         try {
             const studentData = await this.db.studentProfile.findFirst({
                 where: {
-                    id: studentId
-                }
+                    id: studentId,
+                },
             });
             if (!studentData) {
                 throw "No Such User Exists";
@@ -257,28 +256,28 @@ class User {
             const userId = studentData.user_id;
             const userData = await this.db.user.findFirst({
                 where: {
-                    id: userId
-                }
+                    id: userId,
+                },
             });
             await this.db.studentProfile.update({
                 where: {
-                    id: studentId
+                    id: studentId,
                 },
                 data: {
                     class: className,
                     gender: gender,
                     category: category,
                     phone_country_code: countryCode,
-                    phone: mobileNumber
-                }
+                    phone: mobileNumber,
+                },
             });
             await this.db.user.update({
                 where: {
-                    id: userId
+                    id: userId,
                 },
                 data: {
-                    name: name
-                }
+                    name: name,
+                },
             });
         }
         catch (err) {
