@@ -78,11 +78,14 @@ class Chapter {
         chapterNumber: true,
         group: true,
         class: true,
+        isJeeAdvanced : true ,
+        isJeeMain : true ,
         subjects: {
           select: {
             id: true,
             name: true,
           },
+        
         },
       },
     });
@@ -143,6 +146,22 @@ class Chapter {
 
     return chapterRecord;
   };
+
+
+  public gettingChapterDetails = async(chapterId : string ) => {
+    try {
+       const chapterDetails = await this.db.chapters.findFirst({
+        where : {
+          id : chapterId
+        }
+       })
+
+       return chapterDetails ; 
+    } 
+    catch(err : any){
+      throw err ; 
+    }
+  }
 }
 
 export const chapter = new Chapter(database);

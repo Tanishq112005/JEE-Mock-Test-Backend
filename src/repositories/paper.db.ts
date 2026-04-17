@@ -26,6 +26,7 @@ class Paper {
           mode: paperInformation.mode,
           totalDuration: paperInformation.totalDuration,
           date: paperInformation.date,
+          session : paperInformation.session 
         },
       });
 

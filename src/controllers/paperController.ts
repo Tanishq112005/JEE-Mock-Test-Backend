@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { paper } from "../repositories/paper.db";
-import { ExamName } from "@prisma/client";
+import { ExamName, Session } from "@prisma/client";
 import ApiError from "../utils/ApiError";
 import ApiResponse from "../utils/ApiResponse";
 import { paperDetails } from "../types/paper.types";
@@ -21,7 +21,15 @@ export class PaperController {
           .status(400)
           .json(new ApiError("Invalid or missing Exam Name"));
       }
+      
 
+      if(!Object.values(Session).includes(paperData.session)) {
+        return res.status(400).json(
+          new ApiError(
+            "Session Name is Wrong" 
+          )
+        )
+      }
       const paperId =  await paper.addingPapers(paperData);
 
       return res

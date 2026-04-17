@@ -126,8 +126,8 @@ class Question {
       chapter: q.chapters?.name || null,
       exam: examName,
       paperTitle: q.papers?.year ? `${examName} ${q.papers.year}` : null,
-      isJeeMain: q.chapters?.isJeeMain ?? false,
-      isJeeAdvanced: q.chapters?.isJeeAdvanced ?? false,
+      // isJeeMain: q.chapters?.isJeeMain ?? false,
+      // isJeeAdvanced: q.chapters?.isJeeAdvanced ?? false,
 
       // Clean up raw image arrays
       image: undefined,
@@ -306,6 +306,7 @@ class Question {
               month: true,
               year: true,
               exam: { select: { name: true } },
+              session : true 
             },
           },
         },
@@ -545,6 +546,8 @@ class Question {
             month: true,
             year: true,
             exam: { select: { name: true } },
+            session : true 
+            
           },
         },
       },

@@ -1,4 +1,4 @@
-import { Day, ExamMode, ExamName, Month, questionType, Shift } from "@prisma/client";
+import { Day, ExamMode, ExamName, Month, questionType, Session, Shift } from "@prisma/client";
 
 
 export interface paperDetails {
@@ -9,6 +9,7 @@ export interface paperDetails {
     year : number ; 
     date : string ; 
     mode : ExamMode; 
+    session : Session ;
     totalDuration : number ; 
     totalMarks? : number | 0  ;
     totalMultiChoice? : number | 0 ; 
@@ -21,4 +22,5 @@ export interface questionDetails {
     paperId : string ; 
     questionType : questionType ;
     positiveMarks : number ; 
+
 }

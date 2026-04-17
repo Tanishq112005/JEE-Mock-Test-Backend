@@ -8,6 +8,7 @@ import { database } from "../lib/database";
 import { questionBitmapRegistry } from "../services/uniqueCountService";
 import ApiError from "../utils/ApiError";
 import { question } from "./question.db";
+import { chapter } from "./chapter.db";
 
 class ChapterWisePractice {
   private db: PrismaClient;
@@ -75,7 +76,7 @@ class ChapterWisePractice {
       }
 
       // 6. Strip internal Prisma relations before sending to the client
-      const { papers, chapters, subjects, paperId, chapterId, subjectId, image, comprehensionImage, ...cleanQuestion } = q;
+      const {  ...cleanQuestion } = q;
 
       return {
         ...cleanQuestion,
@@ -84,6 +85,7 @@ class ChapterWisePractice {
           : "Not successfully done",
       };
     });
+    const chapterData = await chapter.gettingChapterDetails(chapterId) ; 
 
     return {
       stats: {
@@ -93,7 +95,11 @@ class ChapterWisePractice {
         uniqueSolvedMainQuestions: uniqueSolvedMain,
         uniqueSolvedAdvancedQuestions: uniqueSolvedAdvanced,
         totalUniqueSolved: uniqueSolvedMain + uniqueSolvedAdvanced,
+      
       },
+   
+         chapterData,
+      
       jeeMain: mappedQuestions.filter(q => q.exam === ExamName.JEE_MAIN),
       jeeAdvanced: mappedQuestions.filter(q => q.exam === ExamName.JEE_ADVANCED),
     };

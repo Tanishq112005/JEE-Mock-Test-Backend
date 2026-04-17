@@ -103,6 +103,15 @@ enum questionType {
   @@schema("public")
 }
 
+
+enum Session {
+  Session_1
+  Session_2
+  Advanced 
+  Not_Assign
+
+  @@schema("public")
+}
 enum ExamMode {
   online
   offline
@@ -257,6 +266,7 @@ model papers {
   day            Day
   date           String
   shift          Shift
+  session        Session  @default(Not_Assign)
   totalMarks     Int?     @default(0)
   totalDuration  Int?     @default(0)
   totalQuestions Int?     @default(0)
