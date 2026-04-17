@@ -1,0 +1,12 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.bookMarkedRoutes = void 0;
+const express_1 = require("express");
+const auth_1 = require("../middlewares/auth");
+const bookMarkedController_1 = require("../controllers/bookMarkedController");
+const router = (0, express_1.Router)();
+router.get('/get', auth_1.authMiddleware, bookMarkedController_1.bookMarkedController.get);
+router.post('/add', auth_1.authMiddleware, bookMarkedController_1.bookMarkedController.create);
+router.delete('/remove', auth_1.authMiddleware, bookMarkedController_1.bookMarkedController.remove);
+router.post('/check', auth_1.authMiddleware, bookMarkedController_1.bookMarkedController.checking);
+exports.bookMarkedRoutes = router;

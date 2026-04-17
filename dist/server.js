@@ -27,6 +27,7 @@ const redisManager_1 = __importDefault(require("./lib/redisManager"));
 const env_2 = require("./config/env");
 const chapterWise_1 = require("./routes/chapterWise");
 const user_1 = require("./routes/user");
+const bookMarked_1 = require("./routes/bookMarked");
 const app = (0, express_1.default)();
 const port = env_1.PORT || 3000;
 // ==========================================
@@ -65,6 +66,7 @@ app.use("/api/analytics", analytics_1.analyticsRoutes);
 app.use("/api/redis", redis_1.adminRedisRoutes);
 app.use("/api/chapterWise", chapterWise_1.chapterWiseRoutes);
 app.use("/api/user", user_1.userRoutes);
+app.use("/api/bookMarked", bookMarked_1.bookMarkedRoutes);
 // --- SEARCH API (For Frontend Autocomplete) ---
 app.post("/api/search/chapter", async (req, res) => {
     try {
