@@ -16,8 +16,6 @@ const chapter_db_1 = require("../repositories/chapter.db");
 const chapterWisePractice_db_1 = require("../repositories/chapterWisePractice.db");
 class ChapterWiseController {
     constructor() { }
-    // api for getting the group name 
-    // need the subject name 
     groupName = async (req, res) => {
         try {
             let { subjectName } = req.query;
@@ -36,7 +34,6 @@ class ChapterWiseController {
                 .json(new ApiError_1.default("Error in getting the group", err));
         }
     };
-    // API to get chapters for a particular group
     getChaptersByGroups = async (req, res) => {
         try {
             const { groupName } = req.query;
@@ -54,16 +51,12 @@ class ChapterWiseController {
                 .json(new ApiError_1.default("Error fetching chapters by group", err));
         }
     };
-    // API #3: Get chapter questions and stats by chapter name
-    // Route param :chapterName is the human-readable chapter name (e.g. "Kinematics")
-    // It is resolved to a chapterId internally before querying the DB.
     getChapterInfo = async (req, res) => {
         try {
             const { chapterName } = req.params;
             const userId = req.user;
             if (!chapterName)
                 return res.status(400).json(new ApiError_1.default("chapterName is required"));
-            // Resolve chapter name → chapter record
             let chapterRecord;
             try {
                 chapterRecord = await chapter_db_1.chapter.gettingChapterId(chapterName);
@@ -115,9 +108,7 @@ class ChapterWiseController {
                 timeSpent: timeSpent || 0,
                 userAnswer: userAnswer || [],
             };
-            // 1. Cache to Redis for immediate fast access
             await chapterWiseCacheService_1.chapterWiseCacheService.upsertAttemptData(userId, questionId, payload);
-            // 2. Queue for Postgres persistence
             await updateChapterAttempt_producer_1.updateChapterAttemptProducer.updateAttemptData(payload);
             return res
                 .status(200)
@@ -153,11 +144,8 @@ class ChapterWiseController {
             if (result.verdict === "correct") {
                 await uniqueCountService_1.questionBitmapRegistry.markAttempted(studentId, questionId);
             }
-            // Set to Redis first so user can check immediate history
             await chapterWiseCacheService_1.chapterWiseCacheService.upsertAttemptData(userId, questionId, payload);
-            // Push to main submit queue which fully persists it and evaluated results
             await submitChapterAttempt_producer_1.submitChapterAttemptProducer.submitAttemptData(payload);
-            // We immediately send the evaluated result to the user
             return res.status(200).json(new ApiResponse_1.default("Question submitted and evaluated", {
                 marksObtained: result.marks,
                 verdict: result.verdict,
