@@ -67,6 +67,8 @@ class Chapter {
                 chapterNumber: true,
                 group: true,
                 class: true,
+                isJeeAdvanced: true,
+                isJeeMain: true,
                 subjects: {
                     select: {
                         id: true,
@@ -125,6 +127,19 @@ class Chapter {
             throw new ApiError_1.default(`Chapter "${chapterName}" not found. Check the exact chapter name stored in the database.`);
         }
         return chapterRecord;
+    };
+    gettingChapterDetails = async (chapterId) => {
+        try {
+            const chapterDetails = await this.db.chapters.findFirst({
+                where: {
+                    id: chapterId
+                }
+            });
+            return chapterDetails;
+        }
+        catch (err) {
+            throw err;
+        }
     };
 }
 exports.chapter = new Chapter(database_1.database);

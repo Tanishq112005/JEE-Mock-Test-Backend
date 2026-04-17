@@ -19,6 +19,9 @@ class PaperController {
                     .status(400)
                     .json(new ApiError_1.default("Invalid or missing Exam Name"));
             }
+            if (!Object.values(client_1.Session).includes(paperData.session)) {
+                return res.status(400).json(new ApiError_1.default("Session Name is Wrong"));
+            }
             const paperId = await paper_db_1.paper.addingPapers(paperData);
             return res
                 .status(201)
@@ -73,6 +76,26 @@ class PaperController {
             return res
                 .status(500)
                 .json(new ApiError_1.default("Error in fetching papers", err));
+        }
+    };
+    addingMarkingScheme = async (req, res) => {
+        try {
+            const { payload } = req.body;
+            await paper_db_1.paper.addpaperMarkingScheme(payload);
+            return res.status(200).json(new ApiResponse_1.default("Paper marking Scheme Is Uploaded"));
+        }
+        catch (err) {
+            return res.status(400).json(new ApiError_1.default("Error In Adding The Marking Scheme"));
+        }
+    };
+    gettingMarkingScheme = async (req, res) => {
+        try {
+            const { paperId } = req.params;
+            const data = await paper_db_1.paper.paperMarkingScheme(paperId);
+            return res.status(200).json(new ApiResponse_1.default("Your Marking Scheme Of The Paper", data));
+        }
+        catch (err) {
+            return res.status(400).json(new ApiError_1.default("Error in getting the Marking Scheme"));
         }
     };
 }

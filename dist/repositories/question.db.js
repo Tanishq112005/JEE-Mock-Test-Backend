@@ -101,8 +101,8 @@ class Question {
             chapter: q.chapters?.name || null,
             exam: examName,
             paperTitle: q.papers?.year ? `${examName} ${q.papers.year}` : null,
-            isJeeMain: q.chapters?.isJeeMain ?? false,
-            isJeeAdvanced: q.chapters?.isJeeAdvanced ?? false,
+            // isJeeMain: q.chapters?.isJeeMain ?? false,
+            // isJeeAdvanced: q.chapters?.isJeeAdvanced ?? false,
             // Clean up raw image arrays
             image: undefined,
             comprehensionImage: undefined,
@@ -165,6 +165,7 @@ class Question {
             const updationPayload = {
                 positiveMarks: questionData.postiveMarks,
                 questionType: questionData.questionType,
+                negativeMarks: questionData.negativeMarks,
                 paperId: paperId,
             };
             await paper_db_1.paper.addingDetails(updationPayload);
@@ -260,6 +261,7 @@ class Question {
                             month: true,
                             year: true,
                             exam: { select: { name: true } },
+                            session: true
                         },
                     },
                 },
@@ -462,6 +464,7 @@ class Question {
                         month: true,
                         year: true,
                         exam: { select: { name: true } },
+                        session: true
                     },
                 },
             },

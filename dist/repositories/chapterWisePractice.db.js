@@ -38,6 +38,7 @@ const client_1 = require("@prisma/client");
 const database_1 = require("../lib/database");
 const uniqueCountService_1 = require("../services/uniqueCountService");
 const question_db_1 = require("./question.db");
+const chapter_db_1 = require("./chapter.db");
 class ChapterWisePractice {
     db;
     constructor(database) {
@@ -92,7 +93,7 @@ class ChapterWisePractice {
                     uniqueSolvedAdvanced++;
             }
             // 6. Strip internal Prisma relations before sending to the client
-            const { papers, chapters, subjects, paperId, chapterId, subjectId, image, comprehensionImage, ...cleanQuestion } = q;
+            const { ...cleanQuestion } = q;
             return {
                 ...cleanQuestion,
                 attemptStatus: isAttemptedSuccessfully
@@ -100,6 +101,7 @@ class ChapterWisePractice {
                     : "Not successfully done",
             };
         });
+        const chapterData = await chapter_db_1.chapter.gettingChapterDetails(chapterId);
         return {
             stats: {
                 totalQuestions: questionList.length,
@@ -109,6 +111,7 @@ class ChapterWisePractice {
                 uniqueSolvedAdvancedQuestions: uniqueSolvedAdvanced,
                 totalUniqueSolved: uniqueSolvedMain + uniqueSolvedAdvanced,
             },
+            chapterData,
             jeeMain: mappedQuestions.filter(q => q.exam === client_1.ExamName.JEE_MAIN),
             jeeAdvanced: mappedQuestions.filter(q => q.exam === client_1.ExamName.JEE_ADVANCED),
         };

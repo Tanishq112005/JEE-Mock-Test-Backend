@@ -26,9 +26,7 @@ class AnswerVerifyService {
         }
         const isExactMatch = userAnswer.length === correctAnswer.length &&
             [...userAnswer].sort().join(",") === [...correctAnswer].sort().join(",");
-        if (scheme.isPartial &&
-            (questionType === "MultiCorrect" ||
-                questionType === "ComprehensionMultiCorrect")) {
+        if (scheme.isPartial) {
             if (isExactMatch) {
                 return {
                     marks: scheme.positiveMarks,
