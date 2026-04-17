@@ -6,7 +6,6 @@ import {
 } from "@prisma/client";
 import { database } from "../lib/database";
 import { questionBitmapRegistry } from "../services/uniqueCountService";
-import ApiError from "../utils/ApiError";
 import { question } from "./question.db";
 import { chapter } from "./chapter.db";
 
@@ -17,7 +16,6 @@ class ChapterWisePractice {
     this.db = database;
   }
 
-  // API #3 & #4 combined logic: Get Chapter Info and Questions using Redis Bitmap
   public async getAllPracticeAttemptsRaw(studentId: string) {
     return this.db.chapterWiseQuestionAttemptStatus.findMany({
       where: { studentId },
@@ -32,25 +30,20 @@ class ChapterWisePractice {
     });
   }
 
-  // API #3 & #4 combined logic: Get Chapter Info and Questions using Redis Bitmap
- public async getChapterQuestionsWithStats(
+  public async getChapterQuestionsWithStats(
     chapterId: string,
     studentId: string,
   ) {
-    // 1. Fetch unencrypted questions with signed URLs and HTML formatting
     const questionList = await question.getQuestionsWithSignedUrls(chapterId);
 
-    // 2. Sort descending by paper year
     questionList.sort((a, b) => {
       const yearA = a.papers?.year ?? 0;
       const yearB = b.papers?.year ?? 0;
       return yearB - yearA;
     });
 
-    // 3. Sync the bitmap from DB before reading it.
     await questionBitmapRegistry.syncFromDB(studentId);
 
-    // 4. Check the bitmap to get ALL attempted questions
     const { questionIds: attemptedIdsList } =
       await questionBitmapRegistry.getAttemptedQuestionIds(studentId);
     const attemptedSet = new Set(attemptedIdsList);
@@ -60,9 +53,7 @@ class ChapterWisePractice {
     let uniqueSolvedMain = 0;
     let uniqueSolvedAdvanced = 0;
 
-    // 5. Augment the question JSON with attempt status
     const mappedQuestions = questionList.map((q) => {
-      // You can use q.exam here because our new method maps it properly
       const isMains = q.exam === ExamName.JEE_MAIN;
       
       if (isMains) totalMainQuestions++;
@@ -75,8 +66,7 @@ class ChapterWisePractice {
         else uniqueSolvedAdvanced++;
       }
 
-      // 6. Strip internal Prisma relations before sending to the client
-      const {  ...cleanQuestion } = q;
+      const { ...cleanQuestion } = q;
 
       return {
         ...cleanQuestion,
@@ -85,7 +75,8 @@ class ChapterWisePractice {
           : "Not successfully done",
       };
     });
-    const chapterData = await chapter.gettingChapterDetails(chapterId) ; 
+
+    const chapterData = await chapter.gettingChapterDetails(chapterId); 
 
     return {
       stats: {
@@ -95,29 +86,23 @@ class ChapterWisePractice {
         uniqueSolvedMainQuestions: uniqueSolvedMain,
         uniqueSolvedAdvancedQuestions: uniqueSolvedAdvanced,
         totalUniqueSolved: uniqueSolvedMain + uniqueSolvedAdvanced,
-      
       },
-   
-         chapterData,
-      
+      chapterData,
       jeeMain: mappedQuestions.filter(q => q.exam === ExamName.JEE_MAIN),
       jeeAdvanced: mappedQuestions.filter(q => q.exam === ExamName.JEE_ADVANCED),
     };
   }
 
-  // Wrappers for controllers
   public async getChapterInfo(chapterId: string, studentId: string) {
-    const data = await this.getChapterQuestionsWithStats(chapterId, studentId);
-    return data;
+    return await this.getChapterQuestionsWithStats(chapterId, studentId);
   }
 
-  // API #5: Get attempt history for a specific question
+  // 🏆 FIXED: Complete history + Smart Sync + isPending handling
   public async getQuestionAttemptsHistory(
     questionId: string,
     studentId: string,
   ) {
-    const { chapterWiseCacheService } =
-      await import("../services/chapterWiseCacheService");
+    const { chapterWiseCacheService } = await import("../services/chapterWiseCacheService");
     const { cacheService } = await import("../lib/caching");
 
     // ── 1. Check Redis for pending chapter-wise attempt ────────────────────────
@@ -126,21 +111,59 @@ class ChapterWisePractice {
       questionId,
     );
 
-    // ── 2. Fetch DB chapter attempts ───────────────────────────────────────────
-    const chapterAttempts =
-      await this.db.chapterWiseQuestionAttemptStatus.findMany({
-        where: { questionId, studentId },
-        orderBy: { created_at: "desc" },
-      });
+    // ── 2. Fetch ALL DB chapter attempts (historical & current) ────────────────
+    const chapterAttemptsRaw = await this.db.chapterWiseQuestionAttemptStatus.findMany({
+      where: { questionId, studentId },
+      orderBy: { created_at: "desc" },
+    });
 
-    // ── 3. Merge Redis pending chapter attempt into chapterAttempts ───────────
-    const mergedChapterAttempts = activeRedisAttempt
-      ? [
-          {
-            id: `pending-${questionId}`,
+    // Map DB results to include 'isPending: false' for TypeScript compliance
+    const chapterAttempts = chapterAttemptsRaw.map(attempt => ({
+      ...attempt,
+      isPending: false 
+    }));
+
+    // ── 3. Smart Sync: Merge Redis and DB to prevent duplicates ────────────────
+    let mergedChapterAttempts = [...chapterAttempts];
+
+    if (activeRedisAttempt) {
+      const latestDbAttempt = chapterAttempts.length > 0 ? chapterAttempts[0] : null;
+
+      if (latestDbAttempt && latestDbAttempt.questionStatus !== AttemptStatus.answered) {
+        // Overwrite the pending DB heartbeat with the most fresh Redis heartbeat
+        mergedChapterAttempts[0] = {
+          ...latestDbAttempt,
+          questionStatus: activeRedisAttempt.status as AttemptStatus,
+          isCorrect: activeRedisAttempt.isCorrect ?? latestDbAttempt.isCorrect,
+          marksObtained: activeRedisAttempt.marksObtained ?? latestDbAttempt.marksObtained,
+          timeSpent: activeRedisAttempt.timeSpent,
+          userAnswer: activeRedisAttempt.userAnswer,
+          isPending: activeRedisAttempt.status === AttemptStatus.answered, 
+        };
+      } else {
+        // Check for deduplication
+        let isDuplicateOfLatest = false;
+
+        if (
+          latestDbAttempt &&
+          latestDbAttempt.questionStatus === AttemptStatus.answered &&
+          activeRedisAttempt.status === AttemptStatus.answered
+        ) {
+          const sameTime = latestDbAttempt.timeSpent === activeRedisAttempt.timeSpent;
+          const sameAnswers = JSON.stringify(latestDbAttempt.userAnswer) === JSON.stringify(activeRedisAttempt.userAnswer);
+          
+          if (sameTime && sameAnswers) {
+            isDuplicateOfLatest = true;
+          }
+        }
+
+        // It is a completely new attempt pending in RabbitMQ
+        if (!isDuplicateOfLatest) {
+          mergedChapterAttempts.unshift({
+            id: `pending-${questionId}-${Date.now()}`,
             questionId,
             studentId,
-            questionStatus: activeRedisAttempt.status as any,
+            questionStatus: activeRedisAttempt.status as AttemptStatus,
             isCorrect: activeRedisAttempt.isCorrect ?? false,
             marksObtained: activeRedisAttempt.marksObtained ?? 0,
             timeSpent: activeRedisAttempt.timeSpent,
@@ -148,13 +171,13 @@ class ChapterWisePractice {
             created_at: new Date(),
             isAnalyzed: false,
             isPending: true,
-          },
-          ...chapterAttempts,
-        ]
-      : chapterAttempts;
+          });
+        }
+      }
+    }
 
     // ── 4. Fetch DB test attempts ──────────────────────────────────────────────
-    const dbTestAttempts = await this.db.testQuestionAttemptStatus.findMany({
+    const dbTestAttemptsRaw = await this.db.testQuestionAttemptStatus.findMany({
       where: { questionId, studentId },
       include: {
         testStatus: {
@@ -166,21 +189,20 @@ class ChapterWisePractice {
       orderBy: { updated_at: "desc" },
     });
 
+    const dbTestAttempts = dbTestAttemptsRaw.map(attempt => ({
+      ...attempt,
+      isPending: false
+    }));
+
     // ── 5. Check Redis for pending test attempts ───────────────────────────────
-    // After submitTest, data lives in Redis under:
-    //   testUpperLayer  → { testId: [{ id, created_at }] }
-    //   ${studentId}:${testStatusId}:${created_at} → evaluation report (finalVerdict[])
-    // The analytics worker clears these keys after it has written to DB.
     const pendingTestAttempts: any[] = [];
     try {
       const upperLayer = await cacheService.getCache(`${studentId}:testUpperLayer`);
 
       if (upperLayer && Array.isArray(upperLayer.testId)) {
-        // Build a Set of testStatusIds already in DB so we don't double-show
         const dbTestStatusIds = new Set(dbTestAttempts.map((a) => a.testStatusId));
 
         for (const entry of upperLayer.testId) {
-          // Only check tests NOT yet written to DB
           if (dbTestStatusIds.has(entry.id)) continue;
 
           const evalReport = await cacheService.getCache(
@@ -207,23 +229,21 @@ class ChapterWisePractice {
             markedForReview: match.markedForReview ?? false,
             isAnalyzed: false,
             updated_at: new Date(),
-            isPending: true, // synthetic flag — analytics not yet in DB
+            isPending: true, 
             testStatus: {
               id: entry.id,
               studentId,
               status: "COMPLETED",
               created_at: entry.created_at,
-              papers: null, // not available in Redis; frontend can ignore
+              papers: null, 
             },
           });
         }
       }
     } catch (err) {
-      // Non-critical — DB test attempts are still returned
       console.warn("[getQuestionAttemptsHistory] Redis test check failed:", err);
     }
 
-    // Pending Redis entries go first, then DB entries
     const mergedTestAttempts = [...pendingTestAttempts, ...dbTestAttempts];
 
     return {
@@ -231,7 +251,6 @@ class ChapterWisePractice {
       testAttempts: mergedTestAttempts,
     };
   }
-
 
   // Save or update attempt
   public async saveQuestionAttempt(data: {
@@ -244,31 +263,28 @@ class ChapterWisePractice {
     userAnswer: string[];
     isFinalSubmit: boolean;
   }) {
-    const latestAttempt =
-      await this.db.chapterWiseQuestionAttemptStatus.findFirst({
+    const latestAttempt = await this.db.chapterWiseQuestionAttemptStatus.findFirst({
+      where: {
+        studentId: data.studentId,
+        questionId: data.questionId,
+      },
+      orderBy: { created_at: "desc" },
+    });
+
+    // ── FINAL SUBMIT PATH ──────────────────────────────────────────────────────
+    if (data.isFinalSubmit) {
+      // Find the current in-progress heartbeat row
+      const pendingAttempt = await this.db.chapterWiseQuestionAttemptStatus.findFirst({
         where: {
           studentId: data.studentId,
           questionId: data.questionId,
+          questionStatus: { not: AttemptStatus.answered },
         },
         orderBy: { created_at: "desc" },
       });
 
-    // ── FINAL SUBMIT PATH ──────────────────────────────────────────────────────
-    if (data.isFinalSubmit) {
-      // Find the current in-progress row (not yet answered).
-      // This is the row that belongs to the current attempt session.
-      const pendingAttempt =
-        await this.db.chapterWiseQuestionAttemptStatus.findFirst({
-          where: {
-            studentId: data.studentId,
-            questionId: data.questionId,
-            questionStatus: { not: AttemptStatus.answered },
-          },
-          orderBy: { created_at: "desc" },
-        });
-
+      // 1. If there's an active heartbeat, finalize it.
       if (pendingAttempt) {
-        // Normal path: finalize the current in-progress row
         return this.db.chapterWiseQuestionAttemptStatus.update({
           where: { id: pendingAttempt.id },
           data: {
@@ -282,23 +298,9 @@ class ChapterWisePractice {
         });
       }
 
-      if (latestAttempt) {
-        // Nack+retry protection: no in-progress row (already answered by a prior
-        // successful write). Update the latest row idempotently — do NOT create a duplicate.
-        return this.db.chapterWiseQuestionAttemptStatus.update({
-          where: { id: latestAttempt.id },
-          data: {
-            timeSpent: data.timeSpent,
-            userAnswer: data.userAnswer,
-            questionStatus: data.status,
-            isCorrect: data.isCorrect,
-            marksObtained: data.marksObtained,
-            isAnalyzed: false,
-          },
-        });
-      }
-
-      // No rows at all — user submitted without any heartbeat (edge case)
+      // 2. If NO active heartbeat exists, ALWAYS CREATE A NEW ROW.
+      // (This handles rapid consecutive submissions or identical test submissions 
+      // without swallowing the user's attempt history).
       return this.db.chapterWiseQuestionAttemptStatus.create({
         data: {
           studentId: data.studentId,
@@ -316,8 +318,7 @@ class ChapterWisePractice {
     // ── HEARTBEAT / UPDATE PATH ────────────────────────────────────────────────
     if (latestAttempt) {
       if (latestAttempt.questionStatus === AttemptStatus.answered) {
-        // The previous attempt is fully done. The user has opened the question
-        // again — create a NEW in-progress row for this fresh session.
+        // The previous attempt is fully done. User opened it again — CREATE NEW heartbeat.
         return this.db.chapterWiseQuestionAttemptStatus.create({
           data: {
             studentId: data.studentId,

@@ -29,7 +29,7 @@ class ChapterWiseCacheService {
     const key = this.getCacheKey(userId, questionId);
     const setKey = this.getActiveQuestionsSetKey(userId);
 
-    let activeQuestions: string[] = await cacheService.getCache(setKey) || [];
+    let activeQuestions: string[] = (await cacheService.getCache(setKey)) || [];
     if (!activeQuestions.includes(questionId)) {
       activeQuestions.push(questionId);
       await cacheService.setCache(setKey, activeQuestions);
@@ -38,7 +38,7 @@ class ChapterWiseCacheService {
     await cacheService.setCache(key, data);
   }
 
-  public async getAttemptData(userId: string, questionId: string) {
+  public async getAttemptData(userId: string, questionId: string): Promise<CachedAttemptData | null> {
     const key = this.getCacheKey(userId, questionId);
     return await cacheService.getCache(key);
   }
@@ -47,7 +47,7 @@ class ChapterWiseCacheService {
     const key = this.getCacheKey(userId, questionId);
     const setKey = this.getActiveQuestionsSetKey(userId);
 
-    let activeQuestions: string[] = await cacheService.getCache(setKey) || [];
+    let activeQuestions: string[] = (await cacheService.getCache(setKey)) || [];
     activeQuestions = activeQuestions.filter((id) => id !== questionId);
     await cacheService.setCache(setKey, activeQuestions);
 
@@ -56,7 +56,7 @@ class ChapterWiseCacheService {
 
   public async getAllActiveAttempts(userId: string) {
     const setKey = this.getActiveQuestionsSetKey(userId);
-    const activeQuestions: string[] = await cacheService.getCache(setKey) || [];
+    const activeQuestions: string[] = (await cacheService.getCache(setKey)) || [];
 
     const attempts: Record<string, CachedAttemptData> = {};
     for (const questionId of activeQuestions) {
