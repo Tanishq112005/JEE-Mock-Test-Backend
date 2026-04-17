@@ -73,7 +73,82 @@ class Question {
   }
 
   // ---------------------------------------------------------
-  // 3. Helper: Group and Sort Questions by Type
+  // 3. Helper: Process all media (Main, Comprehension, Options, Solution)
+  // ---------------------------------------------------------
+  private processQuestionMedia(q: any) {
+    const finalQuestionHtml = this.injectUrlsIntoHtml(q.content, this.signUrlArray(q.image));
+    const finalCompHtml = this.injectUrlsIntoHtml(q.comprehensionContent, this.signUrlArray(q.comprehensionImage));
+
+    let processedOptions = null;
+    if (q.options) {
+      processedOptions = {
+        ...q.options,
+        optionAtext: this.injectUrlsIntoHtml(q.options.optionAtext, this.signUrlArray(q.options.optionAimage)),
+        optionBtext: this.injectUrlsIntoHtml(q.options.optionBtext, this.signUrlArray(q.options.optionBimage)),
+        optionCtext: this.injectUrlsIntoHtml(q.options.optionCtext, this.signUrlArray(q.options.optionCimage)),
+        optionDtext: this.injectUrlsIntoHtml(q.options.optionDtext, this.signUrlArray(q.options.optionDimage)),
+        optionAimage: undefined,
+        optionBimage: undefined,
+        optionCimage: undefined,
+        optionDimage: undefined,
+      };
+    }
+
+    let processedSolution = null;
+    if (q.solution) {
+      processedSolution = {
+        ...q.solution,
+        text: this.injectUrlsIntoHtml(q.solution.text, this.signUrlArray(q.solution.image)),
+        image: undefined,
+      };
+    }
+
+    return { finalQuestionHtml, finalCompHtml, processedOptions, processedSolution };
+  }
+
+  // ---------------------------------------------------------
+  // 4. Helper: Flatten relationships and apply naming changes
+  // ---------------------------------------------------------
+  private formatQuestionRecord(q: any, removeRelations: boolean = true) {
+    const media = this.processQuestionMedia(q);
+    const examName = q.papers?.exam?.name || null;
+
+    const formattedQuestion = {
+      ...q,
+      // Inject Processed Media
+      content: media.finalQuestionHtml,
+      comprehensionContent: media.finalCompHtml,
+      options: media.processedOptions,
+      solution: media.processedSolution,
+
+      // Flatten Relationships (Naming Changes)
+      subject: q.subjects?.name || null,
+      chapter: q.chapters?.name || null,
+      exam: examName,
+      paperTitle: q.papers?.year ? `${examName} ${q.papers.year}` : null,
+      isJeeMain: q.chapters?.isJeeMain ?? false,
+      isJeeAdvanced: q.chapters?.isJeeAdvanced ?? false,
+
+      // Clean up raw image arrays
+      image: undefined,
+      comprehensionImage: undefined,
+    };
+
+    // Optionally remove nested Prisma objects
+    if (removeRelations) {
+      formattedQuestion.subjects = undefined;
+      formattedQuestion.chapters = undefined;
+      formattedQuestion.papers = undefined;
+      formattedQuestion.paperId = undefined;
+      formattedQuestion.subjectId = undefined;
+      formattedQuestion.chapterId = undefined;
+    }
+
+    return formattedQuestion;
+  }
+
+  // ---------------------------------------------------------
+  // 5. Helper: Group and Sort Questions by Type
   // ---------------------------------------------------------
   private groupAndSortBySection(questions: any[]) {
     const sections = {
@@ -120,7 +195,7 @@ class Question {
   }
 
   // ---------------------------------------------------------
-  // 4. Add Single Question
+  // 6. Add Single Question
   // ---------------------------------------------------------
   async addingSingleQuestion(
     questionData: questionParameters,
@@ -192,7 +267,7 @@ class Question {
   }
 
   // =================================================================
-  // 5. GET QUESTIONS (RETURNS ENCRYPTED)
+  // 7. GET QUESTIONS (RETURNS ENCRYPTED)
   // =================================================================
   async gettingQuestion(
     year?: number,
@@ -237,91 +312,8 @@ class Question {
         orderBy: { papers: { year: "desc" } },
       });
 
-      const processedQuestions = await Promise.all(
-        questionsRaw.map(async (q) => {
-          const subjectName = q.subjects?.name || null;
-          const chapterName = q.chapters?.name || null;
-          const examName = q.papers?.exam?.name || null;
-          const isJeeMain = q.chapters?.isJeeMain ?? false;
-          const isJeeAdvanced = q.chapters?.isJeeAdvanced ?? false;
-
-          const signedQuestionImages = this.signUrlArray(q.image);
-          const signedCompImages = this.signUrlArray(q.comprehensionImage);
-
-          const finalQuestionHtml = this.injectUrlsIntoHtml(
-            q.content,
-            signedQuestionImages,
-          );
-          const finalCompHtml = this.injectUrlsIntoHtml(
-            q.comprehensionContent,
-            signedCompImages,
-          );
-
-          let processedOptions = null;
-          if (q.options) {
-            const optAImgs = this.signUrlArray(q.options.optionAimage);
-            const optBImgs = this.signUrlArray(q.options.optionBimage);
-            const optCImgs = this.signUrlArray(q.options.optionCimage);
-            const optDImgs = this.signUrlArray(q.options.optionDimage);
-
-            processedOptions = {
-              ...q.options,
-              optionAtext: this.injectUrlsIntoHtml(
-                q.options.optionAtext,
-                optAImgs,
-              ),
-              optionBtext: this.injectUrlsIntoHtml(
-                q.options.optionBtext,
-                optBImgs,
-              ),
-              optionCtext: this.injectUrlsIntoHtml(
-                q.options.optionCtext,
-                optCImgs,
-              ),
-              optionDtext: this.injectUrlsIntoHtml(
-                q.options.optionDtext,
-                optDImgs,
-              ),
-              optionAimage: undefined,
-              optionBimage: undefined,
-              optionCimage: undefined,
-              optionDimage: undefined,
-            };
-          }
-
-          let processedSolution = null;
-          if (q.solution) {
-            const solImages = this.signUrlArray(q.solution.image);
-            processedSolution = {
-              ...q.solution,
-              text: this.injectUrlsIntoHtml(q.solution.text, solImages),
-              image: undefined,
-            };
-          }
-
-          return {
-            ...q,
-            content: finalQuestionHtml,
-            comprehensionContent: finalCompHtml,
-            subject: subjectName,
-            chapter: chapterName,
-            exam: examName,
-            paperTitle: q.papers?.year ? `${examName} ${q.papers.year}` : null,
-            isJeeMain,
-            isJeeAdvanced,
-
-            subjects: undefined,
-            chapters: undefined,
-            papers: undefined,
-            paperId: undefined,
-            subjectId: undefined,
-            chapterId: undefined,
-            image: undefined,
-            comprehensionImage: undefined,
-            options: processedOptions,
-            solution: processedSolution,
-          };
-        }),
+      const processedQuestions = questionsRaw.map((q) =>
+        this.formatQuestionRecord(q, true),
       );
 
       return encryptPayload(processedQuestions);
@@ -332,7 +324,7 @@ class Question {
   }
 
   // =================================================================
-  // 6. GET QUESTIONS BY PAPER ID
+  // 8. GET QUESTIONS BY PAPER ID
   // =================================================================
   async getQuestionsByPaperId(paperId: string) {
     try {
@@ -355,87 +347,8 @@ class Question {
 
       if (!paperRaw) return null;
 
-      const processedQuestions = await Promise.all(
-        paperRaw.questions.map(async (q) => {
-          const subjectName = q.subjects?.name || null;
-          const chapterName = q.chapters?.name || null;
-          const isJeeMain = q.chapters?.isJeeMain ?? false;
-          const isJeeAdvanced = q.chapters?.isJeeAdvanced ?? false;
-
-          const signedQuestionImages = this.signUrlArray(q.image);
-          const signedCompImages = this.signUrlArray(q.comprehensionImage);
-
-          const finalQuestionHtml = this.injectUrlsIntoHtml(
-            q.content,
-            signedQuestionImages,
-          );
-          const finalCompHtml = this.injectUrlsIntoHtml(
-            q.comprehensionContent,
-            signedCompImages,
-          );
-
-          let processedOptions = null;
-          if (q.options) {
-            const optAImgs = this.signUrlArray(q.options.optionAimage);
-            const optBImgs = this.signUrlArray(q.options.optionBimage);
-            const optCImgs = this.signUrlArray(q.options.optionCimage);
-            const optDImgs = this.signUrlArray(q.options.optionDimage);
-
-            processedOptions = {
-              ...q.options,
-              optionAtext: this.injectUrlsIntoHtml(
-                q.options.optionAtext,
-                optAImgs,
-              ),
-              optionBtext: this.injectUrlsIntoHtml(
-                q.options.optionBtext,
-                optBImgs,
-              ),
-              optionCtext: this.injectUrlsIntoHtml(
-                q.options.optionCtext,
-                optCImgs,
-              ),
-              optionDtext: this.injectUrlsIntoHtml(
-                q.options.optionDtext,
-                optDImgs,
-              ),
-              optionAimage: undefined,
-              optionBimage: undefined,
-              optionCimage: undefined,
-              optionDimage: undefined,
-            };
-          }
-
-          let processedSolution = null;
-          if (q.solution) {
-            const solImages = this.signUrlArray(q.solution.image);
-            processedSolution = {
-              ...q.solution,
-              text: this.injectUrlsIntoHtml(q.solution.text, solImages),
-              image: undefined,
-            };
-          }
-
-          return {
-            ...q,
-            content: finalQuestionHtml,
-            comprehensionContent: finalCompHtml,
-            subject: subjectName,
-            chapter: chapterName,
-            isJeeMain,
-            isJeeAdvanced,
-            subjects: undefined,
-            chapters: undefined,
-            paperId: undefined,
-            subjectId: undefined,
-            chapterId: undefined,
-            image: undefined,
-            comprehensionImage: undefined,
-
-            options: processedOptions,
-            solution: processedSolution,
-          };
-        }),
+      const processedQuestions = paperRaw.questions.map((q) =>
+        this.formatQuestionRecord(q, true),
       );
 
       const physicsRaw = processedQuestions.filter(
@@ -466,7 +379,7 @@ class Question {
   }
 
   // =================================================================
-  // 7. GET RAW QUESTIONS BY PAPER ID
+  // 9. GET RAW QUESTIONS BY PAPER ID
   // =================================================================
   async getRawQuestionsForPaper(paperId: string) {
     try {
@@ -490,88 +403,8 @@ class Question {
 
       if (!paperRaw) return null;
 
-      const processedQuestions = await Promise.all(
-        paperRaw.questions.map(async (q) => {
-          const subjectName = q.subjects?.name || null;
-          const chapterName = q.chapters?.name || null;
-          const isJeeMain = q.chapters?.isJeeMain ?? false;
-          const isJeeAdvanced = q.chapters?.isJeeAdvanced ?? false;
-
-          const signedQuestionImages = this.signUrlArray(q.image);
-          const signedCompImages = this.signUrlArray(q.comprehensionImage);
-
-          const finalQuestionHtml = this.injectUrlsIntoHtml(
-            q.content,
-            signedQuestionImages,
-          );
-          const finalCompHtml = this.injectUrlsIntoHtml(
-            q.comprehensionContent,
-            signedCompImages,
-          );
-
-          let processedOptions = null;
-          if (q.options) {
-            const optAImgs = this.signUrlArray(q.options.optionAimage);
-            const optBImgs = this.signUrlArray(q.options.optionBimage);
-            const optCImgs = this.signUrlArray(q.options.optionCimage);
-            const optDImgs = this.signUrlArray(q.options.optionDimage);
-
-            processedOptions = {
-              ...q.options,
-              optionAtext: this.injectUrlsIntoHtml(
-                q.options.optionAtext,
-                optAImgs,
-              ),
-              optionBtext: this.injectUrlsIntoHtml(
-                q.options.optionBtext,
-                optBImgs,
-              ),
-              optionCtext: this.injectUrlsIntoHtml(
-                q.options.optionCtext,
-                optCImgs,
-              ),
-              optionDtext: this.injectUrlsIntoHtml(
-                q.options.optionDtext,
-                optDImgs,
-              ),
-              optionAimage: undefined,
-              optionBimage: undefined,
-              optionCimage: undefined,
-              optionDimage: undefined,
-            };
-          }
-
-          let processedSolution = null;
-          if (q.solution) {
-            const solImages = this.signUrlArray(q.solution.image);
-            processedSolution = {
-              ...q.solution,
-              text: this.injectUrlsIntoHtml(q.solution.text, solImages),
-              image: undefined,
-            };
-          }
-
-          return {
-            ...q,
-            content: finalQuestionHtml,
-            comprehensionContent: finalCompHtml,
-            subject: subjectName,
-            chapter: chapterName,
-            isJeeMain,
-            isJeeAdvanced,
-            subjects: undefined,
-            chapters: undefined,
-            paperId: undefined,
-            subjectId: undefined,
-            chapterId: undefined,
-            image: undefined,
-            comprehensionImage: undefined,
-
-            questionNumber: q.questionNumber,
-            options: processedOptions,
-            solution: processedSolution,
-          };
-        }),
+      const processedQuestions = paperRaw.questions.map((q) =>
+        this.formatQuestionRecord(q, true),
       );
 
       const physicsRaw = processedQuestions.filter(
@@ -626,7 +459,6 @@ class Question {
   async gettingQuestionForChapter(chapterId: string, userId: string) {
     try {
       // in this we will take the question and also with the attempt status from the test attempt and the chapter wise attempt
-
       const chapterWiseRawDetails = await this.db.questions.findMany({
         where: {
           chapterId: chapterId,
@@ -642,11 +474,11 @@ class Question {
               studentId: userId,
             },
           },
-
           solution: true,
           options: true,
         },
       });
+      return chapterWiseRawDetails;
     } catch (err: any) {
       throw err;
     }
@@ -687,9 +519,8 @@ class Question {
     }
   }
 
-
   // =================================================================
-  // INTERNAL: GET QUESTIONS WITH SIGNED URLS (UNENCRYPTED)
+  // 10. GET QUESTIONS WITH SIGNED URLS (UNENCRYPTED)
   // =================================================================
   public async getQuestionsWithSignedUrls(chapterId: string) {
     const questionsRaw = await this.db.questions.findMany({
@@ -699,74 +530,63 @@ class Question {
         solution: true,
         subjects: { select: { name: true } },
         chapters: {
-          select: { name: true, isJeeAdvanced: true, isJeeMain: true, chapterNumber: true },
+          select: {
+            name: true,
+            isJeeAdvanced: true,
+            isJeeMain: true,
+            chapterNumber: true,
+          },
         },
         papers: {
-          select: { mode: true, shift: true, date: true, month: true, year: true, exam: { select: { name: true } } },
+          select: {
+            mode: true,
+            shift: true,
+            date: true,
+            month: true,
+            year: true,
+            exam: { select: { name: true } },
+          },
         },
       },
       orderBy: { papers: { year: "desc" } },
     });
 
-    const processedQuestions = await Promise.all(
-      questionsRaw.map(async (q) => {
-        const subjectName = q.subjects?.name || null;
-        const chapterName = q.chapters?.name || null;
-        const examName = q.papers?.exam?.name || null;
-        const isJeeMain = q.chapters?.isJeeMain ?? false;
-        const isJeeAdvanced = q.chapters?.isJeeAdvanced ?? false;
-
-        const signedQuestionImages = this.signUrlArray(q.image);
-        const signedCompImages = this.signUrlArray(q.comprehensionImage);
-
-        const finalQuestionHtml = this.injectUrlsIntoHtml(q.content, signedQuestionImages);
-        const finalCompHtml = this.injectUrlsIntoHtml(q.comprehensionContent, signedCompImages);
-
-        let processedOptions = null;
-        if (q.options) {
-          const optAImgs = this.signUrlArray(q.options.optionAimage);
-          const optBImgs = this.signUrlArray(q.options.optionBimage);
-          const optCImgs = this.signUrlArray(q.options.optionCimage);
-          const optDImgs = this.signUrlArray(q.options.optionDimage);
-
-          processedOptions = {
-            ...q.options,
-            optionAtext: this.injectUrlsIntoHtml(q.options.optionAtext, optAImgs),
-            optionBtext: this.injectUrlsIntoHtml(q.options.optionBtext, optBImgs),
-            optionCtext: this.injectUrlsIntoHtml(q.options.optionCtext, optCImgs),
-            optionDtext: this.injectUrlsIntoHtml(q.options.optionDtext, optDImgs),
-            optionAimage: undefined, optionBimage: undefined, optionCimage: undefined, optionDimage: undefined,
-          };
-        }
-
-        let processedSolution = null;
-        if (q.solution) {
-          const solImages = this.signUrlArray(q.solution.image);
-          processedSolution = {
-            ...q.solution,
-            text: this.injectUrlsIntoHtml(q.solution.text, solImages),
-            image: undefined,
-          };
-        }
-
-        return {
-          ...q,
-          content: finalQuestionHtml,
-          comprehensionContent: finalCompHtml,
-          subject: subjectName,
-          chapter: chapterName,
-          exam: examName,
-          paperTitle: q.papers?.year ? `${examName} ${q.papers.year}` : null,
-          isJeeMain,
-          isJeeAdvanced,
-          // CRITICAL: We do NOT set `papers: undefined` here so ChapterWisePractice can use it!
-          options: processedOptions,
-          solution: processedSolution,
-        };
-      }),
+    // CRITICAL: We do NOT set `papers: undefined` here so ChapterWisePractice can use it!
+    const processedQuestions = questionsRaw.map((q) =>
+      this.formatQuestionRecord(q, false),
     );
 
     return processedQuestions;
+  }
+
+  // =================================================================
+  // 11. GET SINGLE QUESTION BY ID WITH SIGNED URLS (UNENCRYPTED)
+  // =================================================================
+  public async getQuestionByIdWithSignedUrls(questionId: string) {
+    try {
+      const q = await this.db.questions.findUnique({
+        where: { id: questionId },
+        include: {
+          options: true,
+          solution: true,
+          subjects: { select: { name: true } },
+          chapters: {
+            select: { name: true, isJeeAdvanced: true, isJeeMain: true, chapterNumber: true },
+          },
+          papers: {
+            select: { mode: true, shift: true, date: true, month: true, year: true, exam: { select: { name: true } } },
+          },
+        },
+      });
+
+      if (!q) return null;
+
+      // Passing `false` to keep relation objects intact (like papers)
+      return this.formatQuestionRecord(q, false);
+    } catch (err) {
+      console.error(`Error fetching question by ID: ${questionId}`, err);
+      throw err;
+    }
   }
 }
 

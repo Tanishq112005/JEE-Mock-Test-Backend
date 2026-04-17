@@ -26,6 +26,7 @@ import redisManager from "./lib/redisManager";
 import { REDIS_HOST, REDIS_PORT, REDIS_USERNAME, REDIS_PASSWORD } from "./config/env";
 import { chapterWiseRoutes } from "./routes/chapterWise";
 import { userRoutes } from "./routes/user";
+import { bookMarkedRoutes } from "./routes/bookMarked";
 
 const app = express();
 const port = PORT || 3000;
@@ -70,6 +71,7 @@ app.use("/api/analytics", analyticsRoutes);
 app.use("/api/redis", adminRedisRoutes);
 app.use("/api/chapterWise" , chapterWiseRoutes) ; 
 app.use("/api/user" , userRoutes) ; 
+app.use("/api/bookMarked" , bookMarkedRoutes) ; 
 // --- SEARCH API (For Frontend Autocomplete) ---
 app.post(
   "/api/search/chapter",
