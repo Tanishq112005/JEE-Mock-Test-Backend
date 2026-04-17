@@ -22,5 +22,28 @@ export interface questionDetails {
     paperId : string ; 
     questionType : questionType ;
     positiveMarks : number ; 
+    negativeMarks : number ;
 
+}
+
+export interface markingSchemePayload {
+    paperId : string ;
+    integerPositiveMarks? : number ;
+    integerNegativeMarks? : number ; 
+    singleCorrectPositiveMarks? : number ; 
+    singleCorrectNegativeMarks? : number ; 
+    multiCorrectPositiveMarks? : number ;
+    multiCorrectNegativeMarks? : number ; 
+    comprehensionSingleCorrectPositiveMarks? : number ; 
+    comprehensionSingleCorrectNegativeMarks? : number ; 
+    comprehensionMultiCorrectPositiveMarks? : number ;
+    comprehensionMultiCorrectNegativeMarks? : number ; 
+    comprehensionIntgerPositiveMarks? : number ; 
+    comprehensionIntegerNegativeMarks? : number ; 
+    integerPartial? : boolean ; 
+    singleCorrectPartial? : boolean ; 
+    multiCorrectPartial? : boolean ;
+    comprehensionSingleCorrectPartial? : boolean ; 
+    comprehensionMultiCorrectPartial? : boolean ;
+    comprehensionIntegerPartial? : boolean ;  
 }

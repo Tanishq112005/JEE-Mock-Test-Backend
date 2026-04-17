@@ -56,9 +56,7 @@ export class AnswerVerifyService {
 
 
     if (
-      scheme.isPartial &&
-      (questionType === "MultiCorrect" ||
-        questionType === "ComprehensionMultiCorrect")
+      scheme.isPartial 
     ) {
 
       if (isExactMatch) {

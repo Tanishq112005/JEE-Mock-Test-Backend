@@ -206,6 +206,7 @@ class Question {
       const updationPayload: questionDetails = {
         positiveMarks: questionData.postiveMarks,
         questionType: questionData.questionType,
+        negativeMarks : questionData.negativeMarks , 
         paperId: paperId,
       };
       await paper.addingDetails(updationPayload);

@@ -14,7 +14,8 @@ router.delete("/delete/:paperId", authMiddleware, developerRoleMiddleware, paper
 
 router.get("/get", authMiddleware,  paperController.getAllPapers);
 
+router.post("/addMarkingScheme" , authMiddleware , developerRoleMiddleware , paperController.addingMarkingScheme) ; 
 
 
-
+router.get("/getMarkingScheme" , authMiddleware , paperController.gettingMarkingScheme) ; 
 export const paperRoutes = router;
