@@ -47,14 +47,23 @@ class TestEvaluation {
             let mathTotalQuestions = 0;
             let physicsTotalQuestions = 0;
             let chemistryTotalQuestions = 0;
+            let mathMaxMarks = 0;
+            let physicsMaxMarks = 0;
+            let chemistryMaxMarks = 0;
             for (let i = 0; i < gettingAllQuestionsOfPaper.length; i++) {
                 const q = gettingAllQuestionsOfPaper[i];
-                if (q.subjects.name === "Mathematics")
+                if (q.subjects.name === "Mathematics") {
                     mathTotalQuestions++;
-                else if (q.subjects.name === "Physics")
+                    mathMaxMarks += q.positiveMarks ?? 4;
+                }
+                else if (q.subjects.name === "Physics") {
                     physicsTotalQuestions++;
-                else if (q.subjects.name === "Chemistry")
+                    physicsMaxMarks += q.positiveMarks ?? 4;
+                }
+                else if (q.subjects.name === "Chemistry") {
                     chemistryTotalQuestions++;
+                    chemistryMaxMarks += q.positiveMarks ?? 4;
+                }
                 if (questionTypeStats[q.type]) {
                     questionTypeStats[q.type].totalQuestions++;
                 }
@@ -278,6 +287,7 @@ class TestEvaluation {
                         mathNegativeMarks,
                     timeTaken: mathTimeTaken,
                     positiveMarks: mathCorrectPositiveMarks,
+                    maxMarks: mathMaxMarks,
                     partialMarks: mathPartialPositiveMarks,
                     negativeMarks: mathNegativeMarks,
                     correct: mathCorrect,
@@ -295,6 +305,7 @@ class TestEvaluation {
                         physicsNegativeMarks,
                     timeTaken: physicsTimeTaken,
                     positiveMarks: physicsCorrectPositiveMarks,
+                    maxMarks: physicsMaxMarks,
                     partialMarks: physicsPartialPositiveMarks,
                     negativeMarks: physicsNegativeMarks,
                     correct: physicsCorrect,
@@ -313,6 +324,7 @@ class TestEvaluation {
                         chemistryNegativeMarks,
                     timeTaken: chemistryTimeTaken,
                     positiveMarks: chemistryCorrectPositiveMarks,
+                    maxMarks: chemistryMaxMarks,
                     partialMarks: chemistryPartialPositiveMarks,
                     negativeMarks: chemistryNegativeMarks,
                     correct: chemistryCorrect,
@@ -336,6 +348,16 @@ class TestEvaluation {
                     averageTimePerQuestion: totalAttempted > 0
                         ? this.formatFloat(totalTimeTaken / totalAttempted)
                         : 0,
+                    totalScore: mathCorrectPositiveMarks +
+                        mathPartialPositiveMarks -
+                        mathNegativeMarks +
+                        physicsCorrectPositiveMarks +
+                        physicsPartialPositiveMarks -
+                        physicsNegativeMarks +
+                        chemistryCorrectPositiveMarks +
+                        chemistryPartialPositiveMarks -
+                        chemistryNegativeMarks,
+                    maxScore: mathMaxMarks + physicsMaxMarks + chemistryMaxMarks,
                 },
                 questionTypes: questionTypeStats,
                 chapterWise: Array.from(chapterStats.values()).sort((a, b) => a.subjectName.localeCompare(b.subjectName)),

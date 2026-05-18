@@ -286,6 +286,8 @@ class TestSyncService {
             overallAccuracy: overallAcc,
             totalTimeTaken: realTotalTimeTaken >= 0 ? realTotalTimeTaken : totalTimeTaken,
             averageTimePerQuestion: avgTimePerQ,
+            totalScore: totalMarks,
+            maxScore: totalMaxMarks,
         };
         return {
             exam: examName,
