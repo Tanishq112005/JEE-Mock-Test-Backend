@@ -7,11 +7,22 @@ const express_1 = __importDefault(require("express"));
 const rabbitmq_connection_1 = require("../rabbitmq/connection/rabbitmq-connection");
 const env_1 = require("../config/env");
 const testEvalution_consumer_1 = require("../rabbitmq/consumers/testEvalution-consumer");
+const redisManager_1 = __importDefault(require("../lib/redisManager"));
+const env_2 = require("../config/env");
 const testEvaluationWorker = async () => {
     try {
         console.log("📧 Starting Test Evalution Worker Service...");
         await rabbitmq_connection_1.rabbitMQClient.connect();
-        // 2. Start the Consumer
+        // 2. Initialize Redis Rings
+        if (env_2.REDIS_HOST) {
+            await redisManager_1.default.addDashboardInstances([
+                { host: env_2.REDIS_HOST, port: Number(env_2.REDIS_PORT), username: env_2.REDIS_USERNAME, password: env_2.REDIS_PASSWORD, email: '' }
+            ]);
+            await redisManager_1.default.addAuthInstances([
+                { host: env_2.REDIS_HOST, port: Number(env_2.REDIS_PORT), username: env_2.REDIS_USERNAME, password: env_2.REDIS_PASSWORD, email: '' }
+            ]);
+        }
+        // 3. Start the Consumer
         const updateFinalEvaluation = new testEvalution_consumer_1.UpdateFinalEvaluationConsumer(rabbitmq_connection_1.rabbitMQClient);
         await updateFinalEvaluation.start();
         console.log("✅ Evalution Worker is now listening for messages...");

@@ -99,6 +99,7 @@ class TestController {
                 .json(new ApiResponse_1.default("Your question + test result", mergedPayload));
         }
         catch (err) {
+            console.log(err);
             return res
                 .status(500)
                 .json(new ApiError_1.default("Error in getting question details", err));
