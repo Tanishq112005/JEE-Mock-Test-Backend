@@ -10,6 +10,7 @@ export interface SubjectResult {
   marks:          number;
   timeTaken:      number;
   positiveMarks:  number;
+  maxMarks:       number;
   paritalMarks:   number; // typo kept for consistency
   negativeMarks:  number;
   correct:        number;
@@ -29,6 +30,7 @@ export interface QuestionTypeResult {
   partial:        number;
   wrong:          number;
   positiveMarks:  number;
+  maxMarks:       number;
   partialMarks:   number;
   negativeMarks:  number;
   marks:          number;
@@ -50,6 +52,7 @@ export interface ChapterResult {
   partial:        number;
   wrong:          number;
   positiveMarks:  number;
+  maxMarks:       number;
   partialMarks:   number;
   negativeMarks:  number;
   marks:          number;
@@ -69,6 +72,8 @@ export interface OverallResult {
   overallAccuracy:        number;
   totalTimeTaken:         number;
   averageTimePerQuestion: number;
+  totalScore:             number;
+  maxScore:               number;
 }
 
 // ─────────────────────────────────────────────

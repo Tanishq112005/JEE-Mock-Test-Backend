@@ -439,7 +439,7 @@ class Analytics {
     const { overall, math, physics, chemistry, questionTypes } = report;
 
     const totalScore   = math.marks + physics.marks + chemistry.marks;
-    const totalMaxMark = math.positiveMarks + physics.positiveMarks + chemistry.positiveMarks;
+    const totalMaxMark = math.maxMarks + physics.maxMarks + chemistry.maxMarks;
     const percentage   = totalMaxMark > 0
       ? parseFloat(((totalScore / totalMaxMark) * 100).toFixed(4)) : 0;
 
@@ -686,7 +686,7 @@ class Analytics {
   ) {
     const { overall, math, physics, chemistry } = report;
     const totalMarks = math.marks + physics.marks + chemistry.marks;
-    const totalMax   = math.positiveMarks + physics.positiveMarks + chemistry.positiveMarks;
+    const totalMax   = math.maxMarks + physics.maxMarks + chemistry.maxMarks;
 
     return tx.studentOverallAnalytics.upsert({
       where:  { studentId },
@@ -716,7 +716,7 @@ class Analytics {
   ) {
     const { exam, overall, math, physics, chemistry } = report;
     const totalMarks = math.marks + physics.marks + chemistry.marks;
-    const totalMax   = math.positiveMarks + physics.positiveMarks + chemistry.positiveMarks;
+    const totalMax   = math.maxMarks + physics.maxMarks + chemistry.maxMarks;
 
     return tx.examAnalytics.upsert({
       where:  { studentId_examName: { studentId, examName: exam } },

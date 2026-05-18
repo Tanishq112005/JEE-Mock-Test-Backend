@@ -66,6 +66,8 @@ export interface OverallStats {
   overallAccuracy:        number;
   totalTimeTaken:         number;
   averageTimePerQuestion: number;
+  totalScore?:            number;
+  maxScore?:              number;
 }
 
 

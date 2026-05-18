@@ -160,6 +160,7 @@ class ReportService {
         wrong: 0,
         timeTaken: 0,
         totalQuestions: 0,
+        maxMarks: 0,
         accuracy: 0,
         percentage: 0,
       };
@@ -171,6 +172,7 @@ class ReportService {
       wrong: s.wrong ?? 0,
       timeTaken: s.timeTaken ?? 0,
       totalQuestions: s.totalQuestions ?? 0,
+      maxMarks: s.maxMarks ?? s.totalMarks ?? 0,
       accuracy: this.calcAccuracy(s.correct ?? 0, s.wrong ?? 0),
       percentage: this.calcPercentage(
         s.marks ?? 0,
@@ -187,6 +189,7 @@ class ReportService {
         marks: 0,
         correct: 0,
         wrong: 0,
+        maxMarks: 0,
         accuracy: 0,
         percentage: 0,
       };
@@ -200,6 +203,7 @@ class ReportService {
           marks: qtData?.marks ?? 0,
           correct: qtData?.correct ?? 0,
           wrong: qtData?.wrong ?? 0,
+          maxMarks: qtData?.maxMarks ?? 0,
           accuracy: this.calcAccuracy(qtData?.correct ?? 0, qtData?.wrong ?? 0),
           percentage: this.calcPercentage(
             qtData?.marks ?? 0,
