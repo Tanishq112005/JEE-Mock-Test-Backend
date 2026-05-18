@@ -658,7 +658,7 @@ class ReportService {
     }
 
     for (const [qId, active] of Object.entries(activeAttempts)) {
-       if (active.length === 0) continue;
+       if (!Array.isArray(active) || active.length === 0) continue;
        const latestActive = active[active.length - 1];
        const existing = mergedMap.get(qId);
        if (existing) {

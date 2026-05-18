@@ -3,6 +3,8 @@ import { rabbitMQClient } from "../rabbitmq/connection/rabbitmq-connection";
 
 import {  EVALUATION_WORKER_PORT } from "../config/env";
 import { UpdateFinalEvaluationConsumer } from "../rabbitmq/consumers/testEvalution-consumer";
+import redisManager from "../lib/redisManager";
+import { REDIS_HOST, REDIS_PORT, REDIS_USERNAME, REDIS_PASSWORD } from "../config/env";
 
 const testEvaluationWorker = async () => {
     try {
@@ -10,7 +12,17 @@ const testEvaluationWorker = async () => {
 
         await rabbitMQClient.connect();
 
-        // 2. Start the Consumer
+        // 2. Initialize Redis Rings
+        if (REDIS_HOST) {
+            await redisManager.addDashboardInstances([
+                { host: REDIS_HOST as string, port: Number(REDIS_PORT), username: REDIS_USERNAME as string, password: REDIS_PASSWORD as string, email: '' } as any
+            ]);
+            await redisManager.addAuthInstances([
+                { host: REDIS_HOST as string, port: Number(REDIS_PORT), username: REDIS_USERNAME as string, password: REDIS_PASSWORD as string, email: '' } as any
+            ]);
+        }
+
+        // 3. Start the Consumer
         const updateFinalEvaluation = new UpdateFinalEvaluationConsumer(rabbitMQClient);
         await updateFinalEvaluation.start();
         

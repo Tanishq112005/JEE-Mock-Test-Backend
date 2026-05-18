@@ -8,7 +8,7 @@ class RedisManager {
   public authRing = new HashRingService();
   public dashboardRing = new HashRingService();
 
-  constructor() {}
+  constructor() { }
 
   // Common Connection Logic
   private async connect(
@@ -87,19 +87,19 @@ class RedisManager {
       try {
         const keys = await oldClient.keys("*");
         for (const key of keys) {
-           const userId = key.split(":")[0];
-           const targetClient = ring.getNodeClient(userId);
+          const userId = key.split(":")[0];
+          const targetClient = ring.getNodeClient(userId);
 
-           if (targetClient && targetClient !== oldClient) {
-               // Must use DUMP and RESTORE for complex data types (bitmaps, etc)
-               const dumpValue = await oldClient.dump(key);
-               const pttl = await oldClient.pTTL(key);
-               if (dumpValue) {
-                   await targetClient.restore(key, pttl > 0 ? pttl : 0, dumpValue, { REPLACE: true });
-                   await oldClient.del(key);
-                   migratedCount++;
-               }
-           }
+          if (targetClient && targetClient !== oldClient) {
+            // Must use DUMP and RESTORE for complex data types (bitmaps, etc)
+            const dumpValue = await oldClient.dump(key);
+            const pttl = await oldClient.pTTL(key);
+            if (dumpValue) {
+              await targetClient.restore(key, pttl > 0 ? pttl : 0, dumpValue, { REPLACE: true });
+              await oldClient.del(key);
+              migratedCount++;
+            }
+          }
         }
       } catch (err: any) {
         console.error(`Error migrating keys from ${oldConfig.host}:${oldConfig.port}:`, err);
@@ -115,19 +115,19 @@ class RedisManager {
     try {
       const keys = await dyingClient.keys("*");
       for (const key of keys) {
-         const userId = key.split(":")[0];
-         const targetClient = ring.getNodeClient(userId);
+        const userId = key.split(":")[0];
+        const targetClient = ring.getNodeClient(userId);
 
-         // Target client should now inherently mathematically avoid the dying node because it was removed from the ring
-         if (targetClient && targetClient !== dyingClient) {
-             const dumpValue = await dyingClient.dump(key);
-             const pttl = await dyingClient.pTTL(key);
-             if (dumpValue) {
-                 await targetClient.restore(key, pttl > 0 ? pttl : 0, dumpValue, { REPLACE: true });
-                 await dyingClient.del(key);
-                 migratedCount++;
-             }
-         }
+        // Target client should now inherently mathematically avoid the dying node because it was removed from the ring
+        if (targetClient && targetClient !== dyingClient) {
+          const dumpValue = await dyingClient.dump(key);
+          const pttl = await dyingClient.pTTL(key);
+          if (dumpValue) {
+            await targetClient.restore(key, pttl > 0 ? pttl : 0, dumpValue, { REPLACE: true });
+            await dyingClient.del(key);
+            migratedCount++;
+          }
+        }
       }
     } catch (err: any) {
       console.error(`[Drain] Error draining keys from dying node:`, err);
