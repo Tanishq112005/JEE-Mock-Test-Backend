@@ -8,6 +8,7 @@ export interface CachedAttemptData {
   status: string;
   isCorrect?: boolean;
   marksObtained?: number;
+  timestamp?: number; // Added to track exact order
 }
 
 const TTL_SECONDS = 60 * 60 * 24; // 24 hours
@@ -35,12 +36,18 @@ class ChapterWiseCacheService {
       await cacheService.setCache(setKey, activeQuestions);
     }
 
-    await cacheService.setCache(key, data);
+    // 👉 THE FIX: Fetch as array and push the new attempt
+    let attemptsArray: CachedAttemptData[] = (await cacheService.getCache(key)) || [];
+    
+    attemptsArray.push({ ...data, timestamp: Date.now() });
+
+    await cacheService.setCache(key, attemptsArray);
   }
 
-  public async getAttemptData(userId: string, questionId: string): Promise<CachedAttemptData | null> {
+  public async getAttemptData(userId: string, questionId: string): Promise<CachedAttemptData[]> {
     const key = this.getCacheKey(userId, questionId);
-    return await cacheService.getCache(key);
+    // 👉 THE FIX: Always return an array
+    return (await cacheService.getCache(key)) || [];
   }
 
   public async deleteAttemptData(userId: string, questionId: string) {
@@ -58,7 +65,7 @@ class ChapterWiseCacheService {
     const setKey = this.getActiveQuestionsSetKey(userId);
     const activeQuestions: string[] = (await cacheService.getCache(setKey)) || [];
 
-    const attempts: Record<string, CachedAttemptData> = {};
+    const attempts: Record<string, CachedAttemptData[]> = {};
     for (const questionId of activeQuestions) {
       const key = this.getCacheKey(userId, questionId);
       const data = await cacheService.getCache(key);

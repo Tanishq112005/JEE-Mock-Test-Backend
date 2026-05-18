@@ -18,11 +18,15 @@ class ChapterWiseCacheService {
             activeQuestions.push(questionId);
             await caching_1.cacheService.setCache(setKey, activeQuestions);
         }
-        await caching_1.cacheService.setCache(key, data);
+        // 👉 THE FIX: Fetch as array and push the new attempt
+        let attemptsArray = (await caching_1.cacheService.getCache(key)) || [];
+        attemptsArray.push({ ...data, timestamp: Date.now() });
+        await caching_1.cacheService.setCache(key, attemptsArray);
     }
     async getAttemptData(userId, questionId) {
         const key = this.getCacheKey(userId, questionId);
-        return await caching_1.cacheService.getCache(key);
+        // 👉 THE FIX: Always return an array
+        return (await caching_1.cacheService.getCache(key)) || [];
     }
     async deleteAttemptData(userId, questionId) {
         const key = this.getCacheKey(userId, questionId);

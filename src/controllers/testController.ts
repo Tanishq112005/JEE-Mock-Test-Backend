@@ -47,6 +47,10 @@ class TestController {
     const createdAtStr = String(created_at ?? "");
 
     try {
+      if (!testStatusId) {
+        return res.status(400).json(new ApiError("testStatusId is required"));
+      }
+
       const dbSessionData = await testStatus.getSessionData(
         testStatusId,
         userId,

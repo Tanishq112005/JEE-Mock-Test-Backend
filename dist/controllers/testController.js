@@ -36,6 +36,9 @@ class TestController {
         const userId = req.user;
         const createdAtStr = String(created_at ?? "");
         try {
+            if (!testStatusId) {
+                return res.status(400).json(new ApiError_1.default("testStatusId is required"));
+            }
             const dbSessionData = await testStatus_db_1.testStatus.getSessionData(testStatusId, userId);
             if (!dbSessionData) {
                 return res.status(404).json(new ApiError_1.default("Test session not found"));

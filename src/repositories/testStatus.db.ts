@@ -81,6 +81,7 @@ class TestStatus {
       // 3. Fetch Raw Questions
       const rawPaperData: any = await question.getRawQuestionsForPaper(
         currentTestStatus.paperId,
+        userId
       );
 
       if (!rawPaperData) throw new Error("Paper data not found");

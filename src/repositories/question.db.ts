@@ -143,6 +143,9 @@ class Question {
       formattedQuestion.subjectId = undefined;
       formattedQuestion.chapterId = undefined;
     }
+    
+    // Always remove bookmarkedBy array to avoid leaking student data
+    formattedQuestion.bookmarkedBy = undefined;
 
     return formattedQuestion;
   }
@@ -325,10 +328,7 @@ class Question {
     }
   }
 
-  // =================================================================
-  // 8. GET QUESTIONS BY PAPER ID
-  // =================================================================
-  async getQuestionsByPaperId(paperId: string) {
+  async getQuestionsByPaperId(paperId: string, studentId?: string) {
     try {
       const paperRaw = await this.db.papers.findUnique({
         where: { id: paperId },
@@ -342,6 +342,7 @@ class Question {
               chapters: {
                 select: { name: true, isJeeAdvanced: true, isJeeMain: true },
               },
+              ...(studentId ? { bookmarkedBy: { where: { studentId } } } : {})
             },
           },
         },
@@ -349,9 +350,13 @@ class Question {
 
       if (!paperRaw) return null;
 
-      const processedQuestions = paperRaw.questions.map((q) =>
-        this.formatQuestionRecord(q, true),
-      );
+      const processedQuestions = paperRaw.questions.map((q: any) => {
+        const formatted = this.formatQuestionRecord(q, true);
+        if (studentId) {
+          formatted.isBookmarked = q.bookmarkedBy && q.bookmarkedBy.length > 0;
+        }
+        return formatted;
+      });
 
       const physicsRaw = processedQuestions.filter(
         (q: any) =>
@@ -383,7 +388,7 @@ class Question {
   // =================================================================
   // 9. GET RAW QUESTIONS BY PAPER ID
   // =================================================================
-  async getRawQuestionsForPaper(paperId: string) {
+  async getRawQuestionsForPaper(paperId: string, userId?: string) {
     try {
       const paperRaw = await this.db.papers.findUnique({
         where: { id: paperId },
@@ -397,6 +402,7 @@ class Question {
               chapters: {
                 select: { name: true, isJeeAdvanced: true, isJeeMain: true },
               },
+              ...(userId ? { bookmarkedBy: { where: { studentId: userId } } } : {})
             },
             orderBy: { id: "asc" },
           },
@@ -405,9 +411,13 @@ class Question {
 
       if (!paperRaw) return null;
 
-      const processedQuestions = paperRaw.questions.map((q) =>
-        this.formatQuestionRecord(q, true),
-      );
+      const processedQuestions = paperRaw.questions.map((q: any) => {
+        const formatted = this.formatQuestionRecord(q, true);
+        if (userId) {
+          formatted.isBookmarked = q.bookmarkedBy && q.bookmarkedBy.length > 0;
+        }
+        return formatted;
+      });
 
       const physicsRaw = processedQuestions.filter(
         (q: any) =>
@@ -480,7 +490,14 @@ class Question {
           options: true,
         },
       });
-      return chapterWiseRawDetails;
+      const mappedDetails = chapterWiseRawDetails.map((q: any) => {
+        const isBookmarked = q.bookmarkedBy && q.bookmarkedBy.length > 0;
+        const qCopy = { ...q, isBookmarked };
+        delete qCopy.bookmarkedBy;
+        return qCopy;
+      });
+
+      return mappedDetails;
     } catch (err: any) {
       throw err;
     }
@@ -522,7 +539,63 @@ class Question {
   }
 
   // =================================================================
-  // 10. GET QUESTIONS WITH SIGNED URLS (UNENCRYPTED)
+  // 10. GET GLOBAL QUESTIONS WITH SIGNED URLS
+  // =================================================================
+  public async getGlobalQuestionsWithSignedUrls(
+    filters: { chapterId?: string; paperId?: string; questionId?: string; year?: number; subject?: SubjectName },
+    studentId?: string,
+    removeRelations: boolean = true
+  ) {
+    const whereQuery: any = {};
+    if (filters.questionId) whereQuery.id = filters.questionId;
+    if (filters.paperId) whereQuery.paperId = filters.paperId;
+    if (filters.chapterId) whereQuery.chapterId = filters.chapterId;
+    if (filters.subject) whereQuery.subjects = { name: filters.subject };
+    if (filters.year) whereQuery.papers = { year: filters.year };
+
+    const questionsRaw = await this.db.questions.findMany({
+      where: whereQuery,
+      include: {
+        options: true,
+        solution: true,
+        subjects: { select: { name: true } },
+        chapters: {
+          select: {
+            name: true,
+            isJeeAdvanced: true,
+            isJeeMain: true,
+            chapterNumber: true,
+          },
+        },
+        papers: {
+          select: {
+            mode: true,
+            shift: true,
+            date: true,
+            month: true,
+            year: true,
+            exam: { select: { name: true } },
+            session: true,
+          },
+        },
+        ...(studentId ? { bookmarkedBy: { where: { studentId } } } : {})
+      },
+      orderBy: { papers: { year: "desc" } },
+    });
+
+    const processedQuestions = questionsRaw.map((q: any) => {
+      const formatted = this.formatQuestionRecord(q, removeRelations);
+      if (studentId) {
+        formatted.isBookmarked = q.bookmarkedBy && q.bookmarkedBy.length > 0;
+      }
+      return formatted;
+    });
+
+    return processedQuestions;
+  }
+
+  // =================================================================
+  // 11. GET QUESTIONS WITH SIGNED URLS (UNENCRYPTED)
   // =================================================================
   public async getQuestionsWithSignedUrls(chapterId: string) {
     const questionsRaw = await this.db.questions.findMany({

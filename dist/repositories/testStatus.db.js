@@ -54,7 +54,7 @@ class TestStatus {
                 where: { testStatusId: testStatusId },
             });
             // 3. Fetch Raw Questions
-            const rawPaperData = await question_db_1.question.getRawQuestionsForPaper(currentTestStatus.paperId);
+            const rawPaperData = await question_db_1.question.getRawQuestionsForPaper(currentTestStatus.paperId, userId);
             if (!rawPaperData)
                 throw new Error("Paper data not found");
             // 4. Create Map for O(1) Access

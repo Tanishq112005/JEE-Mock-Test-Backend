@@ -29,7 +29,7 @@ import { userRoutes } from "./routes/user";
 import { bookMarkedRoutes } from "./routes/bookMarked";
 
 const app = express();
-const port = PORT || 3000;
+const port = PORT;
 
 // ==========================================
 // 1. MIDDLEWARES

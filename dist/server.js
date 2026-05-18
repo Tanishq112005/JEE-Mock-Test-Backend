@@ -29,7 +29,7 @@ const chapterWise_1 = require("./routes/chapterWise");
 const user_1 = require("./routes/user");
 const bookMarked_1 = require("./routes/bookMarked");
 const app = (0, express_1.default)();
-const port = env_1.PORT || 3000;
+const port = env_1.PORT;
 // ==========================================
 // 1. MIDDLEWARES
 // ==========================================

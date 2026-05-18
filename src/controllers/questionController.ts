@@ -105,17 +105,16 @@ export class QuestionController {
 
 
   
-  public getPaperQuestions = async (req: Request, res: Response) => {
+  public getPaperQuestions = async (req: any, res: Response) => {
     const { paperId } = req.params;
+    const studentId = req.user;
 
     try {
-      
       if (!paperId) {
         return res.status(400).json(new ApiError("Paper ID is required"));
       }
 
-   
-      const paperData = await question.getQuestionsByPaperId(paperId);
+      const paperData = await question.getQuestionsByPaperId(paperId, studentId);
 
       // 3. Check if paper exists
       if (!paperData) {

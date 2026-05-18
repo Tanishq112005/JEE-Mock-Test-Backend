@@ -29,14 +29,13 @@ class ChapterWisePractice {
       },
     });
   }
-
-  public async getChapterQuestionsWithStats(
+   public async getChapterQuestionsWithStats(
     chapterId: string,
     studentId: string,
   ) {
-    const questionList = await question.getQuestionsWithSignedUrls(chapterId);
+    const questionList = await question.getGlobalQuestionsWithSignedUrls({ chapterId }, studentId, false);
 
-    questionList.sort((a, b) => {
+    questionList.sort((a: any, b: any) => {
       const yearA = a.papers?.year ?? 0;
       const yearB = b.papers?.year ?? 0;
       return yearB - yearA;
@@ -53,7 +52,7 @@ class ChapterWisePractice {
     let uniqueSolvedMain = 0;
     let uniqueSolvedAdvanced = 0;
 
-    const mappedQuestions = questionList.map((q) => {
+    const mappedQuestions = questionList.map((q: any) => {
       const isMains = q.exam === ExamName.JEE_MAIN;
       
       if (isMains) totalMainQuestions++;
@@ -88,16 +87,13 @@ class ChapterWisePractice {
         totalUniqueSolved: uniqueSolvedMain + uniqueSolvedAdvanced,
       },
       chapterData,
-      jeeMain: mappedQuestions.filter(q => q.exam === ExamName.JEE_MAIN),
-      jeeAdvanced: mappedQuestions.filter(q => q.exam === ExamName.JEE_ADVANCED),
+      jeeMain: mappedQuestions.filter((q: any) => q.exam === ExamName.JEE_MAIN),
+      jeeAdvanced: mappedQuestions.filter((q: any) => q.exam === ExamName.JEE_ADVANCED),
     };
   }
 
-  public async getChapterInfo(chapterId: string, studentId: string) {
-    return await this.getChapterQuestionsWithStats(chapterId, studentId);
-  }
-
-  // 🏆 FIXED: Complete history + Smart Sync + isPending handling
+  
+  // API #5: Get attempt history for a specific question
   public async getQuestionAttemptsHistory(
     questionId: string,
     studentId: string,
@@ -105,76 +101,43 @@ class ChapterWisePractice {
     const { chapterWiseCacheService } = await import("../services/chapterWiseCacheService");
     const { cacheService } = await import("../lib/caching");
 
-    // ── 1. Check Redis for pending chapter-wise attempt ────────────────────────
-    const activeRedisAttempt = await chapterWiseCacheService.getAttemptData(
+    // ── 1. Fetch Redis pending attempts (NOW AN ARRAY) ─────────────────────────
+    const activeRedisAttempts = await chapterWiseCacheService.getAttemptData(
       studentId,
       questionId,
     );
 
-    // ── 2. Fetch ALL DB chapter attempts (historical & current) ────────────────
+    // ── 2. Fetch ALL DB chapter attempts ───────────────────────────────────────
     const chapterAttemptsRaw = await this.db.chapterWiseQuestionAttemptStatus.findMany({
       where: { questionId, studentId },
       orderBy: { created_at: "desc" },
     });
 
-    // Map DB results to include 'isPending: false' for TypeScript compliance
     const chapterAttempts = chapterAttemptsRaw.map(attempt => ({
       ...attempt,
       isPending: false 
     }));
 
-    // ── 3. Smart Sync: Merge Redis and DB to prevent duplicates ────────────────
-    let mergedChapterAttempts = [...chapterAttempts];
+    // ── 3. Merge Redis Array into History ──────────────────────────────────────
+    const pendingRedisAttempts = activeRedisAttempts.map((redisAttempt, index) => ({
+      id: `pending-${questionId}-${redisAttempt.timestamp || Date.now()}-${index}`,
+      questionId,
+      studentId,
+      questionStatus: redisAttempt.status as AttemptStatus,
+      isCorrect: redisAttempt.isCorrect ?? false,
+      marksObtained: redisAttempt.marksObtained ?? 0,
+      timeSpent: redisAttempt.timeSpent,
+      userAnswer: redisAttempt.userAnswer,
+      created_at: new Date(redisAttempt.timestamp || Date.now()),
+      isAnalyzed: false,
+      isPending: true,
+    }));
 
-    if (activeRedisAttempt) {
-      const latestDbAttempt = chapterAttempts.length > 0 ? chapterAttempts[0] : null;
+    // Sort pending attempts so the newest is at the top
+    pendingRedisAttempts.sort((a, b) => b.created_at.getTime() - a.created_at.getTime());
 
-      if (latestDbAttempt && latestDbAttempt.questionStatus !== AttemptStatus.answered) {
-        // Overwrite the pending DB heartbeat with the most fresh Redis heartbeat
-        mergedChapterAttempts[0] = {
-          ...latestDbAttempt,
-          questionStatus: activeRedisAttempt.status as AttemptStatus,
-          isCorrect: activeRedisAttempt.isCorrect ?? latestDbAttempt.isCorrect,
-          marksObtained: activeRedisAttempt.marksObtained ?? latestDbAttempt.marksObtained,
-          timeSpent: activeRedisAttempt.timeSpent,
-          userAnswer: activeRedisAttempt.userAnswer,
-          isPending: activeRedisAttempt.status === AttemptStatus.answered, 
-        };
-      } else {
-        // Check for deduplication
-        let isDuplicateOfLatest = false;
-
-        if (
-          latestDbAttempt &&
-          latestDbAttempt.questionStatus === AttemptStatus.answered &&
-          activeRedisAttempt.status === AttemptStatus.answered
-        ) {
-          const sameTime = latestDbAttempt.timeSpent === activeRedisAttempt.timeSpent;
-          const sameAnswers = JSON.stringify(latestDbAttempt.userAnswer) === JSON.stringify(activeRedisAttempt.userAnswer);
-          
-          if (sameTime && sameAnswers) {
-            isDuplicateOfLatest = true;
-          }
-        }
-
-        // It is a completely new attempt pending in RabbitMQ
-        if (!isDuplicateOfLatest) {
-          mergedChapterAttempts.unshift({
-            id: `pending-${questionId}-${Date.now()}`,
-            questionId,
-            studentId,
-            questionStatus: activeRedisAttempt.status as AttemptStatus,
-            isCorrect: activeRedisAttempt.isCorrect ?? false,
-            marksObtained: activeRedisAttempt.marksObtained ?? 0,
-            timeSpent: activeRedisAttempt.timeSpent,
-            userAnswer: activeRedisAttempt.userAnswer,
-            created_at: new Date(),
-            isAnalyzed: false,
-            isPending: true,
-          });
-        }
-      }
-    }
+    // Combine them (Redis attempts on top, DB attempts below)
+    const mergedChapterAttempts = [...pendingRedisAttempts, ...chapterAttempts];
 
     // ── 4. Fetch DB test attempts ──────────────────────────────────────────────
     const dbTestAttemptsRaw = await this.db.testQuestionAttemptStatus.findMany({
@@ -251,6 +214,7 @@ class ChapterWisePractice {
       testAttempts: mergedTestAttempts,
     };
   }
+
 
   // Save or update attempt
   public async saveQuestionAttempt(data: {
@@ -358,6 +322,13 @@ class ChapterWisePractice {
       },
     });
   }
+
+
+
+    public async getChapterInfo(chapterId: string, studentId: string) {
+    return await this.getChapterQuestionsWithStats(chapterId, studentId);
+  }
+
 }
 
 export const chapterWisePractice = new ChapterWisePractice(database);

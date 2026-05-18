@@ -546,15 +546,18 @@ class ReportService {
             });
         }
         for (const [qId, active] of Object.entries(activeAttempts)) {
+            if (active.length === 0)
+                continue;
+            const latestActive = active[active.length - 1];
             const existing = mergedMap.get(qId);
             if (existing) {
-                existing.timeSpent = active.timeSpent || existing.timeSpent;
-                existing.status = active.status || existing.status;
-                if (active.isCorrect !== undefined) {
-                    existing.isCorrect = active.isCorrect;
+                existing.timeSpent = latestActive.timeSpent || existing.timeSpent;
+                existing.status = latestActive.status || existing.status;
+                if (latestActive.isCorrect !== undefined) {
+                    existing.isCorrect = latestActive.isCorrect;
                 }
-                if (active.marksObtained !== undefined) {
-                    existing.marks = active.marksObtained;
+                if (latestActive.marksObtained !== undefined) {
+                    existing.marks = latestActive.marksObtained;
                 }
             }
         }
