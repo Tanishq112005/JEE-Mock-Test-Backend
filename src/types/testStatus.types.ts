@@ -57,12 +57,12 @@ export interface testQuestionAttemptStatusDB{
 
 
 
-// This is the exact type returned by your Prisma query
+
 export type TestSubmissionPayload = {
   id: string;
   studentId: string;
   paperId: string;
-  status: TestState;          // e.g., "COMPLETED"
+  status: TestState;         
   timeLeft: number;
   activeQuestionId: string | null;
   isAnalyzed: boolean;
@@ -70,7 +70,7 @@ export type TestSubmissionPayload = {
   created_at: Date;
   updated_at: Date;
 
-  // 1. User Info (Note: Maps to 'studentProfile' table)
+ 
   user: {
     id: string;
     user_id: string;
@@ -85,37 +85,37 @@ export type TestSubmissionPayload = {
     updated_at: Date;
   };
 
-  // 2. Paper & Exam Info
+
   papers: {
     id: string;
     examId: string;
     year: number | null;
-    mode: ExamMode;           // e.g., "online"
-    month: Month;             // e.g., "January"
+    mode: ExamMode;           
+    month: Month;            
     day: Day;
     totalMarks: number | null;
     totalDuration: number | null;
     totalQuestions: number | null;
     exam: {
       id: string;
-      name: ExamName;         // e.g., "JEE_MAIN"
+      name: ExamName;        
     };
   };
 
-  // 3. Array of Question Attempts
+  
   testQuestionStatus: Array<{
     id: string;
     questionId: string;
     testStatusId: string;
     isCorrect: boolean;
-    status: AttemptStatus;    // e.g., "answered" | "notAnswered"
+    status: AttemptStatus;   
     marksObtained: number;
-    timeSpent: number;        // in seconds
+    timeSpent: number;       
     userAnswer: string[];
     isVisited: boolean;
     markedForReview: boolean;
     
-    // The actual question data nested inside the attempt
+   
     questions: {
       id: string;
       subjectId: string;
@@ -124,7 +124,7 @@ export type TestSubmissionPayload = {
       class: number;
       content: string;
       image: string[];
-      type: questionType;     // e.g., "SingleCorrect"
+      type: questionType;   
       questionNumber: number;
       comprehensionContent: string | null;
       comprehensionImage: string[];

@@ -8,17 +8,6 @@ import {
   SummaryReport,
 } from "../types/analytics.types";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Analytics
-//
-// Schema facts:
-//   questionType enum: SingleCorrect | MultiCorrect | Integer |
-//     ComprehensionSingleCorrect | ComprehensionMultiCorrect | ComprehensionInteger
-//
-//   TestAttemptSummary has: totalScore, maxScore, percentage, accuracy, timeTaken
-//   SubjectTestResult has:  subjectName (SubjectName enum), marks, positiveMarks, etc.
-//   QuestionTypeTestResult has: questionType (questionType enum), marks, etc.
-// ─────────────────────────────────────────────────────────────────────────────
 
 class Analytics {
   private db: PrismaClient;
@@ -27,10 +16,7 @@ class Analytics {
     this.db = database;
   }
 
-  // ══════════════════════════════════════════════════════════════════════════
-  // READ
-  // ══════════════════════════════════════════════════════════════════════════
-
+ 
   async collectingTotalQuestion() {
     return this.db.subjects.findMany();
   }
@@ -55,12 +41,7 @@ class Analytics {
     return this.db.examAnalytics.findMany({ where: { studentId } });
   }
 
-  // ══════════════════════════════════════════════════════════════════════════
-  // testWiseData
-  // Reads from TestAttemptSummary → SubjectTestResult[] + QuestionTypeTestResult[]
-  // Returns shape that reportService builders consume
-  // ══════════════════════════════════════════════════════════════════════════
-
+ 
   async testWiseData(studentId: string) {
     const [rows, chapterSnapshots] = await Promise.all([
       this.db.testAttemptSummary.findMany({
@@ -118,7 +99,7 @@ class Analytics {
         if (!raw) return null;
         return {
           marks:          raw.marks,
-          maxMarks:       raw.maxMarks,   // used by reportService calcAccuracy
+          maxMarks:       raw.maxMarks,   
           correct:        raw.correct,
           wrong:          raw.wrong,
           partial:        raw.partial,
@@ -129,13 +110,12 @@ class Analytics {
         };
       };
 
-      // ── Question type blocks ──────────────────────────────────────────────
-      // Keys are actual questionType enum values: "SingleCorrect", "MultiCorrect", etc.
+   
       const questionTypes: Record<string, any> = {};
       for (const qt of test.questionTypeResults) {
         questionTypes[qt.questionType] = {
           marks:          qt.marks,
-          maxMarks:       qt.maxMarks,    // used by reportService calcAccuracy
+          maxMarks:       qt.maxMarks,   
           correct:        qt.correct,
           wrong:          qt.wrong,
           partial:        qt.partial,
@@ -146,8 +126,7 @@ class Analytics {
         };
       }
 
-      // ── overAllAnalytics — shape reportService reads ───────────────────────
-      // reportService reads: marks ?? totalScore, maxMarks ?? maxScore, timeTaken, totalQuestions
+    
       const overAllAnalytics = {
         totalScore:     test.totalScore,   // marks
         maxScore:       test.maxScore,     // maxMarks
@@ -232,7 +211,7 @@ class Analytics {
         marks:          s.marks,
         timeTaken:      s.timeTaken,
         positiveMarks:  s.positiveMarks,
-        paritalMarks:   s.partialMarks,  // typo kept
+        paritalMarks:   s.partialMarks,  
         negativeMarks:  s.negativeMarks,
         correct:        s.correct,
         partial:        s.partial,
@@ -384,25 +363,24 @@ class Analytics {
       async (tx) => {
         const _tx = tx as unknown as PrismaClient;
 
-        // ✅ 1. TestAttemptSummary + SubjectTestResult[] + QuestionTypeTestResult[]
-        //    THIS was the missing call — without it math/physics/chemistry were null
+     
         await this.writeTestAttemptSummary(_tx, testStatusId, studentId, report);
 
-        // ✅ 2. Cumulative chapter analytics (Must be written FIRST to satisfy Foreign Key constraints)
+     
         if (chapterWise.length > 0) {
           await Promise.all(
             this.writeChapterAnalytics(_tx, studentId, exam, chapterWise),
           );
         }
 
-        // ✅ 3. Per-test per-chapter snapshot rows (Depends on cumulative chapter analytics)
+  
         if (chapterWise.length > 0) {
           await Promise.all(
             this.writeTestChapterSnapshots(_tx, testStatusId, studentId, exam, chapterWise),
           );
         }
 
-        // ✅ 4. Cumulative subject analytics
+    
         await Promise.all(
           this.writeSubjectAnalytics(
             _tx, studentId,
@@ -410,13 +388,13 @@ class Analytics {
           ),
         );
 
-        // ✅ 5. Student overall analytics
+    
         await this.writeStudentOverallAnalytics(_tx, studentId, report);
 
-        // ✅ 6. Exam analytics
+        
         await this.writeExamAnalytics(_tx, studentId, report);
 
-        // ✅ 7. Mark as analyzed
+       
         await tx.testStatus.update({
           where: { id: testStatusId },
           data:  { isAnalyzed: true, updated_at: new Date() },
@@ -961,7 +939,18 @@ class Analytics {
           : Promise.resolve(),
       ]);
     });
+
+
+
+    
   }
+
+
+
+  
 }
+
+
+
 
 export const analytics = new Analytics(database);

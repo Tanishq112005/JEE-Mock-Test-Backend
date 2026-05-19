@@ -54,13 +54,16 @@ class BookMarked {
 
   async remove(studentId: string, questionId: string) {
     try {
-      await this.db.bookmarkedQuestion.deleteMany({
+      await this.db.bookmarkedQuestion.delete({
         where: {
-          studentId,
-          questionId,
+          studentId_questionId: {
+          studentId: studentId,
+          questionId: questionId,
+        },
         },
       });
     } catch (err: any) {
+      console.log(err) ; 
       throw err;
     }
   }

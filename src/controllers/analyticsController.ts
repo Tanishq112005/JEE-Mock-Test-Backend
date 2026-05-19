@@ -81,6 +81,7 @@ class AnalyticsController {
             );
 
         } catch (err: any) {
+            console.log(err) ; 
             return res.status(500).json(
                 new ApiError("Error in generating the report", err)
             );

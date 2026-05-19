@@ -1,16 +1,14 @@
-import { paperMarkingScheme, questionType } from "@prisma/client";
+import { questionType } from "@prisma/client";
 
 export class AnswerVerifyService {
-  private paperMarkingScheme: paperMarkingScheme[];
-
-  constructor(paperMarkingScheme: paperMarkingScheme[]) {
-    this.paperMarkingScheme = paperMarkingScheme;
-  }
+  constructor() {}
 
   questionResult(
     rawUserAnswer: string[],
     rawCorrectAnswer: string[],
     questionType: questionType,
+    positiveMarks: number,
+    negativeMarks: number
   ): {
     marks: number;
     verdict: "correct" | "partial" | "wrong" | "unattempted";
@@ -26,22 +24,6 @@ export class AnswerVerifyService {
       ),
     );
 
-  
-    let scheme = this.paperMarkingScheme.find(
-      (s) => s.questionType === questionType,
-    );
-
-
-    if (!scheme) {
-      scheme = {
-        isPartial: false,
-        positiveMarks: 4,
-        negativeMarks: 1,
-        questionType: questionType as questionType,
-      } as paperMarkingScheme;
-    }
-
- 
     if (userAnswer.length === 0) {
       return {
         marks: 0,
@@ -49,19 +31,18 @@ export class AnswerVerifyService {
       };
     }
 
-
     const isExactMatch =
       userAnswer.length === correctAnswer.length &&
       [...userAnswer].sort().join(",") === [...correctAnswer].sort().join(",");
 
+    const isPartialAllowed =
+      questionType === "MultiCorrect" ||
+      questionType === "ComprehensionMultiCorrect";
 
-    if (
-      scheme.isPartial 
-    ) {
-
+    if (isPartialAllowed) {
       if (isExactMatch) {
         return {
-          marks: scheme.positiveMarks,
+          marks: positiveMarks,
           verdict: "correct",
         };
       }
@@ -73,31 +54,26 @@ export class AnswerVerifyService {
         if (correctAnswersSet.has(userAnswer[i])) {
           count++;
         } else {
- 
           return {
-            marks: -Math.abs(scheme.negativeMarks), 
+            marks: -Math.abs(negativeMarks),
             verdict: "wrong",
           };
         }
       }
 
-     
       return {
         marks: count,
         verdict: "partial",
       };
-    }
-
-
-    else {
+    } else {
       if (isExactMatch) {
         return {
-          marks: scheme.positiveMarks,
+          marks: positiveMarks,
           verdict: "correct",
         };
       } else {
         return {
-          marks: -Math.abs(scheme.negativeMarks),
+          marks: -Math.abs(negativeMarks),
           verdict: "wrong",
         };
       }

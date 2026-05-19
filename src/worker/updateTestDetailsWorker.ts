@@ -2,6 +2,8 @@ import express from "express";
 import { rabbitMQClient } from "../rabbitmq/connection/rabbitmq-connection";
 import { UpdateTestDetailsConsumer } from "../rabbitmq/consumers/updateTestDetails-consumer";
 import { UPDATE_WORKER_PORT } from "../config/env"; 
+import redisManager from "../lib/redisManager";
+import { REDIS_HOST, REDIS_PORT, REDIS_USERNAME, REDIS_PASSWORD } from "../config/env";
 
 const startUpdateWorker = async () => {
     try {
@@ -9,6 +11,15 @@ const startUpdateWorker = async () => {
 
       
         await rabbitMQClient.connect();
+
+        if (REDIS_HOST) {
+            await redisManager.addDashboardInstances([
+                { host: REDIS_HOST as string, port: Number(REDIS_PORT), username: REDIS_USERNAME as string, password: REDIS_PASSWORD as string, email: '' } as any
+            ]);
+            await redisManager.addAuthInstances([
+                { host: REDIS_HOST as string, port: Number(REDIS_PORT), username: REDIS_USERNAME as string, password: REDIS_PASSWORD as string, email: '' } as any
+            ]);
+        }
 
       
         const updateConsumer = new UpdateTestDetailsConsumer(rabbitMQClient);

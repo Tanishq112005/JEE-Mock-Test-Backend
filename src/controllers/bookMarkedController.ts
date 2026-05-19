@@ -64,8 +64,8 @@ class BookMarkedController {
     public remove = async (req : any , res : any) => {
        try {
            const studentId = req.user ; 
-           const {questionId} = req.params ; 
-
+           const {questionId} = req.query ; 
+           
            await bookMarked.remove(studentId , questionId) ; 
 
            return res.status(200).json(

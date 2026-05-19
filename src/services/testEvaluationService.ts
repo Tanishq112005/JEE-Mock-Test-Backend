@@ -23,9 +23,6 @@ class TestEvaluation {
     try {
       const gettingAllQuestionsOfPaper =
         await question.gettingQuestionsInformation(lastStatus.paperId);
-      const paperMarkingScheme = await paper.paperMarkingScheme(
-        lastStatus.paperId,
-      );
       let updateQuestion = new Map<string, questionUpdateDetails>();
 
       if (
@@ -128,7 +125,7 @@ class TestEvaluation {
       }
 
       let finalVerdict = [];
-      const evalutionAnswer = new AnswerVerifyService(paperMarkingScheme);
+      const evalutionAnswer = new AnswerVerifyService();
 
       for (let i = 0; i < gettingAllQuestionsOfPaper.length; i++) {
         const questionData = gettingAllQuestionsOfPaper[i];
@@ -138,6 +135,8 @@ class TestEvaluation {
           questionDetail.userAnswer,
           questionData.correctAnswer,
           questionData.type,
+          questionData.positiveMarks,
+          questionData.negativeMarks
         );
 
         finalVerdict.push({

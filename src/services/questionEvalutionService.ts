@@ -74,13 +74,14 @@ class PracticeQuestionEvaluationService {
       if (!questionData) throw new Error(`Question not found: ${input.questionId}`);
 
       
-      const markingSchemes = questionData.papers?.markingSchemes ?? [];
-      const evaluator      = new AnswerVerifyService(markingSchemes);
+      const evaluator      = new AnswerVerifyService();
 
       const { verdict: rawVerdict, marks } = evaluator.questionResult(
         input.userAnswer,
         questionData.correctAnswer,
         questionData.type,
+        questionData.positiveMarks,
+        questionData.negativeMarks
       );
 
       const verdict = rawVerdict as "correct" | "partial" | "wrong" | "unattempted";
