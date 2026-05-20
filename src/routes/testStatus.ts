@@ -4,7 +4,7 @@ import { testController } from "../controllers/testController";
 import { TokenBucket } from "../middlewares/RateLimiters/tokenBucket";
 
 const router = Router();
-const paperLimiter = new TokenBucket(1, 0.8) ; 
+const paperLimiter = new TokenBucket(1, 1) ; 
 
 router.get('/getPaper', authMiddleware, paperLimiter.limit ,  testController.gettingQuestionAndDetails);
 
