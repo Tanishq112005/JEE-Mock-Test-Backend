@@ -1,26 +1,22 @@
 import { Router } from "express";
 import { authMiddleware } from "../middlewares/auth";
 import { testController } from "../controllers/testController";
+import { TokenBucket } from "../middlewares/RateLimiters/tokenBucket";
 
 const router = Router();
+const paperLimiter = new TokenBucket(2, 1) ; 
 
-// 1. Get Exam Data
-// Frontend calls: /api/test/getPaper?testStatusId=...
-router.get('/getPaper', authMiddleware, testController.gettingQuestionAndDetails);
+router.get('/getPaper', authMiddleware, paperLimiter.limit ,  testController.gettingQuestionAndDetails);
 
-// 2. Start New Test
-// Frontend calls: /api/test/create (Body: { paperId })
-router.post('/create', authMiddleware, testController.createTestStatus); 
+router.post('/create', authMiddleware,  paperLimiter.limit ,  testController.createTestStatus); 
 
-// 3. Update Progress
-// Frontend calls: /api/test/update (Body: { ...details })
-router.post('/update', authMiddleware, testController.updatingTheDetails); 
 
-// 4. Get Last Session Info
-// Frontend calls: /api/test/lastTestDetails?paperId=...
-router.get('/lastTestDetails', authMiddleware, testController.LastTestDetails);
+router.post('/update', authMiddleware,  paperLimiter.limit ,  testController.updatingTheDetails); 
 
-router.get('/paperAttemptsDetails' , authMiddleware , testController.getPapersWithStatus ) ; 
-router.post('/submitTest' , authMiddleware , testController.submitTest) ; 
+
+router.get('/lastTestDetails', authMiddleware,  paperLimiter.limit ,  testController.LastTestDetails);
+
+router.get('/paperAttemptsDetails' , authMiddleware ,  paperLimiter.limit ,  testController.getPapersWithStatus ) ; 
+router.post('/submitTest' , authMiddleware , paperLimiter.limit , testController.submitTest) ; 
 
 export const testStatusRoutes = router;

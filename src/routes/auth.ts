@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { authController } from "../controllers/authController";
 import { authMiddleware } from "../middlewares/auth";
-import { RateLimiter } from "../middlewares/rateLimiter";
+import { SlidingWindowLog } from "../middlewares/RateLimiters/slidingWindowLog";
 import { MAX_ATTEMENTS, WINDOW_SIZE } from "../config/env";
 // redisClient import yahan se hata diya gaya hai!
 
@@ -11,13 +11,13 @@ const maxAttempts = parseInt(MAX_ATTEMENTS || "3", 10);
 const windowSize = parseInt(WINDOW_SIZE || "60", 10);
 
 // Ab hum RateLimiter mein static redis pass nahi kar rahe hain
-const otpGenLimiter = new RateLimiter(maxAttempts, windowSize, "otp_gen");
+const otpGenLimiter = new SlidingWindowLog(maxAttempts, windowSize, "otp_gen");
 
-const signUpLimiter = new RateLimiter(maxAttempts, windowSize, "sigUp");
+const signUpLimiter = new SlidingWindowLog(maxAttempts, windowSize, "sigUp");
 
-const otpVerifyLimiter = new RateLimiter(maxAttempts, windowSize, "otp_verify");
+const otpVerifyLimiter = new SlidingWindowLog(maxAttempts, windowSize, "otp_verify");
 
-const loginLimiter = new RateLimiter(5, 60, "login");
+const loginLimiter = new SlidingWindowLog(5, 60, "login");
 
 router.post("/signup", signUpLimiter.limit, authController.createUser);
 

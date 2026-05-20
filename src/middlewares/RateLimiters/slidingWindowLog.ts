@@ -1,8 +1,8 @@
-import ApiError from "../utils/ApiError";
-import { redisConfig } from "../lib/redis";
-import redisManager from "../lib/redisManager"; // Import our new singleton
+import ApiError from "../../utils/ApiError";
+import { redisConfig } from "../../lib/redis";
+import redisManager from "../../lib/redisManager"; // Import our new singleton
 
-export class RateLimiter {
+export class SlidingWindowLog {
   private maxAttempts: number;
   private windowSize: number;
   private keyPrefix: string;
