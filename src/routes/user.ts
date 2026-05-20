@@ -6,7 +6,7 @@ import { TokenBucket } from "../middlewares/RateLimiters/tokenBucket";
 const router = Router() ; 
 
 
-const limiter = new TokenBucket(1 , 0.5) ; 
+const limiter = new TokenBucket(1 , 0.8) ; 
 router.get('/get' , authMiddleware ,limiter.limit ,  userController.studentProfile ) ;
 
 router.post('/stage1' , authMiddleware , limiter.limit  ,  userController.stage1) ; 

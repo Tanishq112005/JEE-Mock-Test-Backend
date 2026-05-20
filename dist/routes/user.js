@@ -6,7 +6,7 @@ const auth_1 = require("../middlewares/auth");
 const userController_1 = require("../controllers/userController");
 const tokenBucket_1 = require("../middlewares/RateLimiters/tokenBucket");
 const router = (0, express_1.Router)();
-const limiter = new tokenBucket_1.TokenBucket(1, 0.5);
+const limiter = new tokenBucket_1.TokenBucket(1, 0.8);
 router.get('/get', auth_1.authMiddleware, limiter.limit, userController_1.userController.studentProfile);
 router.post('/stage1', auth_1.authMiddleware, limiter.limit, userController_1.userController.stage1);
 router.post('/stage2', auth_1.authMiddleware, limiter.limit, userController_1.userController.stage2);

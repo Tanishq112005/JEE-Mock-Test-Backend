@@ -3,9 +3,9 @@ import { analyticsController } from "../controllers/analyticsController";
 import { authMiddleware } from "../middlewares/auth";
 import { TokenBucket } from "../middlewares/RateLimiters/tokenBucket";
 
-const dashboardLimiter = new TokenBucket(1, 0.1);
-const testAnalyticsLimiter = new TokenBucket(1, 0.1);
-const analyticsLimiter = new TokenBucket(1 , 0.1) ; 
+const dashboardLimiter = new TokenBucket(1, 0.8);
+const testAnalyticsLimiter = new TokenBucket(1, 0.8);
+const analyticsLimiter = new TokenBucket(1 , 0.8) ; 
 
 const router = Router() ; 
 
