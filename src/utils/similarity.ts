@@ -63,7 +63,7 @@ export class ChapterSearchEngine {
   async initialize() {
     if (this.isInitialized) return;
     
-    console.log("⚙️  Initializing Search Index...");
+    console.log("Initializing Search Index...");
     const startTime = Date.now();
     const tasks: Promise<void>[] = [];
 
@@ -76,7 +76,7 @@ export class ChapterSearchEngine {
     await Promise.all(tasks);
     
     this.isInitialized = true;
-    console.log(`✅ Index Ready! Loaded ${this.index.length} chapters in ${(Date.now() - startTime) / 1000}s`);
+    console.log(`Index Ready! Loaded ${this.index.length} chapters in ${(Date.now() - startTime) / 1000}s`);
   }
 
   private async indexChapter(group: SyllabusGroup, chapter: Chapter) {
@@ -102,7 +102,7 @@ export class ChapterSearchEngine {
 
   async findChapter(query: string, limit: number = 3) {
     if (!this.isInitialized) {
-        console.warn("⚠️ Search Engine not initialized. Calling initialize() now...");
+        console.warn("Search Engine not initialized. Calling initialize() now...");
         await this.initialize();
     }
 

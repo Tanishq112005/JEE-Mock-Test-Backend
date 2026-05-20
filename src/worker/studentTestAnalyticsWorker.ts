@@ -7,7 +7,7 @@ import redisManager from "../lib/redisManager";
 
 const studentTestAnalyticsWorker = async () => {
     try {
-        console.log("📧 Starting Student Test Analytics Worker Service...");
+        console.log("Starting Student Test Analytics Worker Service...");
 
         await rabbitMQClient.connect();
 
@@ -24,7 +24,7 @@ const studentTestAnalyticsWorker = async () => {
         const studentTestAnalytics = new StudentTestAnanlyticsConsumer(rabbitMQClient);
         await studentTestAnalytics.start();
         
-        console.log("✅ Student Test Analytics  Worker is now listening for messages...");
+        console.log("Student Test Analytics  Worker is now listening for messages...");
 
       
         const app = express();
@@ -33,22 +33,22 @@ const studentTestAnalyticsWorker = async () => {
 
      
         app.get("/health", (req: any , res:any) => {
-            res.send("Student Test Analytics Worker is Running 🚀");
+            res.send("Student Test Analytics Worker is Running");
         });
 
         app.listen(port, () => {
-            console.log(`❤️ Health check server listening on port ${port}`);
+            console.log(`Health check server listening on port ${port}`);
         });
         
 
         
         process.on("SIGTERM", async () => {
-            console.log("🛑 SIGTERM received. Closing...");
+            console.log("SIGTERM received. Closing...");
             process.exit(0);
         });
 
     } catch (error) {
-        console.error("❌Student Test Analytics  Worker failed to start:", error);
+        console.error("Student Test Analytics  Worker failed to start:", error);
         process.exit(1);
     }
 };

@@ -132,7 +132,7 @@ class DashboardCacheService {
       );
       return updateData ?? null;
     } catch (err: any) {
-      console.error("❌ Redis getTestUpdateDataFromReddis failed:", err);
+      console.error("Redis getTestUpdateDataFromReddis failed:", err);
       return null;
     }
   }
@@ -167,7 +167,7 @@ class DashboardCacheService {
           `${studentId}:${testId}:${existingEntry.created_at}:updateData`,
         );
         console.log(
-          `🗑️ Deleted stale Redis key for testId: ${testId} | old timestamp: ${existingEntry.created_at}`,
+          `Deleted stale Redis key for testId: ${testId} | old timestamp: ${existingEntry.created_at}`,
         );
       }
 
@@ -189,11 +189,11 @@ class DashboardCacheService {
       ]);
 
       console.log(
-        `✅ Redis upserted updateData for testId: ${testId} | timestamp: ${created_at}`,
+        `Redis upserted updateData for testId: ${testId} | timestamp: ${created_at}`,
       );
     } catch (err: any) {
       // ── Never let Redis failure break the main flow ───────────
-      console.error("❌ Redis upsertTestUpdateData failed:", err);
+      console.error("Redis upsertTestUpdateData failed:", err);
     }
   }
 
@@ -214,7 +214,7 @@ class DashboardCacheService {
       );
 
       if (!existingEntry) {
-        console.log(`⚠️ No Redis entry found to delete for testId: ${testId}`);
+        console.log(`No Redis entry found to delete for testId: ${testId}`);
         return;
       }
 
@@ -230,9 +230,9 @@ class DashboardCacheService {
 
       await cacheService.setCache(`${studentId}:updateUpperLayer`, upperLayer);
 
-      console.log(`🗑️ Redis fully removed updateData for testId: ${testId}`);
+      console.log(`Redis fully removed updateData for testId: ${testId}`);
     } catch (err: any) {
-      console.error("❌ Redis deleteTestUpdateData failed:", err);
+      console.error("Redis deleteTestUpdateData failed:", err);
     }
   }
 }

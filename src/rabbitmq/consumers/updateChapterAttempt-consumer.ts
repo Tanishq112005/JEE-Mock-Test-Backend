@@ -20,7 +20,7 @@ export class UpdateChapterAttemptConsumer {
       await channel.assertQueue(queueName, { durable: true });
       await channel.bindQueue(queueName, exchangeName, routingKey);
 
-      console.log("🔄 UpdateChapterAttempt Consumer waiting for messages...");
+      console.log("UpdateChapterAttempt Consumer waiting for messages...");
 
       channel.prefetch(1);
       channel.consume(queueName, async (msg: ConsumeMessage | null) => {
@@ -29,7 +29,7 @@ export class UpdateChapterAttemptConsumer {
         try {
           const data = JSON.parse(msg.content.toString());
 
-          console.log(`📥 Processing Chapter Attempt Update for User: ${data.studentId}`);
+          console.log(`Processing Chapter Attempt Update for User: ${data.studentId}`);
 
           // --- ACTUAL WORKER LOGIC ---
           await chapterWisePractice.saveQuestionAttempt({
@@ -53,14 +53,14 @@ export class UpdateChapterAttemptConsumer {
           );
 
           channel.ack(msg);
-          console.log("✅ Chapter Update Processed Successfully");
+          console.log("Chapter Update Processed Successfully");
         } catch (err) {
-          console.error("❌ Processing failed for Chapter Update:", err);
+          console.error("Processing failed for Chapter Update:", err);
           channel.nack(msg, false, false);
         }
       });
     } catch (error: any) {
-      console.error("❌ Error in UpdateChapterAttemptConsumer:", error);
+      console.error("Error in UpdateChapterAttemptConsumer:", error);
       throw error;
     }
   }

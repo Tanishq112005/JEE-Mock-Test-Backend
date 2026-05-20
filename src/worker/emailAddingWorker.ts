@@ -5,7 +5,7 @@ import { EMAIL_ADDING_WORKER_PORT } from "../config/env";
 
 const startEmailAddingWorker = async () => {
     try {
-        console.log("📧 Starting Email Adding Worker Service...");
+        console.log("Starting Email Adding Worker Service...");
 
         await rabbitMQClient.connect();
 
@@ -13,7 +13,7 @@ const startEmailAddingWorker = async () => {
         const emailAddingConsumer = new EmailAddingConsumer(rabbitMQClient) ; 
         await emailAddingConsumer.start() ; 
         
-        console.log("✅ Email Adding Worker is now listening for messages...");
+        console.log("Email Adding Worker is now listening for messages...");
 
       
         const app = express();
@@ -22,22 +22,22 @@ const startEmailAddingWorker = async () => {
 
      
         app.get("/health", (req: any , res:any) => {
-            res.send("Email Adding Worker is Running 🚀");
+            res.send("Email Adding Worker is Running");
         });
 
         app.listen(port, () => {
-            console.log(`❤️ Health check server listening on port ${port}`);
+            console.log(`Health check server listening on port ${port}`);
         });
         
 
         
         process.on("SIGTERM", async () => {
-            console.log("🛑 SIGTERM received. Closing...");
+            console.log("SIGTERM received. Closing...");
             process.exit(0);
         });
 
     } catch (error) {
-        console.error("❌ Email Adding Worker failed to start:", error);
+        console.error("Email Adding Worker failed to start:", error);
         process.exit(1);
     }
 };

@@ -6,7 +6,7 @@ import { REDIS_HOST, REDIS_PORT, REDIS_USERNAME, REDIS_PASSWORD } from "../confi
 
 const startUpdateChapterWorker = async () => {
   try {
-    console.log("🔄 Starting Update Chapter Attempt Worker Service...");
+    console.log("Starting Update Chapter Attempt Worker Service...");
 
     await rabbitMQClient.connect();
 
@@ -20,25 +20,25 @@ const startUpdateChapterWorker = async () => {
     const updateConsumer = new UpdateChapterAttemptConsumer(rabbitMQClient);
     await updateConsumer.start();
 
-    console.log("✅ Update Chapter Worker is now listening for messages...");
+    console.log("Update Chapter Worker is now listening for messages...");
 
     const app = express();
     const port = 3008; // Hardcoded fallback or use env
 
     app.get("/health", (req: any, res: any) => {
-      res.send("Update Chapter Worker is Running 📊");
+      res.send("Update Chapter Worker is Running");
     });
 
     app.listen(port, () => {
-      console.log(`❤️ Health check server listening on port ${port}`);
+      console.log(`Health check server listening on port ${port}`);
     });
 
     process.on("SIGTERM", async () => {
-      console.log("🛑 SIGTERM received. Closing Update Chapter Worker...");
+      console.log("SIGTERM received. Closing Update Chapter Worker...");
       process.exit(0);
     });
   } catch (error) {
-    console.error("❌ Update Chapter Worker failed to start:", error);
+    console.error("Update Chapter Worker failed to start:", error);
     process.exit(1);
   }
 };

@@ -21,7 +21,7 @@ class BrevoRotator {
     while (attempts < BREVO_KEYS.length) {
       const apiKey = BREVO_KEYS[this.currentKeyIndex];
       try {
-        console.log(`🔄 Trying Brevo Account #${this.currentKeyIndex + 1}...`);
+        console.log(`Trying Brevo Account #${this.currentKeyIndex + 1}...`);
 
         const response = await axios.post(
           "https://api.brevo.com/v3/smtp/email",
@@ -40,14 +40,14 @@ class BrevoRotator {
           }
         );
 
-        console.log(`✅ Success! Sent via Account #${this.currentKeyIndex + 1}`);
+        console.log(`Success! Sent via Account #${this.currentKeyIndex + 1}`);
         return response.data;
 
       } catch (error: any) {
         const status = error.response?.status;
         const errorMsg = error.response?.data?.message || error.message;
 
-        console.warn(`⚠️ Account #${this.currentKeyIndex + 1} Failed: ${errorMsg}`);
+        console.warn(`Account #${this.currentKeyIndex + 1} Failed: ${errorMsg}`);
 
         if (status === 400 || status === 402 || errorMsg.includes("credit")) {
           console.log(`🔻 Account #${this.currentKeyIndex + 1} Empty. Switching to next...`);
@@ -56,7 +56,7 @@ class BrevoRotator {
           
           attempts++; 
         } else {
-          console.error("❌ Fatal Error (Not Quota Related). Stopping.");
+          console.error("Fatal Error (Not Quota Related). Stopping.");
           throw new ApiError("Email Failed", errorMsg);
         }
       }

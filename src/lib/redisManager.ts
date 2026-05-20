@@ -162,7 +162,7 @@ class RedisManager {
     console.log("Disconnecting Dashboard Ring...");
     await this.dashboardRing.disconnectAll();
 
-    console.log("✅ All Redis clusters shut down successfully.");
+    console.log("All Redis clusters shut down successfully.");
   }
   // 1. Saare active Redis nodes dekhne ke liye
   public getActiveClusters() {

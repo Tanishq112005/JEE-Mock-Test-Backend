@@ -29,12 +29,12 @@ export const seedDatabase = async () => {
         process.stdout.write("."); // Visual progress indicator
       } catch (error) {
         // Log specific errors (e.g., duplicates) but don't stop the whole script
-        console.error(`\n❌ Failed to add "${ch.name}":`, error);
+        console.error(`\nFailed to add "${ch.name}":`, error);
       }
     }
   }
 
-  console.log("\n\n✅ Syllabus upload process completed!");
+  console.log("\n\nSyllabus upload process completed!");
 };
 
 // Execute the function

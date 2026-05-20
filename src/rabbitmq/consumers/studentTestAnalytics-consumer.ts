@@ -27,7 +27,7 @@ export class StudentTestAnanlyticsConsumer {
       // This is CRITICAL: It tells RabbitMQ "Only put messages with key 'UpdateTestDetails.update.it' in this queue"
       await channel.bindQueue(queueName, exchangeName, routingKey);
 
-      console.log("🔄 Stduent Test Analytics Consumer waiting for messages...");
+      console.log("Stduent Test Analytics Consumer waiting for messages...");
 
       // 4. Consume
       channel.prefetch(1);
@@ -38,7 +38,7 @@ export class StudentTestAnanlyticsConsumer {
           const data = JSON.parse(msg.content.toString());
 
           console.log(
-            `📥 Processing Student Test Analytics Update for User: ${data.studentId}`,
+            `Processing Student Test Analytics Update for User: ${data.studentId}`,
           );
 
           await analytics.persistTestAnalytics(
@@ -66,11 +66,11 @@ export class StudentTestAnanlyticsConsumer {
 
           channel.ack(msg);
           console.log(
-            "✅ Update The Student Test Analytics  Evaluated SuccessFully",
+            "Update The Student Test Analytics  Evaluated SuccessFully",
           );
         } catch (err) {
           console.error(
-            "❌ Processing failed for  Student Test Analytics :",
+            "Processing failed for  Student Test Analytics :",
             err,
           );
 
@@ -78,7 +78,7 @@ export class StudentTestAnanlyticsConsumer {
         }
       });
     } catch (error: any) {
-      console.error("❌ Error in   Student Test Analytics  Consumer:", error);
+      console.error("Error in   Student Test Analytics  Consumer:", error);
       throw error;
     }
   }

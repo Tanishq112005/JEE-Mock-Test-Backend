@@ -30,9 +30,9 @@ class UpdateChapterAttemptProducer {
         }
       );
 
-      console.log("⬆️ Chapter attempt update Pushed to the Queue");
+      console.log("Chapter attempt update Pushed to the Queue");
     } catch (err: any) {
-      console.log("❌ Error pushing chapter attempt to Queue: ", err);
+      console.log("Error pushing chapter attempt to Queue: ", err);
       throw err;
     }
   }

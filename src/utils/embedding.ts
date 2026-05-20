@@ -32,7 +32,7 @@ export async function getEmbedding(text: string): Promise<number[]> {
     return data.embedding;
 
   } catch (err) {
-    console.error("❌ Embedding Generation Failed:", err);
+    console.error("Embedding Generation Failed:", err);
     return []; // Return empty vector so the app doesn't crash
   }
 }

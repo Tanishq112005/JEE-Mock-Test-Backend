@@ -30,9 +30,9 @@ class SubmitChapterAttemptProducer {
         }
       );
 
-      console.log("⬆️ Chapter attempt final submit Pushed to the Queue");
+      console.log("Chapter attempt final submit Pushed to the Queue");
     } catch (err: any) {
-      console.log("❌ Error pushing chapter attempt submit to Queue: ", err);
+      console.log("Error pushing chapter attempt submit to Queue: ", err);
       throw err;
     }
   }

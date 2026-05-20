@@ -21,7 +21,7 @@ export class EmailConsumer {
       const routingKey = "email.send";
       await channel.bindQueue(queueName, exchangeName, routingKey);
 
-      console.log("📩 Email Consumer started... Waiting for messages...");
+      console.log("Email Consumer started... Waiting for messages...");
 
       channel.consume(queueName, async (msg: any) => {
         if (!msg) return;
@@ -30,22 +30,22 @@ export class EmailConsumer {
           let data = JSON.parse(msg.content.toString());
           data.retryCount = data.retryCount || 0;
 
-          console.log(`📨 Email job received via Exchange (retry #${data.retryCount}):`, data);
+          console.log(`Email job received via Exchange (retry #${data.retryCount}):`, data);
 
           await emailSender.send(data);
 
           channel.ack(msg);
-          console.log("✅ Email sent and acknowledged");
+          console.log("Email sent and acknowledged");
 
         } catch (err) {
        
-          console.error("❌ Processing failed", err);
+          console.error("Processing failed", err);
           channel.nack(msg, false, false);
         }
       });
 
     } catch (err) {
-      console.error("❌ Error starting Email Consumer:", err);
+      console.error("Error starting Email Consumer:", err);
       throw err;
     }
   }

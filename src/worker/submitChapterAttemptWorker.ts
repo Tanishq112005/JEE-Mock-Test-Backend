@@ -7,7 +7,7 @@ import { questionBitmapRegistry } from "../services/uniqueCountService";
 
 const startSubmitChapterWorker = async () => {
   try {
-    console.log("🔄 Starting Submit Chapter Attempt Worker Service...");
+    console.log("Starting Submit Chapter Attempt Worker Service...");
 
     await rabbitMQClient.connect();
 
@@ -24,25 +24,25 @@ const startSubmitChapterWorker = async () => {
     const submitConsumer = new SubmitChapterAttemptConsumer(rabbitMQClient);
     await submitConsumer.start();
 
-    console.log("✅ Submit Chapter Worker is now listening for messages...");
+    console.log("Submit Chapter Worker is now listening for messages...");
 
     const app = express();
     const port = 3009; // Hardcoded fallback or use env
 
     app.get("/health", (req: any, res: any) => {
-      res.send("Submit Chapter Worker is Running 📊");
+      res.send("Submit Chapter Worker is Running");
     });
 
     app.listen(port, () => {
-      console.log(`❤️ Health check server listening on port ${port}`);
+      console.log(`Health check server listening on port ${port}`);
     });
 
     process.on("SIGTERM", async () => {
-      console.log("🛑 SIGTERM received. Closing Submit Chapter Worker...");
+      console.log("SIGTERM received. Closing Submit Chapter Worker...");
       process.exit(0);
     });
   } catch (error) {
-    console.error("❌ Submit Chapter Worker failed to start:", error);
+    console.error("Submit Chapter Worker failed to start:", error);
     process.exit(1);
   }
 };

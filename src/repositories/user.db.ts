@@ -101,10 +101,10 @@ class User {
         data: { password: password },
       });
 
-      console.log("✅ REPO SUCCESS: Password hash updated in DB.");
+      console.log("REPO SUCCESS: Password hash updated in DB.");
       return updated;
     } catch (err: any) {
-      console.error("❌ REPO CRASH: Prisma failed to update:", err.message);
+      console.error("REPO CRASH: Prisma failed to update:", err.message);
       throw err;
     }
   }

@@ -26,7 +26,7 @@ export class UpdateTestDetailsConsumer {
       // This is CRITICAL: It tells RabbitMQ "Only put messages with key 'UpdateTestDetails.update.it' in this queue"
       await channel.bindQueue(queueName, exchangeName, routingKey);
 
-      console.log("🔄 UpdateTestDetails Consumer waiting for messages...");
+      console.log("UpdateTestDetails Consumer waiting for messages...");
 
       // 4. Consume
       channel.prefetch(1);
@@ -35,8 +35,6 @@ export class UpdateTestDetailsConsumer {
 
         try {
           const data = JSON.parse(msg.content.toString());
-
-          console.log(`📥 Processing Test Update for User: ${data.userId}`);
 
           // --- ACTUAL WORKER LOGIC ---
           await testStatus.updatingTestDetails(data);
@@ -49,9 +47,8 @@ export class UpdateTestDetailsConsumer {
           );
 
           channel.ack(msg);
-          console.log("✅ Test Data Updated Successfully");
         } catch (err) {
-          console.error("❌ Processing failed for Test Update:", err);
+          console.error("Processing failed for Test Update:", err);
 
           // NACK: false, false -> This rejects the message and DROPS it (does not requeue)
           // If you want to retry later, change the second 'false' to 'true'
@@ -60,7 +57,7 @@ export class UpdateTestDetailsConsumer {
         }
       });
     } catch (error: any) {
-      console.error("❌ Error in UpdateTestDetailsConsumer:", error);
+      console.error("Error in UpdateTestDetailsConsumer:", error);
       throw error;
     }
   }

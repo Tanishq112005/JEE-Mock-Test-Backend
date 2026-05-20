@@ -8,7 +8,7 @@ import { REDIS_HOST, REDIS_PORT, REDIS_USERNAME, REDIS_PASSWORD } from "../confi
 
 const testEvaluationWorker = async () => {
     try {
-        console.log("📧 Starting Test Evalution Worker Service...");
+        console.log("Starting Test Evalution Worker Service...");
 
         await rabbitMQClient.connect();
 
@@ -26,7 +26,7 @@ const testEvaluationWorker = async () => {
         const updateFinalEvaluation = new UpdateFinalEvaluationConsumer(rabbitMQClient);
         await updateFinalEvaluation.start();
         
-        console.log("✅ Evalution Worker is now listening for messages...");
+        console.log("Evalution Worker is now listening for messages...");
 
       
         const app = express();
@@ -35,22 +35,22 @@ const testEvaluationWorker = async () => {
 
      
         app.get("/health", (req: any , res:any) => {
-            res.send("Evaluation Worker is Running 🚀");
+            res.send("Evaluation Worker is Running");
         });
 
         app.listen(port, () => {
-            console.log(`❤️ Health check server listening on port ${port}`);
+            console.log(`Health check server listening on port ${port}`);
         });
         
 
         
         process.on("SIGTERM", async () => {
-            console.log("🛑 SIGTERM received. Closing...");
+            console.log("SIGTERM received. Closing...");
             process.exit(0);
         });
 
     } catch (error) {
-        console.error("❌ Evaluation Worker failed to start:", error);
+        console.error("Evaluation Worker failed to start:", error);
         process.exit(1);
     }
 };

@@ -107,16 +107,16 @@ app.post(
 const startServer = async () => {
   try {
     // A. Connect to Infrastructure
-    console.log("🔌 Connecting to RabbitMQ...");
+    console.log("Connecting to RabbitMQ...");
     await rabbitMQClient.connect();
 
     // B. Initialize AI Search Engine
     // This pre-loads the "Syllabus Data" and calculates embeddings
     // so the question upload service works instantly.
-    console.log("🧠 Initializing Hybrid Search Engine...");
+    console.log("Initializing Hybrid Search Engine...");
     await searchEngine.initialize();
 
-    console.log("💍 Initializing Standard Redis Clusters from .env...");
+    console.log("Initializing Standard Redis Clusters from .env...");
     if (REDIS_HOST) {
         await redisManager.addDashboardInstances([
           { host: REDIS_HOST as string, port: Number(REDIS_PORT), username: REDIS_USERNAME as string, password: REDIS_PASSWORD as string, email: '' } as any
@@ -130,12 +130,12 @@ const startServer = async () => {
 
     // D. Start HTTP Server
     app.listen(port, () => {
-      console.log(`🚀 API Server is running on port ${port}`);
+      console.log(`   API Server is running on port ${port}`);
       console.log(`   - Search Engine: Ready`);
       console.log(`   - Streak Cron:   Active (00:05 AM)`);
     });
   } catch (error) {
-    console.error("❌ Failed to start API server:", error);
+    console.error("Failed to start API server:", error);
     process.exit(1);
   }
 };

@@ -7,7 +7,7 @@ import { REDIS_HOST, REDIS_PORT, REDIS_USERNAME, REDIS_PASSWORD } from "../confi
 
 const startUpdateWorker = async () => {
     try {
-        console.log("🔄 Starting Update Test Details Worker Service...");
+        console.log("Starting Update Test Details Worker Service...");
 
       
         await rabbitMQClient.connect();
@@ -25,7 +25,7 @@ const startUpdateWorker = async () => {
         const updateConsumer = new UpdateTestDetailsConsumer(rabbitMQClient);
         await updateConsumer.start();
         
-        console.log("✅ Update Worker is now listening for messages...");
+        console.log("Update Worker is now listening for messages...");
 
      
         const app = express();
@@ -34,21 +34,21 @@ const startUpdateWorker = async () => {
         const port = UPDATE_WORKER_PORT || 3002; 
 
         app.get("/health", (req: any , res:any) => {
-            res.send("Update Test Worker is Running 📊");
+            res.send("Update Test Worker is Running");
         });
 
         app.listen(port, () => {
-            console.log(`❤️ Health check server listening on port ${port}`);
+            console.log(`Health check server listening on port ${port}`);
         });
 
   
         process.on("SIGTERM", async () => {
-            console.log("🛑 SIGTERM received. Closing Update Worker...");
+            console.log("SIGTERM received. Closing Update Worker...");
             process.exit(0);
         });
 
     } catch (error) {
-        console.error("❌ Update Worker failed to start:", error);
+        console.error("Update Worker failed to start:", error);
         process.exit(1);
     }
 };

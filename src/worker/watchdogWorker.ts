@@ -8,42 +8,40 @@ const INACTIVITY_THRESHOLD_SEC = parseInt(WATCHDOG_INACTIVITY_THRESHOLD_SEC || '
 
 const startWatchdogWorker = async () => {
     try {
-        console.log("🐕 Starting Watchdog Worker Service...");
-
-      
+        
         const intervalId = setInterval(async () => {
             try {
                
                 await testStatus.autoPauseInactiveTests(INACTIVITY_THRESHOLD_SEC);
             } catch (err) {
-                console.error("⚠️ Watchdog failed this cycle:", err);
+                console.error("Watchdog failed this cycle:", err);
                 
             }
         }, CHECK_INTERVAL_MS);
 
-        console.log(`✅ Watchdog active. Checking every ${CHECK_INTERVAL_MS / 1000}s for inactivity > ${INACTIVITY_THRESHOLD_SEC}s`);
+        
 
       
         const app = express();
         const port = WATCHDOG_PORT || 3003;
 
         app.get("/health", (req: any , res:any) => {
-            res.send("Watchdog is guarding 🐕");
+            res.send("Watchdog is guarding");
         });
 
         app.listen(port, () => {
-            console.log(`❤️ Watchdog Health check listening on port ${port}`);
+            console.log(`Watchdog Health check listening on port ${port}`);
         });
 
      
         process.on("SIGTERM", () => {
-            console.log("🛑 SIGTERM received. Stopping Watchdog...");
+            console.log("SIGTERM received. Stopping Watchdog...");
             clearInterval(intervalId); 
             process.exit(0);
         });
 
     } catch (error) {
-        console.error("❌ Watchdog failed to start:", error);
+        console.error("Watchdog failed to start:", error);
         process.exit(1);
     }
 };
