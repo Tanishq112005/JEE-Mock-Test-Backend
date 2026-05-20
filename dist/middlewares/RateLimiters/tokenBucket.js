@@ -10,17 +10,19 @@ const ApiError_1 = __importDefault(require("../../utils/ApiError"));
 class TokenBucket {
     capacity;
     refillRate;
+    place;
     // Accept optional custom parameters
-    constructor(customCapacity, customRefillRate) {
+    constructor(place, customCapacity, customRefillRate) {
         this.capacity = customCapacity ?? parseInt(env_1.TOKEN_BUCKET_CAPACITY || "10", 10);
         this.refillRate = customRefillRate ?? parseInt(env_1.TOKEN_BUCKET_REFLIER || "1", 10);
+        this.place = place;
     }
     limit = async (req, res, next) => {
         try {
             const userId = req.user?.id || req.ip;
             const redisClient = redisManager_1.default.getAuthRedis(userId);
             // Add a prefix based on capacity/rate so different routes don't share the exact same bucket
-            const key = `ratelimit:tb:${this.capacity}:${userId}`;
+            const key = `ratelimit:tb:${this.capacity}:${userId}:${this.place}`;
             const now = Math.floor(Date.now() / 1000);
             const script = `
                 local bucket = redis.call("HMGET", KEYS[1], "tokens", "lastRefillTime")
