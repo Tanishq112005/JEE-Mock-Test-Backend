@@ -6,7 +6,7 @@ const auth_1 = require("../middlewares/auth");
 const testController_1 = require("../controllers/testController");
 const tokenBucket_1 = require("../middlewares/RateLimiters/tokenBucket");
 const router = (0, express_1.Router)();
-const paperLimiter = new tokenBucket_1.TokenBucket(2, 1);
+const paperLimiter = new tokenBucket_1.TokenBucket(1, 0.7);
 router.get('/getPaper', auth_1.authMiddleware, paperLimiter.limit, testController_1.testController.gettingQuestionAndDetails);
 router.post('/create', auth_1.authMiddleware, paperLimiter.limit, testController_1.testController.createTestStatus);
 router.post('/update', auth_1.authMiddleware, paperLimiter.limit, testController_1.testController.updatingTheDetails);
