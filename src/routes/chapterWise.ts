@@ -3,9 +3,9 @@ import { authMiddleware } from "../middlewares/auth";
 import { chapterWiseController } from "../controllers/chapterWiseController";
 import { TokenBucket } from "../middlewares/RateLimiters/tokenBucket";
 
-const getChapterWiseQuestionLimiter = new TokenBucket(1 , 1) ; 
-const getAttemptsChapterWiseQuestionLimiter = new TokenBucket(1 , 1) ;  
-const submitChapterWiseQuestionLimiter = new TokenBucket(2 , 1) ; 
+const getChapterWiseQuestionLimiter = new TokenBucket(1 , 0.1) ; 
+const getAttemptsChapterWiseQuestionLimiter = new TokenBucket(1 , 0.1) ;  
+const submitChapterWiseQuestionLimiter = new TokenBucket(1 , 0.5) ; 
 const router = Router() ; 
 
 
