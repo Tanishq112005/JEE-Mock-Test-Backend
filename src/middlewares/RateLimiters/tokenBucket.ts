@@ -6,11 +6,12 @@ import ApiError from "../../utils/ApiError";
 export class TokenBucket {
     private capacity: number;
     private refillRate: number;
-
+    private place : string ; 
     // Accept optional custom parameters
-    constructor(customCapacity?: number, customRefillRate?: number) {
+    constructor(place : string ,  customCapacity?: number, customRefillRate?: number  ) {
         this.capacity = customCapacity ?? parseInt(TOKEN_BUCKET_CAPACITY || "10", 10);
         this.refillRate = customRefillRate ?? parseInt(TOKEN_BUCKET_REFLIER || "1", 10);
+        this.place = place ; 
     }
 
     limit = async (req: any, res: any, next: any) => {
@@ -19,7 +20,7 @@ export class TokenBucket {
             const redisClient = redisManager.getAuthRedis(userId);
             
             // Add a prefix based on capacity/rate so different routes don't share the exact same bucket
-            const key = `ratelimit:tb:${this.capacity}:${userId}`;
+            const key = `ratelimit:tb:${this.capacity}:${userId}:${this.place}`;
             const now = Math.floor(Date.now() / 1000);
 
             const script = `
