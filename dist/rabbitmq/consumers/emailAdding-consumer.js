@@ -20,7 +20,7 @@ class EmailAddingConsumer {
             // 3. Bind Queue to Exchange with specific Routing Key
             // This is CRITICAL: It tells RabbitMQ "Only put messages with key 'UpdateTestDetails.update.it' in this queue"
             await channel.bindQueue(queueName, exchangeName, routingKey);
-            console.log("🔄 Email Adding Consumer waiting for messages...");
+            console.log("Email Adding Consumer waiting for messages...");
             // 4. Consume
             channel.prefetch(1);
             channel.consume(queueName, async (msg) => {
@@ -28,21 +28,21 @@ class EmailAddingConsumer {
                     return;
                 try {
                     const data = JSON.parse(msg.content.toString());
-                    console.log(`📥 Processing Student Test Analytics Update for User: ${data.userId}`);
+                    console.log(`Processing Student Test Analytics Update for User: ${data.userId}`);
                     // --- ACTUAL WORKER LOGIC ---
                     await email_db_1.emailRepositories.adding(data);
                     // ---------------------------
                     channel.ack(msg);
-                    console.log("✅ Email is Added SuccessFully");
+                    console.log("Email is Added SuccessFully");
                 }
                 catch (err) {
-                    console.error("❌ Email is adding gets failed:", err);
+                    console.error("Email is adding gets failed:", err);
                     channel.nack(msg, false, false);
                 }
             });
         }
         catch (error) {
-            console.error("❌ Error in  Email Adding Consumer:", error);
+            console.error("Error in  Email Adding Consumer:", error);
             throw error;
         }
     }

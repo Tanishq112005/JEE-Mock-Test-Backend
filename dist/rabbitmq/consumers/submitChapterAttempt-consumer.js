@@ -17,14 +17,14 @@ class SubmitChapterAttemptConsumer {
             await channel.assertExchange(exchangeName, "direct", { durable: true });
             await channel.assertQueue(queueName, { durable: true });
             await channel.bindQueue(queueName, exchangeName, routingKey);
-            console.log("🔄 SubmitChapterAttempt Consumer waiting for messages...");
+            console.log("SubmitChapterAttempt Consumer waiting for messages...");
             channel.prefetch(1);
             channel.consume(queueName, async (msg) => {
                 if (!msg)
                     return;
                 try {
                     const data = JSON.parse(msg.content.toString());
-                    console.log(`📥 Processing Chapter Attempt Final Submit for User: ${data.studentId}`);
+                    console.log(`Processing Chapter Attempt Final Submit for User: ${data.studentId}`);
                     // --- ACTUAL WORKER LOGIC ---
                     await chapterWisePractice_db_1.chapterWisePractice.saveQuestionAttempt({
                         studentId: data.studentId,
@@ -41,16 +41,16 @@ class SubmitChapterAttemptConsumer {
                     // We should also trigger analytics evaluation for chapter wise practice here if needed
                     // For now, it's just saved in DB for the analytics worker to pick up eventually 
                     channel.ack(msg);
-                    console.log("✅ Chapter Submit Processed Successfully");
+                    console.log("Chapter Submit Processed Successfully");
                 }
                 catch (err) {
-                    console.error("❌ Processing failed for Chapter Submit:", err);
+                    console.error("Processing failed for Chapter Submit:", err);
                     channel.nack(msg, false, false);
                 }
             });
         }
         catch (error) {
-            console.error("❌ Error in SubmitChapterAttemptConsumer:", error);
+            console.error("Error in SubmitChapterAttemptConsumer:", error);
             throw error;
         }
     }

@@ -47,7 +47,7 @@ class ChapterSearchEngine {
     async initialize() {
         if (this.isInitialized)
             return;
-        console.log("⚙️  Initializing Search Index...");
+        console.log("Initializing Search Index...");
         const startTime = Date.now();
         const tasks = [];
         for (const group of chapter_1.SYLLABUS_DATA) {
@@ -57,7 +57,7 @@ class ChapterSearchEngine {
         }
         await Promise.all(tasks);
         this.isInitialized = true;
-        console.log(`✅ Index Ready! Loaded ${this.index.length} chapters in ${(Date.now() - startTime) / 1000}s`);
+        console.log(`Index Ready! Loaded ${this.index.length} chapters in ${(Date.now() - startTime) / 1000}s`);
     }
     async indexChapter(group, chapter) {
         const richText = `
@@ -79,7 +79,7 @@ class ChapterSearchEngine {
     }
     async findChapter(query, limit = 3) {
         if (!this.isInitialized) {
-            console.warn("⚠️ Search Engine not initialized. Calling initialize() now...");
+            console.warn("Search Engine not initialized. Calling initialize() now...");
             await this.initialize();
         }
         const queryEmbedding = await (0, embedding_1.getEmbedding)(query);

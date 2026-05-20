@@ -2,7 +2,6 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.testEvaluation = void 0;
 const question_db_1 = require("../repositories/question.db");
-const paper_db_1 = require("../repositories/paper.db");
 const answerVerifyService_1 = require("./answerVerifyService");
 const uniqueCountService_1 = require("./uniqueCountService");
 const analytics_db_1 = require("../repositories/analytics.db");
@@ -15,7 +14,6 @@ class TestEvaluation {
     async evaluation(lastStatus, studentId) {
         try {
             const gettingAllQuestionsOfPaper = await question_db_1.question.gettingQuestionsInformation(lastStatus.paperId);
-            const paperMarkingScheme = await paper_db_1.paper.paperMarkingScheme(lastStatus.paperId);
             let updateQuestion = new Map();
             if (!gettingAllQuestionsOfPaper ||
                 gettingAllQuestionsOfPaper.length === 0) {
@@ -102,11 +100,11 @@ class TestEvaluation {
                 updateQuestion.set(questionDetails[i].questionId, questionDetails[i]);
             }
             let finalVerdict = [];
-            const evalutionAnswer = new answerVerifyService_1.AnswerVerifyService(paperMarkingScheme);
+            const evalutionAnswer = new answerVerifyService_1.AnswerVerifyService();
             for (let i = 0; i < gettingAllQuestionsOfPaper.length; i++) {
                 const questionData = gettingAllQuestionsOfPaper[i];
                 const questionDetail = updateQuestion.get(questionData.id);
-                const result = evalutionAnswer.questionResult(questionDetail.userAnswer, questionData.correctAnswer, questionData.type);
+                const result = evalutionAnswer.questionResult(questionDetail.userAnswer, questionData.correctAnswer, questionData.type, questionData.positiveMarks, questionData.negativeMarks);
                 finalVerdict.push({
                     questionId: questionData.id,
                     type: questionData.type,

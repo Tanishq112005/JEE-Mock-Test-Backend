@@ -2,22 +2,10 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AnswerVerifyService = void 0;
 class AnswerVerifyService {
-    paperMarkingScheme;
-    constructor(paperMarkingScheme) {
-        this.paperMarkingScheme = paperMarkingScheme;
-    }
-    questionResult(rawUserAnswer, rawCorrectAnswer, questionType) {
+    constructor() { }
+    questionResult(rawUserAnswer, rawCorrectAnswer, questionType, positiveMarks, negativeMarks) {
         const userAnswer = Array.from(new Set((rawUserAnswer || []).map((a) => a.trim()).filter((a) => a !== "")));
         const correctAnswer = Array.from(new Set((rawCorrectAnswer || []).map((a) => a.trim()).filter((a) => a !== "")));
-        let scheme = this.paperMarkingScheme.find((s) => s.questionType === questionType);
-        if (!scheme) {
-            scheme = {
-                isPartial: false,
-                positiveMarks: 4,
-                negativeMarks: 1,
-                questionType: questionType,
-            };
-        }
         if (userAnswer.length === 0) {
             return {
                 marks: 0,
@@ -26,10 +14,12 @@ class AnswerVerifyService {
         }
         const isExactMatch = userAnswer.length === correctAnswer.length &&
             [...userAnswer].sort().join(",") === [...correctAnswer].sort().join(",");
-        if (scheme.isPartial) {
+        const isPartialAllowed = questionType === "MultiCorrect" ||
+            questionType === "ComprehensionMultiCorrect";
+        if (isPartialAllowed) {
             if (isExactMatch) {
                 return {
-                    marks: scheme.positiveMarks,
+                    marks: positiveMarks,
                     verdict: "correct",
                 };
             }
@@ -41,7 +31,7 @@ class AnswerVerifyService {
                 }
                 else {
                     return {
-                        marks: -Math.abs(scheme.negativeMarks),
+                        marks: -Math.abs(negativeMarks),
                         verdict: "wrong",
                     };
                 }
@@ -54,13 +44,13 @@ class AnswerVerifyService {
         else {
             if (isExactMatch) {
                 return {
-                    marks: scheme.positiveMarks,
+                    marks: positiveMarks,
                     verdict: "correct",
                 };
             }
             else {
                 return {
-                    marks: -Math.abs(scheme.negativeMarks),
+                    marks: -Math.abs(negativeMarks),
                     verdict: "wrong",
                 };
             }

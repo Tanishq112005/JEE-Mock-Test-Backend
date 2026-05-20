@@ -91,7 +91,7 @@ class DashboardCacheService {
             return updateData ?? null;
         }
         catch (err) {
-            console.error("❌ Redis getTestUpdateDataFromReddis failed:", err);
+            console.error("Redis getTestUpdateDataFromReddis failed:", err);
             return null;
         }
     }
@@ -110,7 +110,7 @@ class DashboardCacheService {
             if (existingEntry) {
                 // Delete the stale data key with the OLD timestamp
                 await caching_1.cacheService.deleteCache(`${studentId}:${testId}:${existingEntry.created_at}:updateData`);
-                console.log(`🗑️ Deleted stale Redis key for testId: ${testId} | old timestamp: ${existingEntry.created_at}`);
+                console.log(`Deleted stale Redis key for testId: ${testId} | old timestamp: ${existingEntry.created_at}`);
             }
             // ── 3. Remove old index entry ─────────────────────────────
             upperLayer.testId = upperLayer.testId.filter((entry) => entry.id !== testId);
@@ -121,11 +121,11 @@ class DashboardCacheService {
                 caching_1.cacheService.setCache(`${studentId}:${testId}:${created_at}:updateData`, updateData),
                 caching_1.cacheService.setCache(`${studentId}:updateUpperLayer`, upperLayer),
             ]);
-            console.log(`✅ Redis upserted updateData for testId: ${testId} | timestamp: ${created_at}`);
+            console.log(`Redis upserted updateData for testId: ${testId} | timestamp: ${created_at}`);
         }
         catch (err) {
             // ── Never let Redis failure break the main flow ───────────
-            console.error("❌ Redis upsertTestUpdateData failed:", err);
+            console.error("Redis upsertTestUpdateData failed:", err);
         }
     }
     // =================================================================
@@ -139,7 +139,7 @@ class DashboardCacheService {
                 return;
             const existingEntry = upperLayer.testId.find((entry) => entry.id === testId);
             if (!existingEntry) {
-                console.log(`⚠️ No Redis entry found to delete for testId: ${testId}`);
+                console.log(`No Redis entry found to delete for testId: ${testId}`);
                 return;
             }
             // ── 2. Delete the data key ────────────────────────────────
@@ -147,10 +147,10 @@ class DashboardCacheService {
             // ── 3. Remove from index and persist ─────────────────────
             upperLayer.testId = upperLayer.testId.filter((entry) => entry.id !== testId);
             await caching_1.cacheService.setCache(`${studentId}:updateUpperLayer`, upperLayer);
-            console.log(`🗑️ Redis fully removed updateData for testId: ${testId}`);
+            console.log(`Redis fully removed updateData for testId: ${testId}`);
         }
         catch (err) {
-            console.error("❌ Redis deleteTestUpdateData failed:", err);
+            console.error("Redis deleteTestUpdateData failed:", err);
         }
     }
 }

@@ -1,37 +1,4 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.reportService = void 0;
 const database_1 = require("../lib/database");
@@ -39,7 +6,7 @@ const analytics_db_1 = require("../repositories/analytics.db");
 const subject_db_1 = require("../repositories/subject.db");
 const dashboardCacheService_1 = require("./dashboardCacheService");
 const uniqueCountService_1 = require("./uniqueCountService");
-// ── Actual Prisma questionType enum values (NOT MCQ/NUMERICAL/MSQ) ───────────
+// ── Actual Prisma questionType enum values ───────────
 const KNOWN_QUESTION_TYPES = [
     "SingleCorrect",
     "MultiCorrect",
@@ -53,48 +20,72 @@ const KNOWN_SUBJECTS = [
     { key: "physics", name: "Physics" },
     { key: "chemistry", name: "Chemistry" },
 ];
-class ReportService {
-    db;
-    constructor(database) {
-        this.db = database;
-    }
-    // ══════════════════════════════════════════
-    // HELPERS (Standard Functions, 4 Precision)
-    // ══════════════════════════════════════════
-    // TRUE ACCURACY: (Correct / Attempted) * 100
-    calcAccuracy(correct, wrong) {
+// ══════════════════════════════════════════
+// 1. MATH UTILITY
+// ══════════════════════════════════════════
+class MathUtil {
+    static calcAccuracy(correct, wrong) {
         const attempted = correct + wrong;
-        if (attempted > 0) {
+        if (attempted > 0)
             return parseFloat(((correct / attempted) * 100).toFixed(4));
-        }
         return 0;
     }
-    // PERCENTAGE SCORE: (Marks / Max Marks) * 100
-    calcPercentage(marks, maxMarks) {
-        if (maxMarks > 0) {
+    static calcPercentage(marks, maxMarks) {
+        if (maxMarks > 0)
             return parseFloat(((marks / maxMarks) * 100).toFixed(4));
-        }
         return 0;
     }
-    avgOf(arr) {
+    static avgOf(arr) {
         if (arr.length > 0) {
-            const sum = arr.reduce(function (a, b) {
-                return a + b;
-            }, 0);
+            const sum = arr.reduce((a, b) => a + b, 0);
             return parseFloat((sum / arr.length).toFixed(4));
         }
         return 0;
     }
-    // ROBUST FALLBACK GETTERS (No Arrow Functions)
-    getMarks(t) {
+}
+// ══════════════════════════════════════════
+// 2. EXAM SPLITTER UTILITY
+// ══════════════════════════════════════════
+class ExamSplitter {
+    static partition(items, getExamFn) {
+        return {
+            overall: items,
+            jeeMain: items.filter((i) => getExamFn(i) === "JEE_MAIN"),
+            jeeAdvanced: items.filter((i) => getExamFn(i) === "JEE_ADVANCED"),
+        };
+    }
+    static combineStats(a, b) {
+        return {
+            attempts: (a?.attempts ?? 0) + (b?.attempts ?? 0),
+            timeSpent: (a?.timeSpent ?? 0) + (b?.timeSpent ?? 0),
+            marksEarned: (a?.marksEarned ?? 0) + (b?.marksEarned ?? 0),
+            maxPossible: (a?.maxPossible ?? 0) + (b?.maxPossible ?? 0),
+            correct: (a?.correct ?? 0) + (b?.correct ?? 0),
+            wrong: (a?.wrong ?? 0) + (b?.wrong ?? 0),
+            partial: (a?.partial ?? 0) + (b?.partial ?? 0),
+        };
+    }
+    static finalizeStats(stats) {
+        return {
+            ...stats,
+            accuracy: MathUtil.calcAccuracy(stats.correct ?? 0, stats.wrong ?? 0),
+            percentage: MathUtil.calcPercentage(stats.marksEarned ?? 0, stats.maxPossible ?? 0),
+        };
+    }
+}
+// ══════════════════════════════════════════
+// 3. TEST METRICS EXTRACTOR
+// ══════════════════════════════════════════
+class TestMetricsExtractor {
+    static getMarks(t) {
         const oa = t.overAllAnalytics ?? t.overall ?? {};
         if (oa.totalScore != null)
             return oa.totalScore;
         if (oa.marks != null)
             return oa.marks;
-        return ((t.math?.marks ?? 0) + (t.physics?.marks ?? 0) + (t.chemistry?.marks ?? 0));
+        return (t.math?.marks ?? 0) + (t.physics?.marks ?? 0) + (t.chemistry?.marks ?? 0);
     }
-    getMaxMarks(t) {
+    static getMaxMarks(t) {
         const oa = t.overAllAnalytics ?? t.overall ?? {};
         if (oa.maxScore != null)
             return oa.maxScore;
@@ -103,44 +94,28 @@ class ReportService {
         if (oa.totalMarks != null)
             return oa.totalMarks;
         return ((t.math?.maxMarks ?? t.math?.totalMarks ?? t.math?.maxScore ?? 0) +
-            (t.physics?.maxMarks ??
-                t.physics?.totalMarks ??
-                t.physics?.maxScore ??
-                0) +
-            (t.chemistry?.maxMarks ??
-                t.chemistry?.totalMarks ??
-                t.chemistry?.maxScore ??
-                0));
+            (t.physics?.maxMarks ?? t.physics?.totalMarks ?? t.physics?.maxScore ?? 0) +
+            (t.chemistry?.maxMarks ?? t.chemistry?.totalMarks ?? t.chemistry?.maxScore ?? 0));
     }
-    getCorrect(t) {
+    static getCorrect(t) {
         const oa = t.overAllAnalytics ?? t.overall ?? {};
         if (oa.correct != null)
             return oa.correct;
-        return ((t.math?.correct ?? 0) +
-            (t.physics?.correct ?? 0) +
-            (t.chemistry?.correct ?? 0));
+        return (t.math?.correct ?? 0) + (t.physics?.correct ?? 0) + (t.chemistry?.correct ?? 0);
     }
-    getWrong(t) {
+    static getWrong(t) {
         const oa = t.overAllAnalytics ?? t.overall ?? {};
         if (oa.wrong != null)
             return oa.wrong;
-        return ((t.math?.wrong ?? 0) + (t.physics?.wrong ?? 0) + (t.chemistry?.wrong ?? 0));
+        return (t.math?.wrong ?? 0) + (t.physics?.wrong ?? 0) + (t.chemistry?.wrong ?? 0);
     }
-    // ── UPDATED LOGIC HERE ──────────────────────────────────────────────────────
-    getTime(t) {
-        // 1. Calculate from timeLeft if it exists in the mapped object
+    static getTime(t) {
         if (t.timeLeft != null && t.totalDuration != null) {
             let durationInSeconds = t.totalDuration;
-            // Safety check: If totalDuration is in minutes (e.g., 180), convert to seconds.
-            // If it's already in seconds (e.g., 10800), skip the conversion.
-            if (durationInSeconds < 1000) {
+            if (durationInSeconds < 1000)
                 durationInSeconds *= 60;
-            }
-            const calculatedTimeTaken = durationInSeconds - t.timeLeft;
-            // Math.max ensures we don't return negative time in case of a DB anomaly
-            return Math.max(0, calculatedTimeTaken);
+            return Math.max(0, durationInSeconds - t.timeLeft);
         }
-        // 2. Existing Fallbacks
         const oa = t.overAllAnalytics ?? t.overall ?? {};
         if (oa.timeTaken != null)
             return oa.timeTaken;
@@ -150,77 +125,18 @@ class ReportService {
             return oa.timeSpent;
         if (t.timeTaken != null)
             return t.timeTaken;
-        // Fallback: sum up subject-level times if overall time is missing
-        return ((t.math?.timeTaken ?? t.math?.timeSpent ?? 0) +
-            (t.physics?.timeTaken ?? t.physics?.timeSpent ?? 0) +
-            (t.chemistry?.timeTaken ?? t.chemistry?.timeSpent ?? 0));
+        return (t.math?.timeTaken ?? t.math?.timeSpent ?? 0) + (t.physics?.timeTaken ?? t.physics?.timeSpent ?? 0) + (t.chemistry?.timeTaken ?? t.chemistry?.timeSpent ?? 0);
     }
-    getQ(t) {
+    static getQ(t) {
         const oa = t.overAllAnalytics ?? t.overall ?? {};
         return oa.totalQuestions ?? 0;
     }
-    // ══════════════════════════════════════════
-    // BLOCK BUILDERS FOR DASHBOARDS
-    // ══════════════════════════════════════════
-    buildSubjectBlock(t, key, name) {
-        const s = t[key];
-        if (!s) {
-            return {
-                subjectName: name,
-                marks: 0,
-                correct: 0,
-                wrong: 0,
-                timeTaken: 0,
-                totalQuestions: 0,
-                maxMarks: 0,
-                accuracy: 0,
-                percentage: 0,
-            };
-        }
-        return {
-            subjectName: name,
-            marks: s.marks ?? 0,
-            correct: s.correct ?? 0,
-            wrong: s.wrong ?? 0,
-            timeTaken: s.timeTaken ?? 0,
-            totalQuestions: s.totalQuestions ?? 0,
-            maxMarks: s.maxMarks ?? s.totalMarks ?? 0,
-            accuracy: this.calcAccuracy(s.correct ?? 0, s.wrong ?? 0),
-            percentage: this.calcPercentage(s.marks ?? 0, s.maxMarks ?? s.totalMarks ?? 0),
-        };
-    }
-    buildQuestionWiseBlock(t) {
-        const qtBlock = {};
-        for (const qt of KNOWN_QUESTION_TYPES) {
-            qtBlock[qt] = {
-                questionType: qt,
-                marks: 0,
-                correct: 0,
-                wrong: 0,
-                maxMarks: 0,
-                accuracy: 0,
-                percentage: 0,
-            };
-        }
-        if (t.questionWise && typeof t.questionWise === "object") {
-            for (const [qtType, qtData] of Object.entries(t.questionWise)) {
-                qtBlock[qtType] = {
-                    questionType: qtType,
-                    marks: qtData?.marks ?? 0,
-                    correct: qtData?.correct ?? 0,
-                    wrong: qtData?.wrong ?? 0,
-                    maxMarks: qtData?.maxMarks ?? 0,
-                    accuracy: this.calcAccuracy(qtData?.correct ?? 0, qtData?.wrong ?? 0),
-                    percentage: this.calcPercentage(qtData?.marks ?? 0, qtData?.maxMarks ?? 0),
-                };
-            }
-        }
-        return Object.values(qtBlock);
-    }
-    // ══════════════════════════════════════════
-    // allTestResult
-    // ══════════════════════════════════════════
-    async allTestResult(studentId) {
+}
+// ══════════════════════════════════════════
+// 4. TEST DATA FETCHING SERVICE
+// ══════════════════════════════════════════
+class TestResultService {
+    async fetchAll(studentId) {
         const [reddisTestData, testWiseData] = await Promise.all([
             dashboardCacheService_1.dashboardCacheService.reddisTestData(studentId),
             analytics_db_1.analytics.testWiseData(studentId),
@@ -236,11 +152,10 @@ class ReportService {
             chemistry: item.testData?.chemistry ?? null,
             overall: item.testData?.overall ?? null,
             questionWise: item.testData?.questionTypes ?? {},
-            chapterWise: item.testData?.chapterWise ?? [],
-            timeLeft: item.testData?.timeLeft, // Map if available in redis
+            // DELIBERATELY REMOVED chapterWise TO PREVENT PAYLOAD BLOAT
+            timeLeft: item.testData?.timeLeft,
             totalDuration: item.testData?.totalDuration,
         }));
-        // ── UPDATED LOGIC HERE ──────────────────────────────────────────────────────
         const testWiseArray = testWiseData.map((item) => ({
             id: item.testStatusId,
             created_at: new Date(item.created_at),
@@ -252,181 +167,43 @@ class ReportService {
             chemistry: item.chemistry,
             overAllAnalytics: item.overAllAnalytics,
             questionWise: item.questionTypes ?? {},
-            chapterWise: item.chapterWise ?? [],
-            timeLeft: item.timeLeft, // Injecting timeLeft from DB
-            totalDuration: item.paperMeta?.totalDuration || item.paperMeta?.duration, // Injecting total duration
+            // DELIBERATELY REMOVED chapterWise TO PREVENT PAYLOAD BLOAT
+            timeLeft: item.timeLeft,
+            totalDuration: item.paperMeta?.totalDuration || item.paperMeta?.duration,
         }));
-        // ── Dedup: DB wins if same testId exists in both ────────────────────────
         const dbIds = new Set(testWiseArray.map((t) => t.id));
         const filteredReddis = reddisArray.filter((t) => !dbIds.has(t.id));
-        const combined = [...filteredReddis, ...testWiseArray].sort(function (a, b) {
-            return b.created_at.getTime() - a.created_at.getTime();
-        });
-        return combined;
+        return [...filteredReddis, ...testWiseArray].sort((a, b) => b.created_at.getTime() - a.created_at.getTime());
     }
-    // ══════════════════════════════════════════
-    // SUBJECT ANALYTICS
-    // ══════════════════════════════════════════
-    buildSubjectAnalytics(tests, subject) {
-        const valid = tests.filter((t) => t[subject] != null);
-        if (valid.length === 0)
-            return null;
-        const marks = valid.map((t) => t[subject].marks ?? 0);
-        const maxMarks = valid.map((t) => t[subject].maxMarks ??
-            t[subject].totalMarks ??
-            t[subject].maxScore ??
-            0);
-        const correct = valid.map((t) => t[subject].correct ?? 0);
-        const wrong = valid.map((t) => t[subject].wrong ?? 0);
-        const time = valid.map((t) => t[subject].timeTaken ?? 0);
-        const totalQ = valid.map((t) => t[subject].totalQuestions ?? 0);
-        const _this = this;
+}
+// ══════════════════════════════════════════
+// 5. MOCK TEST ANALYTICS BUILDER
+// ══════════════════════════════════════════
+class MockTestAnalyticsBuilder {
+    // Creates the 3, 5, and ALL test summaries 
+    buildScopeReports(tests) {
         return {
-            avgScore: this.avgOf(marks),
-            avgMaxScore: this.avgOf(maxMarks),
-            avgAccuracy: this.avgOf(valid.map(function (_, i) {
-                return _this.calcAccuracy(correct[i], wrong[i]);
-            })),
-            avgPercentage: this.avgOf(valid.map(function (_, i) {
-                return _this.calcPercentage(marks[i], maxMarks[i]);
-            })),
-            avgCorrect: this.avgOf(correct),
-            avgWrong: this.avgOf(wrong),
-            avgTimeTaken: this.avgOf(time),
-            avgTimePerQuestion: this.avgOf(valid.map(function (_, i) {
-                return totalQ[i] > 0
-                    ? parseFloat((time[i] / totalQ[i]).toFixed(4))
-                    : 0;
-            })),
+            last3: this.buildGroupAnalytics(tests.slice(0, 3)),
+            last5: this.buildGroupAnalytics(tests.slice(0, 5)),
+            all: this.buildGroupAnalytics(tests)
         };
     }
-    // ══════════════════════════════════════════
-    // QUESTION TYPE ANALYTICS
-    // ══════════════════════════════════════════
-    buildQuestionTypes(tests) {
-        const allQTypes = new Set(KNOWN_QUESTION_TYPES);
-        for (const t of tests) {
-            if (t.questionWise) {
-                Object.keys(t.questionWise).forEach(function (k) {
-                    allQTypes.add(k);
-                });
-            }
-        }
-        const result = {};
-        const _this = this;
-        for (const qType of allQTypes) {
-            const relevant = tests.filter((t) => t.questionWise?.[qType] != null);
-            if (relevant.length === 0) {
-                result[qType] = {
-                    avgScore: 0,
-                    avgAccuracy: 0,
-                    avgCorrect: 0,
-                    avgWrong: 0,
-                };
-                continue;
-            }
-            const marks = relevant.map((t) => t.questionWise[qType].marks ?? 0);
-            const maxMarks = relevant.map((t) => t.questionWise[qType].maxMarks ?? 0);
-            const correct = relevant.map((t) => t.questionWise[qType].correct ?? 0);
-            const wrong = relevant.map((t) => t.questionWise[qType].wrong ?? 0);
-            result[qType] = {
-                avgScore: this.avgOf(marks),
-                avgAccuracy: this.avgOf(relevant.map(function (_, i) {
-                    return _this.calcAccuracy(correct[i], wrong[i]);
-                })),
-                avgPercentage: this.avgOf(relevant.map(function (_, i) {
-                    return _this.calcPercentage(marks[i], maxMarks[i]);
-                })),
-                avgCorrect: this.avgOf(correct),
-                avgWrong: this.avgOf(wrong),
-            };
-        }
-        return result;
-    }
-    // ══════════════════════════════════════════
-    // IMPROVEMENT
-    // ══════════════════════════════════════════
-    buildImprovement(tests) {
-        if (tests.length < 2)
-            return null;
-        const latest = tests[0];
-        const previous = tests.slice(1);
-        const _this = this;
-        const latestAcc = this.calcAccuracy(this.getCorrect(latest), this.getWrong(latest));
-        const prevAcc = this.avgOf(previous.map(function (t) {
-            return _this.calcAccuracy(_this.getCorrect(t), _this.getWrong(t));
-        }));
-        const latestTime = this.getQ(latest) > 0
-            ? parseFloat((this.getTime(latest) / this.getQ(latest)).toFixed(4))
-            : 0;
-        const prevTime = this.avgOf(previous.map(function (t) {
-            const q = _this.getQ(t);
-            return q > 0 ? parseFloat((_this.getTime(t) / q).toFixed(4)) : 0;
-        }));
-        function subjectImprovement(s) {
-            const lS = latest[s];
-            const prevS = previous.filter((t) => t[s] != null);
-            if (!lS || prevS.length === 0)
-                return null;
-            const prevAccuracyAvg = _this.avgOf(prevS.map(function (t) {
-                return _this.calcAccuracy(t[s].correct ?? 0, t[s].wrong ?? 0);
-            }));
-            const prevMarksAvg = _this.avgOf(prevS.map(function (t) {
-                return t[s].marks ?? 0;
-            }));
-            const prevWrongAvg = _this.avgOf(prevS.map(function (t) {
-                return t[s].wrong ?? 0;
-            }));
-            return {
-                accuracyChange: parseFloat((_this.calcAccuracy(lS.correct ?? 0, lS.wrong ?? 0) - prevAccuracyAvg).toFixed(4)),
-                scoreChange: parseFloat(((lS.marks ?? 0) - prevMarksAvg).toFixed(4)),
-                wrongChange: parseFloat(((lS.wrong ?? 0) - prevWrongAvg).toFixed(4)),
-            };
-        }
-        return {
-            overall: {
-                accuracyChange: parseFloat((latestAcc - prevAcc).toFixed(4)),
-                scoreChange: parseFloat((this.getMarks(latest) -
-                    this.avgOf(previous.map(function (t) {
-                        return _this.getMarks(t);
-                    }))).toFixed(4)),
-                avgTimePerQuestionChange: parseFloat((latestTime - prevTime).toFixed(4)),
-            },
-            subjects: {
-                math: subjectImprovement("math"),
-                physics: subjectImprovement("physics"),
-                chemistry: subjectImprovement("chemistry"),
-            },
-        };
-    }
-    // ══════════════════════════════════════════
-    // GROUP ANALYTICS
-    // ══════════════════════════════════════════
     buildGroupAnalytics(tests) {
         if (tests.length === 0)
             return null;
         const uniquePapers = new Set();
-        for (const t of tests) {
-            const pId = t.paperMeta?.id || t.paperId || t.id;
-            uniquePapers.add(String(pId));
-        }
-        const _this = this;
+        for (const t of tests)
+            uniquePapers.add(String(t.paperMeta?.id || t.paperId || t.id));
         return {
             totalTests: uniquePapers.size,
             totalAttempts: tests.length,
             overall: {
-                avgScore: this.avgOf(tests.map(function (t) {
-                    return _this.getMarks(t);
-                })),
-                avgPercentage: this.avgOf(tests.map(function (t) {
-                    return _this.calcPercentage(_this.getMarks(t), _this.getMaxMarks(t));
-                })),
-                avgAccuracy: this.avgOf(tests.map(function (t) {
-                    return _this.calcAccuracy(_this.getCorrect(t), _this.getWrong(t));
-                })),
-                avgTimePerQuestion: this.avgOf(tests.map(function (t) {
-                    const q = _this.getQ(t);
-                    return q > 0 ? parseFloat((_this.getTime(t) / q).toFixed(4)) : 0;
+                avgScore: MathUtil.avgOf(tests.map((t) => TestMetricsExtractor.getMarks(t))),
+                avgPercentage: MathUtil.avgOf(tests.map((t) => MathUtil.calcPercentage(TestMetricsExtractor.getMarks(t), TestMetricsExtractor.getMaxMarks(t)))),
+                avgAccuracy: MathUtil.avgOf(tests.map((t) => MathUtil.calcAccuracy(TestMetricsExtractor.getCorrect(t), TestMetricsExtractor.getWrong(t)))),
+                avgTimePerQuestion: MathUtil.avgOf(tests.map((t) => {
+                    const q = TestMetricsExtractor.getQ(t);
+                    return q > 0 ? parseFloat((TestMetricsExtractor.getTime(t) / q).toFixed(4)) : 0;
                 })),
             },
             subjects: {
@@ -436,232 +213,206 @@ class ReportService {
             },
             questionTypes: this.buildQuestionTypes(tests),
             improvement: this.buildImprovement(tests),
-            testMarksList: tests.map(function (t) {
-                return {
-                    testId: t.id,
-                    examName: t.exam,
-                    createdAt: t.created_at,
-                    marks: _this.getMarks(t),
-                    maxMarks: _this.getMaxMarks(t),
-                    accuracy: _this.calcAccuracy(_this.getCorrect(t), _this.getWrong(t)),
-                    percentage: _this.calcPercentage(_this.getMarks(t), _this.getMaxMarks(t)),
-                };
-            }),
+            testMarksList: tests.map((t) => ({
+                testId: t.id,
+                examName: t.exam,
+                createdAt: t.created_at,
+                marks: TestMetricsExtractor.getMarks(t),
+                maxMarks: TestMetricsExtractor.getMaxMarks(t),
+                accuracy: MathUtil.calcAccuracy(TestMetricsExtractor.getCorrect(t), TestMetricsExtractor.getWrong(t)),
+                percentage: MathUtil.calcPercentage(TestMetricsExtractor.getMarks(t), TestMetricsExtractor.getMaxMarks(t)),
+            })),
         };
     }
-    // ══════════════════════════════════════════
-    // CORE REPORT BUILDER
-    // ══════════════════════════════════════════
-    buildReport(allTestData, lastNPerGroup) {
-        if (allTestData.length === 0)
+    buildSubjectAnalytics(tests, subject) {
+        const valid = tests.filter((t) => t[subject] != null);
+        if (valid.length === 0)
             return null;
-        const groups = {};
-        for (const test of allTestData) {
-            const exam = test.exam ?? "UNKNOWN";
-            if (!groups[exam])
-                groups[exam] = [];
-            groups[exam].push(test);
-        }
-        const examReports = {};
-        for (const [examName, tests] of Object.entries(groups)) {
-            examReports[examName] = this.buildGroupAnalytics(tests.slice(0, lastNPerGroup));
-        }
-        return { lastNPerGroup, examReports };
-    }
-    // ══════════════════════════════════════════
-    // PUBLIC DASHBOARD / REPORTING METHODS
-    // ══════════════════════════════════════════
-    async reportMaking(studentId, lastNPerGroup = 10) {
-        const allTestData = await this.allTestResult(studentId);
-        if (allTestData.length === 0)
-            return null;
-        const uniqueTestIdsSet = new Set();
-        for (const test of allTestData) {
-            const pId = test.paperMeta?.id || test.paperId || test.id;
-            uniqueTestIdsSet.add(String(pId));
-        }
+        const marks = valid.map((t) => t[subject].marks ?? 0);
+        const maxMarks = valid.map((t) => t[subject].maxMarks ?? t[subject].totalMarks ?? t[subject].maxScore ?? 0);
+        const correct = valid.map((t) => t[subject].correct ?? 0);
+        const wrong = valid.map((t) => t[subject].wrong ?? 0);
+        const time = valid.map((t) => t[subject].timeTaken ?? 0);
+        const totalQ = valid.map((t) => t[subject].totalQuestions ?? 0);
         return {
-            studentId,
-            totalUniqueMockTests: uniqueTestIdsSet.size,
-            generatedAt: new Date(),
-            ...this.buildReport(allTestData, lastNPerGroup),
+            avgScore: MathUtil.avgOf(marks),
+            avgMaxScore: MathUtil.avgOf(maxMarks),
+            avgAccuracy: MathUtil.avgOf(valid.map((_, i) => MathUtil.calcAccuracy(correct[i], wrong[i]))),
+            avgPercentage: MathUtil.avgOf(valid.map((_, i) => MathUtil.calcPercentage(marks[i], maxMarks[i]))),
+            avgCorrect: MathUtil.avgOf(correct),
+            avgWrong: MathUtil.avgOf(wrong),
+            avgTimeTaken: MathUtil.avgOf(time),
+            avgTimePerQuestion: MathUtil.avgOf(valid.map((_, i) => totalQ[i] > 0 ? parseFloat((time[i] / totalQ[i]).toFixed(4)) : 0)),
         };
     }
-    async lastTest(studentId) {
-        const allTestData = await this.allTestResult(studentId);
-        if (allTestData.length === 0)
-            return null;
-        return {
-            studentId,
-            last3: this.buildReport(allTestData, 3),
-            last5: this.buildReport(allTestData, 5),
-            last10: this.buildReport(allTestData, 10),
-        };
-    }
-    async fullDashboard(studentId, lastNPerGroup = 10) {
-        const allTestData = await this.allTestResult(studentId);
-        if (allTestData.length === 0) {
-            return {
-                studentId,
-                totalUniqueMockTests: 0,
-                generatedAt: new Date(),
-                report: null,
-                lastNTests: { last3: null, last5: null, last10: null },
-                allTests: [],
+    buildQuestionTypes(tests) {
+        const allQTypes = new Set(KNOWN_QUESTION_TYPES);
+        for (const t of tests)
+            if (t.questionWise)
+                Object.keys(t.questionWise).forEach((k) => allQTypes.add(k));
+        const result = {};
+        for (const qType of allQTypes) {
+            const relevant = tests.filter((t) => t.questionWise?.[qType] != null);
+            if (relevant.length === 0) {
+                result[qType] = { avgScore: 0, avgAccuracy: 0, avgCorrect: 0, avgWrong: 0 };
+                continue;
+            }
+            const marks = relevant.map((t) => t.questionWise[qType].marks ?? 0);
+            const maxMarks = relevant.map((t) => t.questionWise[qType].maxMarks ?? 0);
+            const correct = relevant.map((t) => t.questionWise[qType].correct ?? 0);
+            const wrong = relevant.map((t) => t.questionWise[qType].wrong ?? 0);
+            result[qType] = {
+                avgScore: MathUtil.avgOf(marks),
+                avgAccuracy: MathUtil.avgOf(relevant.map((_, i) => MathUtil.calcAccuracy(correct[i], wrong[i]))),
+                avgPercentage: MathUtil.avgOf(relevant.map((_, i) => MathUtil.calcPercentage(marks[i], maxMarks[i]))),
+                avgCorrect: MathUtil.avgOf(correct),
+                avgWrong: MathUtil.avgOf(wrong),
             };
         }
-        const uniqueTestIdsSet = new Set();
-        for (const test of allTestData) {
-            const pId = test.paperMeta?.id || test.paperId || test.id;
-            uniqueTestIdsSet.add(String(pId));
-        }
-        const practiceAnalytics = await this.buildPracticeAnalytics(studentId);
+        return result;
+    }
+    buildImprovement(tests) {
+        if (tests.length < 2)
+            return null;
+        const latest = tests[0], previous = tests.slice(1);
+        const latestAcc = MathUtil.calcAccuracy(TestMetricsExtractor.getCorrect(latest), TestMetricsExtractor.getWrong(latest));
+        const prevAcc = MathUtil.avgOf(previous.map((t) => MathUtil.calcAccuracy(TestMetricsExtractor.getCorrect(t), TestMetricsExtractor.getWrong(t))));
+        const latestQ = TestMetricsExtractor.getQ(latest);
+        const latestTime = latestQ > 0 ? parseFloat((TestMetricsExtractor.getTime(latest) / latestQ).toFixed(4)) : 0;
+        const prevTime = MathUtil.avgOf(previous.map((t) => {
+            const q = TestMetricsExtractor.getQ(t);
+            return q > 0 ? parseFloat((TestMetricsExtractor.getTime(t) / q).toFixed(4)) : 0;
+        }));
+        const subjectImprovement = (s) => {
+            const lS = latest[s], prevS = previous.filter((t) => t[s] != null);
+            if (!lS || prevS.length === 0)
+                return null;
+            const prevAccuracyAvg = MathUtil.avgOf(prevS.map((t) => MathUtil.calcAccuracy(t[s].correct ?? 0, t[s].wrong ?? 0)));
+            const prevMarksAvg = MathUtil.avgOf(prevS.map((t) => t[s].marks ?? 0));
+            const prevWrongAvg = MathUtil.avgOf(prevS.map((t) => t[s].wrong ?? 0));
+            return {
+                accuracyChange: parseFloat((MathUtil.calcAccuracy(lS.correct ?? 0, lS.wrong ?? 0) - prevAccuracyAvg).toFixed(4)),
+                scoreChange: parseFloat(((lS.marks ?? 0) - prevMarksAvg).toFixed(4)),
+                wrongChange: parseFloat(((lS.wrong ?? 0) - prevWrongAvg).toFixed(4)),
+            };
+        };
         return {
-            studentId,
-            totalUniqueMockTests: uniqueTestIdsSet.size,
-            generatedAt: new Date(),
-            practiceAnalytics,
-            report: this.buildReport(allTestData, lastNPerGroup),
-            lastNTests: {
-                last3: this.buildReport(allTestData, 3),
-                last5: this.buildReport(allTestData, 5),
-                last10: this.buildReport(allTestData, 10),
+            overall: {
+                accuracyChange: parseFloat((latestAcc - prevAcc).toFixed(4)),
+                scoreChange: parseFloat((TestMetricsExtractor.getMarks(latest) - MathUtil.avgOf(previous.map((t) => TestMetricsExtractor.getMarks(t)))).toFixed(4)),
+                avgTimePerQuestionChange: parseFloat((latestTime - prevTime).toFixed(4)),
             },
-            allTests: allTestData,
+            subjects: { math: subjectImprovement("math"), physics: subjectImprovement("physics"), chemistry: subjectImprovement("chemistry") },
         };
     }
-    // ══════════════════════════════════════════
-    // PRACTICE ANALYTICS BALANCE Builders
-    // ══════════════════════════════════════════
-    async buildPracticeAnalytics(studentId) {
-        const { chapterWisePractice } = await Promise.resolve().then(() => __importStar(require("../repositories/chapterWisePractice.db")));
-        const { chapterWiseCacheService } = await Promise.resolve().then(() => __importStar(require("./chapterWiseCacheService")));
-        const activeAttempts = await chapterWiseCacheService.getAllActiveAttempts(studentId);
-        const dbAttempts = await chapterWisePractice.getAllPracticeAttemptsRaw(studentId);
-        const mergedMap = new Map();
-        for (const record of dbAttempts) {
-            mergedMap.set(record.questionId, {
-                questionId: record.questionId,
-                subject: record.question?.subjects?.name || "Unknown",
-                type: record.question?.type || "Unknown",
-                timeSpent: record.timeSpent || 0,
-                isCorrect: record.isCorrect || false,
-                status: record.questionStatus,
-            });
-        }
-        for (const [qId, active] of Object.entries(activeAttempts)) {
-            if (!Array.isArray(active) || active.length === 0)
-                continue;
-            const latestActive = active[active.length - 1];
-            const existing = mergedMap.get(qId);
-            if (existing) {
-                existing.timeSpent = latestActive.timeSpent || existing.timeSpent;
-                existing.status = latestActive.status || existing.status;
-                if (latestActive.isCorrect !== undefined) {
-                    existing.isCorrect = latestActive.isCorrect;
-                }
-                if (latestActive.marksObtained !== undefined) {
-                    existing.marks = latestActive.marksObtained;
-                }
+}
+// ══════════════════════════════════════════
+// 6. PRACTICE ANALYTICS BUILDER
+// ══════════════════════════════════════════
+class PracticeAnalyticsBuilder {
+    db;
+    constructor(db) {
+        this.db = db;
+    }
+    processPracticeGroup(records, overallAnalyticsDb, dbSubjects, dbQuestionTypes) {
+        const totalAttempts = (overallAnalyticsDb?.attempts ?? 0) + records.length;
+        const totalTimeSpent = (overallAnalyticsDb?.timeSpent ?? 0) + records.reduce((sum, q) => sum + (q.timeSpent ?? 0), 0);
+        const totalMarksEarned = (overallAnalyticsDb?.marksEarned ?? 0) + records.reduce((sum, q) => sum + (q.marks ?? 0), 0);
+        const totalMaxPossible = (overallAnalyticsDb?.maxPossible ?? 0) + records.reduce((sum, q) => sum + (q.positiveMarks ?? 0), 0);
+        const subjectMap = {};
+        dbSubjects.forEach((s) => { subjectMap[s.id] = { subjectId: s.id, subjectName: s.name, attempts: s.dbAttempts ?? 0, timeSpent: s.dbTime ?? 0, marksEarned: s.dbMarks ?? 0, maxPossible: s.dbMax ?? 0 }; });
+        records.forEach((q) => {
+            if (q?.subjectId && subjectMap[q.subjectId]) {
+                subjectMap[q.subjectId].attempts += 1;
+                subjectMap[q.subjectId].timeSpent += q.timeSpent ?? 0;
+                subjectMap[q.subjectId].marksEarned += q.marks ?? 0;
+                subjectMap[q.subjectId].maxPossible += q.positiveMarks ?? 0;
             }
-        }
-        let totalAttempted = 0;
-        let totalCorrect = 0;
-        let totalTimeSpent = 0;
-        const subjectBalance = {
-            Mathematics: { attempted: 0, correct: 0, timeSpent: 0 },
-            Physics: { attempted: 0, correct: 0, timeSpent: 0 },
-            Chemistry: { attempted: 0, correct: 0, timeSpent: 0 }
-        };
-        const questionBalance = {};
-        for (const record of mergedMap.values()) {
-            totalTimeSpent += record.timeSpent;
-            const isAttempted = record.status === "answered" || record.isCorrect !== null;
-            if (isAttempted) {
-                totalAttempted++;
-                if (record.isCorrect)
-                    totalCorrect++;
-                if (subjectBalance[record.subject]) {
-                    subjectBalance[record.subject].attempted++;
-                    subjectBalance[record.subject].timeSpent += record.timeSpent;
-                    if (record.isCorrect)
-                        subjectBalance[record.subject].correct++;
-                }
-                if (!questionBalance[record.type]) {
-                    questionBalance[record.type] = { attempted: 0, correct: 0, timeSpent: 0 };
-                }
-                questionBalance[record.type].attempted++;
-                questionBalance[record.type].timeSpent += record.timeSpent;
-                if (record.isCorrect)
-                    questionBalance[record.type].correct++;
+        });
+        const qtMap = {};
+        KNOWN_QUESTION_TYPES.forEach((qt) => { qtMap[qt] = { questionType: qt, attempts: 0, timeSpent: 0, marksEarned: 0, maxPossible: 0 }; });
+        dbQuestionTypes.forEach((qt) => {
+            if (!qtMap[qt.type])
+                qtMap[qt.type] = { questionType: qt.type, attempts: 0, timeSpent: 0, marksEarned: 0, maxPossible: 0 };
+            qtMap[qt.type].attempts += qt.dbAttempts ?? 0;
+            qtMap[qt.type].timeSpent += qt.dbTime ?? 0;
+            qtMap[qt.type].marksEarned += qt.dbMarks ?? 0;
+            qtMap[qt.type].maxPossible += qt.dbMax ?? 0;
+        });
+        records.forEach((q) => {
+            if (q?.type) {
+                if (!qtMap[q.type])
+                    qtMap[q.type] = { questionType: q.type, attempts: 0, timeSpent: 0, marksEarned: 0, maxPossible: 0 };
+                qtMap[q.type].attempts += 1;
+                qtMap[q.type].timeSpent += q.timeSpent ?? 0;
+                qtMap[q.type].marksEarned += q.marks ?? 0;
+                qtMap[q.type].maxPossible += q.positiveMarks ?? 0;
             }
-        }
-        const practiceAccuracy = totalAttempted > 0 ? parseFloat(((totalCorrect / totalAttempted) * 100).toFixed(4)) : 0;
-        const avgTime = totalAttempted > 0 ? parseFloat((totalTimeSpent / totalAttempted).toFixed(4)) : 0;
+        });
         return {
-            practiceAccuracy,
-            avgTime,
-            subjectWiseBalance: subjectBalance,
-            questionWiseBalance: questionBalance,
-            totalTimeSpent
+            overall: {
+                totalAttempts, totalTimeSpent, totalMarksEarned, totalMaxPossible,
+                accuracy: MathUtil.calcPercentage(totalMarksEarned, totalMaxPossible),
+                avgTimePerQuestion: totalAttempts > 0 ? parseFloat((totalTimeSpent / totalAttempts).toFixed(4)) : 0,
+            },
+            subjects: Object.values(subjectMap).map((s) => ({
+                ...s, accuracy: MathUtil.calcPercentage(s.marksEarned, s.maxPossible),
+                avgTimePerQuestion: s.attempts > 0 ? parseFloat((s.timeSpent / s.attempts).toFixed(4)) : 0,
+            })),
+            questionTypes: Object.values(qtMap).map((qt) => ({
+                ...qt, accuracy: MathUtil.calcPercentage(qt.marksEarned, qt.maxPossible),
+                avgTimePerQuestion: qt.attempts > 0 ? parseFloat((qt.timeSpent / qt.attempts).toFixed(4)) : 0,
+            })),
         };
     }
-    // ══════════════════════════════════════════
-    // PUBLIC: chapterReport
-    // ══════════════════════════════════════════
-    async chapterReport(studentId, examFilter) {
+    async practiceReport(studentId) {
+        const [overallAnalytics, subjectAnalytics, examAnalytics, questionTypeAnalytics, redisPracticeData, allSubjects] = await Promise.all([
+            analytics_db_1.analytics.studentOverAllAnalytics(studentId),
+            analytics_db_1.analytics.subjectAnanlytics(studentId),
+            analytics_db_1.analytics.examWiseAnalytics(studentId),
+            analytics_db_1.analytics.questionWiseAnalytics(studentId),
+            dashboardCacheService_1.dashboardCacheService.reddisPraticeWiseData(studentId),
+            this.db.subjects.findMany({ select: { id: true, name: true } }),
+        ]);
+        const redisQuestions = (redisPracticeData.praticeWiseData ?? [])
+            .filter((q) => q?.questionData != null)
+            .map((q) => q.questionData);
+        const redisPartitions = ExamSplitter.partition(redisQuestions, (q) => q.examName);
+        const dbSubsOverall = allSubjects.map(s => {
+            const dbS = subjectAnalytics.find((sa) => sa.subjectId === s.id);
+            return { id: s.id, name: s.name, dbAttempts: dbS?.practiceAttempts, dbTime: dbS?.practiceTimeSpent, dbMarks: dbS?.practiceMarksEarned, dbMax: dbS?.practiceMaxPossible };
+        });
+        const dbQTOverall = questionTypeAnalytics.map((qt) => ({
+            type: qt.questioType, dbAttempts: qt.practiceAttempts, dbTime: qt.practiceTimeSpent, dbMarks: qt.practiceMarksEarned, dbMax: qt.practiceMaxPossible
+        }));
+        return {
+            overall: this.processPracticeGroup(redisPartitions.overall, {
+                attempts: overallAnalytics?.practiceAttempts, timeSpent: overallAnalytics?.practiceTimeSpent, marksEarned: overallAnalytics?.practiceMarksEarned, maxPossible: overallAnalytics?.practiceMaxPossible
+            }, dbSubsOverall, dbQTOverall),
+            jeeMain: this.processPracticeGroup(redisPartitions.jeeMain, { attempts: 0, timeSpent: 0, marksEarned: 0, maxPossible: 0 }, allSubjects.map(s => ({ id: s.id, name: s.name, dbAttempts: 0, dbTime: 0, dbMarks: 0, dbMax: 0 })), []),
+            jeeAdvanced: this.processPracticeGroup(redisPartitions.jeeAdvanced, { attempts: 0, timeSpent: 0, marksEarned: 0, maxPossible: 0 }, allSubjects.map(s => ({ id: s.id, name: s.name, dbAttempts: 0, dbTime: 0, dbMarks: 0, dbMax: 0 })), []),
+        };
+    }
+}
+// ══════════════════════════════════════════
+// 7. CHAPTER ANALYTICS BUILDER
+// ══════════════════════════════════════════
+class ChapterAnalyticsBuilder {
+    async chapterReport(studentId) {
         const [dbChapters, reddisData] = await Promise.all([
             analytics_db_1.analytics.chapterWiseAnalytics(studentId),
             dashboardCacheService_1.dashboardCacheService.reddisTestData(studentId),
         ]);
         const chapterMap = {};
         for (const ch of dbChapters) {
+            const pMain = this.buildSubReport(ch.practiceJeeMainAttempts, ch.practiceJeeMainTimeSpent, ch.practiceJeeMainMarksEarned, ch.practiceJeeMainMaxPossible, ch.practiceJeeMainCorrect, ch.practiceJeeMainWrong, ch.practiceJeeMainPartial);
+            const pAdv = this.buildSubReport(ch.practiceJeeAdvancedAttempts, ch.practiceJeeAdvancedTimeSpent, ch.practiceJeeAdvancedMarksEarned, ch.practiceJeeAdvancedMaxPossible, ch.practiceJeeAdvancedCorrect, ch.practiceJeeAdvancedWrong, ch.practiceJeeAdvancedPartial);
+            const tMain = this.buildSubReport(ch.testJeeMainAttempts, ch.testJeeMainTimeSpent, ch.testJeeMainMarksEarned, ch.testJeeMainMaxPossible, ch.testJeeMainCorrect, ch.testJeeMainWrong, ch.testJeeMainPartial);
+            const tAdv = this.buildSubReport(ch.testJeeAdvancedAttempts, ch.testJeeAdvancedTimeSpent, ch.testJeeAdvancedMarksEarned, ch.testJeeAdvancedMaxPossible, ch.testJeeAdvancedCorrect, ch.testJeeAdvancedWrong, ch.testJeeAdvancedPartial);
             chapterMap[ch.chapterId] = {
                 chapterId: ch.chapterId,
-                practiceJeeMain: {
-                    attempts: ch.practiceJeeMainAttempts,
-                    timeSpent: ch.practiceJeeMainTimeSpent,
-                    marksEarned: ch.practiceJeeMainMarksEarned,
-                    maxPossible: ch.practiceJeeMainMaxPossible,
-                    correct: ch.practiceJeeMainCorrect,
-                    wrong: ch.practiceJeeMainWrong,
-                    partial: ch.practiceJeeMainPartial,
-                    accuracy: this.calcAccuracy(ch.practiceJeeMainCorrect, ch.practiceJeeMainWrong),
-                    percentage: this.calcPercentage(ch.practiceJeeMainMarksEarned, ch.practiceJeeMainMaxPossible),
-                },
-                practiceJeeAdvanced: {
-                    attempts: ch.practiceJeeAdvancedAttempts,
-                    timeSpent: ch.practiceJeeAdvancedTimeSpent,
-                    marksEarned: ch.practiceJeeAdvancedMarksEarned,
-                    maxPossible: ch.practiceJeeAdvancedMaxPossible,
-                    correct: ch.practiceJeeAdvancedCorrect,
-                    wrong: ch.practiceJeeAdvancedWrong,
-                    partial: ch.practiceJeeAdvancedPartial,
-                    accuracy: this.calcAccuracy(ch.practiceJeeAdvancedCorrect, ch.practiceJeeAdvancedWrong),
-                    percentage: this.calcPercentage(ch.practiceJeeAdvancedMarksEarned, ch.practiceJeeAdvancedMaxPossible),
-                },
-                testJeeMain: {
-                    attempts: ch.testJeeMainAttempts,
-                    timeSpent: ch.testJeeMainTimeSpent,
-                    marksEarned: ch.testJeeMainMarksEarned,
-                    maxPossible: ch.testJeeMainMaxPossible,
-                    correct: ch.testJeeMainCorrect,
-                    wrong: ch.testJeeMainWrong,
-                    partial: ch.testJeeMainPartial,
-                    accuracy: this.calcAccuracy(ch.testJeeMainCorrect, ch.testJeeMainWrong),
-                    percentage: this.calcPercentage(ch.testJeeMainMarksEarned, ch.testJeeMainMaxPossible),
-                },
-                testJeeAdvanced: {
-                    attempts: ch.testJeeAdvancedAttempts,
-                    timeSpent: ch.testJeeAdvancedTimeSpent,
-                    marksEarned: ch.testJeeAdvancedMarksEarned,
-                    maxPossible: ch.testJeeAdvancedMaxPossible,
-                    correct: ch.testJeeAdvancedCorrect,
-                    wrong: ch.testJeeAdvancedWrong,
-                    partial: ch.testJeeAdvancedPartial,
-                    accuracy: this.calcAccuracy(ch.testJeeAdvancedCorrect, ch.testJeeAdvancedWrong),
-                    percentage: this.calcPercentage(ch.testJeeAdvancedMarksEarned, ch.testJeeAdvancedMaxPossible),
-                },
+                practice: { overall: ExamSplitter.finalizeStats(ExamSplitter.combineStats(pMain, pAdv)), jeeMain: pMain, jeeAdvanced: pAdv },
+                test: { overall: ExamSplitter.finalizeStats(ExamSplitter.combineStats(tMain, tAdv)), jeeMain: tMain, jeeAdvanced: tAdv }
             };
         }
         for (const test of reddisData.testData ?? []) {
@@ -669,62 +420,14 @@ class ReportService {
                 const examName = test.testData.exam;
                 const isJeeMain = examName === "JEE_MAIN";
                 const isJeeAdv = examName === "JEE_ADVANCED";
-                if (examFilter && examName !== examFilter)
-                    continue;
                 if (!chapterMap[rCh.chapterId]) {
                     chapterMap[rCh.chapterId] = {
                         chapterId: rCh.chapterId,
-                        practiceJeeMain: {
-                            attempts: 0,
-                            timeSpent: 0,
-                            marksEarned: 0,
-                            maxPossible: 0,
-                            correct: 0,
-                            wrong: 0,
-                            partial: 0,
-                            accuracy: 0,
-                            percentage: 0,
-                        },
-                        practiceJeeAdvanced: {
-                            attempts: 0,
-                            timeSpent: 0,
-                            marksEarned: 0,
-                            maxPossible: 0,
-                            correct: 0,
-                            wrong: 0,
-                            partial: 0,
-                            accuracy: 0,
-                            percentage: 0,
-                        },
-                        testJeeMain: {
-                            attempts: 0,
-                            timeSpent: 0,
-                            marksEarned: 0,
-                            maxPossible: 0,
-                            correct: 0,
-                            wrong: 0,
-                            partial: 0,
-                            accuracy: 0,
-                            percentage: 0,
-                        },
-                        testJeeAdvanced: {
-                            attempts: 0,
-                            timeSpent: 0,
-                            marksEarned: 0,
-                            maxPossible: 0,
-                            correct: 0,
-                            wrong: 0,
-                            partial: 0,
-                            accuracy: 0,
-                            percentage: 0,
-                        },
+                        practice: { overall: this.buildSubReport(0, 0, 0, 0, 0, 0, 0), jeeMain: this.buildSubReport(0, 0, 0, 0, 0, 0, 0), jeeAdvanced: this.buildSubReport(0, 0, 0, 0, 0, 0, 0) },
+                        test: { overall: this.buildSubReport(0, 0, 0, 0, 0, 0, 0), jeeMain: this.buildSubReport(0, 0, 0, 0, 0, 0, 0), jeeAdvanced: this.buildSubReport(0, 0, 0, 0, 0, 0, 0) }
                     };
                 }
-                const section = isJeeMain
-                    ? chapterMap[rCh.chapterId].testJeeMain
-                    : isJeeAdv
-                        ? chapterMap[rCh.chapterId].testJeeAdvanced
-                        : null;
+                const section = isJeeMain ? chapterMap[rCh.chapterId].test.jeeMain : isJeeAdv ? chapterMap[rCh.chapterId].test.jeeAdvanced : null;
                 if (section) {
                     section.attempts += rCh.attempt ?? 0;
                     section.timeSpent += rCh.timeTaken ?? 0;
@@ -733,300 +436,112 @@ class ReportService {
                     section.correct += rCh.correct ?? 0;
                     section.wrong += rCh.wrong ?? 0;
                     section.partial += rCh.partial ?? 0;
-                    section.accuracy = this.calcAccuracy(section.correct, section.wrong);
-                    section.percentage = this.calcPercentage(section.marksEarned, section.maxPossible);
+                    section.accuracy = MathUtil.calcAccuracy(section.correct, section.wrong);
+                    section.percentage = MathUtil.calcPercentage(section.marksEarned, section.maxPossible);
+                    chapterMap[rCh.chapterId].test.overall = ExamSplitter.finalizeStats(ExamSplitter.combineStats(chapterMap[rCh.chapterId].test.jeeMain, chapterMap[rCh.chapterId].test.jeeAdvanced));
                 }
             }
         }
-        return {
-            studentId,
-            generatedAt: new Date(),
-            examFilter: examFilter ?? "ALL",
-            chapters: Object.values(chapterMap),
-        };
+        return { chapters: Object.values(chapterMap) };
     }
-    async practiceReport(studentId) {
-        const [overallAnalytics, subjectAnalytics, examAnalytics, questionTypeAnalytics, redisPracticeData, allSubjects,] = await Promise.all([
-            analytics_db_1.analytics.studentOverAllAnalytics(studentId),
-            analytics_db_1.analytics.subjectAnanlytics(studentId),
-            analytics_db_1.analytics.examWiseAnalytics(studentId),
-            analytics_db_1.analytics.questionWiseAnalytics(studentId),
-            dashboardCacheService_1.dashboardCacheService.reddisPraticeWiseData(studentId),
-            this.db.subjects.findMany({ select: { id: true, name: true } }),
-        ]);
-        const subjectIdToName = {};
-        for (const s of allSubjects)
-            subjectIdToName[s.id] = s.name;
-        const redisQuestions = (redisPracticeData.praticeWiseData ?? [])
-            .filter((q) => q?.questionData != null)
-            .map((q) => q.questionData);
-        const redisOverall = redisQuestions.reduce(function (acc, q) {
-            acc.attempts += 1;
-            acc.timeSpent += q.timeSpent ?? 0;
-            acc.marksEarned += q.marks ?? 0;
-            acc.maxPossible += q.positiveMarks ?? 0;
-            return acc;
-        }, { attempts: 0, timeSpent: 0, marksEarned: 0, maxPossible: 0 });
-        const dbAttempts = overallAnalytics?.practiceAttempts ?? 0;
-        const dbTime = overallAnalytics?.practiceTimeSpent ?? 0;
-        const dbMarks = overallAnalytics?.practiceMarksEarned ?? 0;
-        const dbMax = overallAnalytics?.practiceMaxPossible ?? 0;
-        const totalAttempts = dbAttempts + redisOverall.attempts;
-        const totalTime = dbTime + redisOverall.timeSpent;
-        const totalMarks = dbMarks + redisOverall.marksEarned;
-        const totalMax = dbMax + redisOverall.maxPossible;
-        const overallReport = {
-            totalAttempts,
-            totalTimeSpent: totalTime,
-            totalMarksEarned: totalMarks,
-            totalMaxPossible: totalMax,
-            accuracy: this.calcPercentage(totalMarks, totalMax),
-            avgTimePerQuestion: totalAttempts > 0
-                ? parseFloat((totalTime / totalAttempts).toFixed(4))
-                : 0,
-        };
-        const subjectMap = {};
-        for (const s of allSubjects) {
-            subjectMap[s.id] = {
-                subjectId: s.id,
-                subjectName: s.name,
-                attempts: 0,
-                timeSpent: 0,
-                marksEarned: 0,
-                maxPossible: 0,
-            };
-        }
-        for (const s of subjectAnalytics) {
-            const sid = s.subjectId;
-            if (subjectMap[sid]) {
-                subjectMap[sid].attempts += s.practiceAttempts ?? 0;
-                subjectMap[sid].timeSpent += s.practiceTimeSpent ?? 0;
-                subjectMap[sid].marksEarned += s.practiceMarksEarned ?? 0;
-                subjectMap[sid].maxPossible += s.practiceMaxPossible ?? 0;
-            }
-        }
-        for (const q of redisQuestions) {
-            if (!q?.subjectId || !subjectMap[q.subjectId])
-                continue;
-            subjectMap[q.subjectId].attempts += 1;
-            subjectMap[q.subjectId].timeSpent += q.timeSpent ?? 0;
-            subjectMap[q.subjectId].marksEarned += q.marks ?? 0;
-            subjectMap[q.subjectId].maxPossible += q.positiveMarks ?? 0;
-        }
-        const _this = this;
-        const subjectReport = Object.values(subjectMap).map(function (s) {
-            return {
-                subjectId: s.subjectId,
-                subjectName: s.subjectName,
-                attempts: s.attempts,
-                timeSpent: s.timeSpent,
-                marksEarned: s.marksEarned,
-                maxPossible: s.maxPossible,
-                accuracy: _this.calcPercentage(s.marksEarned, s.maxPossible),
-                avgTimePerQuestion: s.attempts > 0
-                    ? parseFloat((s.timeSpent / s.attempts).toFixed(4))
-                    : 0,
-            };
-        });
-        const qtMap = {};
-        for (const qt of KNOWN_QUESTION_TYPES) {
-            qtMap[qt] = {
-                questionType: qt,
-                attempts: 0,
-                timeSpent: 0,
-                marksEarned: 0,
-                maxPossible: 0,
-            };
-        }
-        for (const qt of questionTypeAnalytics) {
-            const type = qt.questioType;
-            if (!qtMap[type])
-                qtMap[type] = {
-                    questionType: type,
-                    attempts: 0,
-                    timeSpent: 0,
-                    marksEarned: 0,
-                    maxPossible: 0,
-                };
-            qtMap[type].attempts += qt.practiceAttempts ?? 0;
-            qtMap[type].timeSpent += qt.practiceTimeSpent ?? 0;
-            qtMap[type].marksEarned += qt.practiceMarksEarned ?? 0;
-            qtMap[type].maxPossible += qt.practiceMaxPossible ?? 0;
-        }
-        for (const q of redisQuestions) {
-            if (!q?.type)
-                continue;
-            if (!qtMap[q.type])
-                qtMap[q.type] = {
-                    questionType: q.type,
-                    attempts: 0,
-                    timeSpent: 0,
-                    marksEarned: 0,
-                    maxPossible: 0,
-                };
-            qtMap[q.type].attempts += 1;
-            qtMap[q.type].timeSpent += q.timeSpent ?? 0;
-            qtMap[q.type].marksEarned += q.marks ?? 0;
-            qtMap[q.type].maxPossible += q.positiveMarks ?? 0;
-        }
-        const questionTypeReport = Object.values(qtMap).map(function (qt) {
-            return {
-                questionType: qt.questionType,
-                attempts: qt.attempts,
-                timeSpent: qt.timeSpent,
-                marksEarned: qt.marksEarned,
-                maxPossible: qt.maxPossible,
-                accuracy: _this.calcPercentage(qt.marksEarned, qt.maxPossible),
-                avgTimePerQuestion: qt.attempts > 0
-                    ? parseFloat((qt.timeSpent / qt.attempts).toFixed(4))
-                    : 0,
-            };
-        });
-        const examMap = {};
-        for (const e of examAnalytics) {
-            examMap[e.examName] = {
-                examName: e.examName,
-                attempts: e.practiceAttempts ?? 0,
-                timeSpent: e.practiceTimeSpent ?? 0,
-                marksEarned: e.practiceMarksEarned ?? 0,
-                maxPossible: e.practiceMaxPossible ?? 0,
-            };
-        }
-        for (const q of redisQuestions) {
-            if (!q?.examName)
-                continue;
-            if (!examMap[q.examName])
-                examMap[q.examName] = {
-                    examName: q.examName,
-                    attempts: 0,
-                    timeSpent: 0,
-                    marksEarned: 0,
-                    maxPossible: 0,
-                };
-            examMap[q.examName].attempts += 1;
-            examMap[q.examName].timeSpent += q.timeSpent ?? 0;
-            examMap[q.examName].marksEarned += q.marks ?? 0;
-            examMap[q.examName].maxPossible += q.positiveMarks ?? 0;
-        }
-        const examReport = Object.values(examMap).map(function (e) {
-            return {
-                examName: e.examName,
-                attempts: e.attempts,
-                timeSpent: e.timeSpent,
-                marksEarned: e.marksEarned,
-                maxPossible: e.maxPossible,
-                accuracy: _this.calcPercentage(e.marksEarned, e.maxPossible),
-                avgTimePerQuestion: e.attempts > 0
-                    ? parseFloat((e.timeSpent / e.attempts).toFixed(4))
-                    : 0,
-            };
-        });
-        return {
-            studentId,
-            generatedAt: new Date(),
-            overall: overallReport,
-            subjects: subjectReport,
-            questionTypes: questionTypeReport,
-            exams: examReport,
-        };
+    buildSubReport(attempts = 0, timeSpent = 0, marksEarned = 0, maxPossible = 0, correct = 0, wrong = 0, partial = 0) {
+        return { attempts, timeSpent, marksEarned, maxPossible, correct, wrong, partial, accuracy: MathUtil.calcAccuracy(correct, wrong), percentage: MathUtil.calcPercentage(marksEarned, maxPossible) };
     }
-    // ── UPDATED STUDENT SNAPSHOT LOGIC ───────────────────────────────────────────
-    async studentSnapshot(studentId) {
-        const [allTestData, practiceData, attemptedQuestions, subjectTotals] = await Promise.all([
-            this.allTestResult(studentId),
-            this.practiceReport(studentId),
-            uniqueCountService_1.questionBitmapRegistry.getAttemptedQuestionIds(studentId),
-            subject_db_1.subject.readingAllSubjects(),
-        ]);
-        const subjectWiseUnique = {
-            Mathematics: {
-                uniqueAttempted: 0,
-                totalQuestions: subjectTotals["Mathematics"]?.totalQuestion ?? 0,
-            },
-            Physics: {
-                uniqueAttempted: 0,
-                totalQuestions: subjectTotals["Physics"]?.totalQuestion ?? 0,
-            },
-            Chemistry: {
-                uniqueAttempted: 0,
-                totalQuestions: subjectTotals["Chemistry"]?.totalQuestion ?? 0,
-            },
+}
+// ══════════════════════════════════════════
+// 8. WEAKNESS HUNTER BUILDER (Partitioned)
+// ══════════════════════════════════════════
+class WeaknessHunterBuilder {
+    db;
+    constructor(db) {
+        this.db = db;
+    }
+    async buildPartitionedWeakness(chapterReport) {
+        const chapterIds = chapterReport.chapters.map((c) => c.chapterId);
+        const chaptersMeta = await this.db.chapters.findMany({
+            where: { id: { in: chapterIds } },
+            select: { id: true, name: true, subjects: { select: { name: true } } }
+        });
+        const metaMap = new Map();
+        for (const c of chaptersMeta)
+            metaMap.set(c.id, { name: c.name, subject: c.subjects?.name });
+        const createEmptySubjectGroup = () => ({ Mathematics: [], Physics: [], Chemistry: [] });
+        const result = {
+            overall: createEmptySubjectGroup(),
+            jeeMain: createEmptySubjectGroup(),
+            jeeAdvanced: createEmptySubjectGroup()
         };
-        if (attemptedQuestions.questionIds.length > 0) {
-            const questionSubjects = await this.db.questions.findMany({
-                where: { id: { in: attemptedQuestions.questionIds } },
-                select: { subjects: { select: { name: true } } },
-            });
-            for (const q of questionSubjects) {
-                const name = q.subjects.name;
-                if (subjectWiseUnique[name])
-                    subjectWiseUnique[name].uniqueAttempted++;
+        for (const ch of chapterReport.chapters) {
+            const meta = metaMap.get(ch.chapterId);
+            if (!meta || !meta.subject)
+                continue;
+            const subjectKey = meta.subject;
+            const addIfAttempted = (groupKey, testNode, practiceNode) => {
+                if (!result[groupKey][subjectKey])
+                    return;
+                const totalMarks = (testNode.marksEarned || 0) + (practiceNode.marksEarned || 0);
+                const totalMax = (testNode.maxPossible || 0) + (practiceNode.maxPossible || 0);
+                const totalCorrect = (testNode.correct || 0) + (practiceNode.correct || 0);
+                const totalWrong = (testNode.wrong || 0) + (practiceNode.wrong || 0);
+                const totalAttempts = (testNode.attempts || 0) + (practiceNode.attempts || 0);
+                if (totalAttempts > 0) {
+                    result[groupKey][subjectKey].push({
+                        chapterId: ch.chapterId,
+                        chapterName: meta.name,
+                        percentage: MathUtil.calcPercentage(totalMarks, totalMax),
+                        accuracy: MathUtil.calcAccuracy(totalCorrect, totalWrong),
+                        totalAttempts,
+                        totalMarks,
+                        totalMax
+                    });
+                }
+            };
+            addIfAttempted('overall', ch.test.overall, ch.practice.overall);
+            addIfAttempted('jeeMain', ch.test.jeeMain, ch.practice.jeeMain);
+            addIfAttempted('jeeAdvanced', ch.test.jeeAdvanced, ch.practice.jeeAdvanced);
+        }
+        // Sort chapters from 0% ascending for every category
+        for (const scope of ['overall', 'jeeMain', 'jeeAdvanced']) {
+            for (const subj of ['Mathematics', 'Physics', 'Chemistry']) {
+                result[scope][subj].sort((a, b) => a.percentage - b.percentage);
             }
         }
-        const last5Raw = allTestData.slice(0, 5);
-        const paperDetailsMap = {};
-        if (last5Raw.length > 0) {
-            const tsWithPapers = await this.db.testStatus.findMany({
-                where: { id: { in: last5Raw.map((t) => t.id) } },
-                select: {
-                    id: true,
-                    papers: {
-                        select: {
-                            year: true,
-                            month: true,
-                            day: true,
-                            date: true,
-                            shift: true,
-                            mode: true,
-                            totalMarks: true,
-                            totalDuration: true,
-                            totalQuestions: true,
-                            exam: { select: { name: true } },
-                        },
-                    },
-                },
-            });
-            for (const ts of tsWithPapers) {
-                paperDetailsMap[ts.id] = ts.papers;
-            }
-        }
-        const _this = this;
-        const last5Tests = last5Raw.map(function (t) {
-            // Inject paper details into the mapped object so getTime() works properly
-            if (paperDetailsMap[t.id]) {
+        return result;
+    }
+}
+// ══════════════════════════════════════════
+// 9. SNAPSHOT BUILDER
+// ══════════════════════════════════════════
+class SnapshotBuilder {
+    db;
+    testFetcher;
+    practiceBuilder;
+    constructor(db, testFetcher, practiceBuilder) {
+        this.db = db;
+        this.testFetcher = testFetcher;
+        this.practiceBuilder = practiceBuilder;
+    }
+    processSnapshotGroup(testsRaw, paperDetailsMap) {
+        const last5Raw = testsRaw.slice(0, 5);
+        const last5Tests = last5Raw.map((t) => {
+            if (paperDetailsMap[t.id])
                 t.totalDuration = paperDetailsMap[t.id].totalDuration;
-            }
-            const finalMarks = _this.getMarks(t);
-            const finalMaxMarks = _this.getMaxMarks(t);
-            const finalCorrect = _this.getCorrect(t);
-            const finalWrong = _this.getWrong(t);
+            const finalMarks = TestMetricsExtractor.getMarks(t), finalMaxMarks = TestMetricsExtractor.getMaxMarks(t);
+            const finalCorrect = TestMetricsExtractor.getCorrect(t), finalWrong = TestMetricsExtractor.getWrong(t);
             return {
-                testId: t.id,
-                source: t.source,
-                createdAt: t.created_at,
-                paperDetails: paperDetailsMap[t.id] ?? null,
-                overall: {
-                    marks: finalMarks,
-                    maxMarks: finalMaxMarks,
-                    correct: finalCorrect,
-                    wrong: finalWrong,
-                    accuracy: _this.calcAccuracy(finalCorrect, finalWrong),
-                    percentage: _this.calcPercentage(finalMarks, finalMaxMarks),
-                    timeTaken: _this.getTime(t), // Will now accurately use DB totalDuration
-                },
+                testId: t.id, source: t.source, createdAt: t.created_at, paperDetails: paperDetailsMap[t.id] ?? null,
+                overall: { marks: finalMarks, maxMarks: finalMaxMarks, correct: finalCorrect, wrong: finalWrong, accuracy: MathUtil.calcAccuracy(finalCorrect, finalWrong), percentage: MathUtil.calcPercentage(finalMarks, finalMaxMarks), timeTaken: TestMetricsExtractor.getTime(t) },
                 subjects: {
-                    math: _this.buildSubjectBlock(t, "math", "Mathematics"),
-                    physics: _this.buildSubjectBlock(t, "physics", "Physics"),
-                    chemistry: _this.buildSubjectBlock(t, "chemistry", "Chemistry"),
+                    math: this.buildSubjectBlock(t, "math", "Mathematics"),
+                    physics: this.buildSubjectBlock(t, "physics", "Physics"),
+                    chemistry: this.buildSubjectBlock(t, "chemistry", "Chemistry"),
                 },
-                questionWise: _this.buildQuestionWiseBlock(t),
+                questionWise: this.buildQuestionWiseBlock(t),
             };
         });
         let totalMarks = 0, totalMaxMarks = 0, totalTime = 0, totalCorrect = 0, totalWrong = 0;
         const subAgg = {
-            Mathematics: { marks: 0, maxMarks: 0, correct: 0, wrong: 0 },
-            Physics: { marks: 0, maxMarks: 0, correct: 0, wrong: 0 },
-            Chemistry: { marks: 0, maxMarks: 0, correct: 0, wrong: 0 },
+            Mathematics: { marks: 0, maxMarks: 0, correct: 0, wrong: 0 }, Physics: { marks: 0, maxMarks: 0, correct: 0, wrong: 0 }, Chemistry: { marks: 0, maxMarks: 0, correct: 0, wrong: 0 },
         };
         const qtAgg = {};
         for (const test of last5Tests) {
@@ -1037,12 +552,7 @@ class ReportService {
             totalWrong += test.overall.wrong;
             for (const qw of test.questionWise) {
                 if (!qtAgg[qw.questionType])
-                    qtAgg[qw.questionType] = {
-                        marks: 0,
-                        maxMarks: 0,
-                        correct: 0,
-                        wrong: 0,
-                    };
+                    qtAgg[qw.questionType] = { marks: 0, maxMarks: 0, correct: 0, wrong: 0 };
                 qtAgg[qw.questionType].marks += qw.marks;
                 qtAgg[qw.questionType].correct += qw.correct;
                 qtAgg[qw.questionType].wrong += qw.wrong;
@@ -1054,51 +564,153 @@ class ReportService {
                 subAgg[name].wrong += s.wrong;
             }
         }
-        let last5Aggregate = null;
+        let aggregate = null;
         if (last5Tests.length > 0) {
-            last5Aggregate = {
-                testsIncluded: last5Tests.length,
-                totalMarks: totalMarks,
-                totalMaxMarks: totalMaxMarks,
-                overallAccuracy: this.calcAccuracy(totalCorrect, totalWrong),
-                overallPercentage: this.calcPercentage(totalMarks, totalMaxMarks),
+            aggregate = {
+                testsIncluded: last5Tests.length, totalMarks, totalMaxMarks,
+                overallAccuracy: MathUtil.calcAccuracy(totalCorrect, totalWrong),
+                overallPercentage: MathUtil.calcPercentage(totalMarks, totalMaxMarks),
                 avgTimeTaken: parseFloat((totalTime / last5Tests.length).toFixed(4)),
-                subjects: KNOWN_SUBJECTS.map(function (item) {
-                    return {
-                        subjectName: item.name,
-                        totalMarks: subAgg[item.name].marks,
-                        totalCorrect: subAgg[item.name].correct,
-                        totalWrong: subAgg[item.name].wrong,
-                        accuracy: _this.calcAccuracy(subAgg[item.name].correct, subAgg[item.name].wrong),
-                    };
-                }),
-                questionWise: Object.entries(qtAgg).map(function ([qt, d]) {
-                    return {
-                        questionType: qt,
-                        totalMarks: d.marks,
-                        totalCorrect: d.correct,
-                        totalWrong: d.wrong,
-                        accuracy: _this.calcAccuracy(d.correct, d.wrong),
-                    };
-                }),
+                subjects: KNOWN_SUBJECTS.map((item) => ({ subjectName: item.name, totalMarks: subAgg[item.name].marks, totalCorrect: subAgg[item.name].correct, totalWrong: subAgg[item.name].wrong, accuracy: MathUtil.calcAccuracy(subAgg[item.name].correct, subAgg[item.name].wrong) })),
+                questionWise: Object.entries(qtAgg).map(([qt, d]) => ({ questionType: qt, totalMarks: d.marks, totalCorrect: d.correct, totalWrong: d.wrong, accuracy: MathUtil.calcAccuracy(d.correct, d.wrong) })),
             };
         }
-        const uniqueTestIdsSet = new Set();
-        for (const test of allTestData) {
-            const pId = test.paperMeta?.id || test.paperId || test.id;
-            uniqueTestIdsSet.add(String(pId));
-        }
+        return { last5: last5Tests, aggregate };
+    }
+    buildSubjectBlock(t, key, name) {
+        const s = t[key];
+        if (!s)
+            return { subjectName: name, marks: 0, correct: 0, wrong: 0, timeTaken: 0, totalQuestions: 0, maxMarks: 0, accuracy: 0, percentage: 0 };
         return {
-            studentId,
-            totalUniqueMockTests: uniqueTestIdsSet.size,
-            generatedAt: new Date(),
-            tests: { last5: last5Tests, last5Aggregate },
-            practice: practiceData,
-            uniqueQuestionsAttempted: {
-                total: attemptedQuestions.totalUnique,
-                subjectWise: subjectWiseUnique,
-            },
+            subjectName: name, marks: s.marks ?? 0, correct: s.correct ?? 0, wrong: s.wrong ?? 0,
+            timeTaken: s.timeTaken ?? 0, totalQuestions: s.totalQuestions ?? 0, maxMarks: s.maxMarks ?? s.totalMarks ?? 0,
+            accuracy: MathUtil.calcAccuracy(s.correct ?? 0, s.wrong ?? 0), percentage: MathUtil.calcPercentage(s.marks ?? 0, s.maxMarks ?? s.totalMarks ?? 0),
         };
     }
+    buildQuestionWiseBlock(t) {
+        const qtBlock = {};
+        for (const qt of KNOWN_QUESTION_TYPES)
+            qtBlock[qt] = { questionType: qt, marks: 0, correct: 0, wrong: 0, maxMarks: 0, accuracy: 0, percentage: 0 };
+        if (t.questionWise && typeof t.questionWise === "object") {
+            for (const [qtType, qtData] of Object.entries(t.questionWise)) {
+                qtBlock[qtType] = {
+                    questionType: qtType, marks: qtData?.marks ?? 0, correct: qtData?.correct ?? 0, wrong: qtData?.wrong ?? 0, maxMarks: qtData?.maxMarks ?? 0,
+                    accuracy: MathUtil.calcAccuracy(qtData?.correct ?? 0, qtData?.wrong ?? 0), percentage: MathUtil.calcPercentage(qtData?.marks ?? 0, qtData?.maxMarks ?? 0),
+                };
+            }
+        }
+        return Object.values(qtBlock);
+    }
+    async studentSnapshot(studentId) {
+        const [allTestData, practiceData, attemptedQuestions, subjectTotals] = await Promise.all([
+            this.testFetcher.fetchAll(studentId),
+            this.practiceBuilder.practiceReport(studentId),
+            uniqueCountService_1.questionBitmapRegistry.getAttemptedQuestionIds(studentId),
+            subject_db_1.subject.readingAllSubjects(),
+        ]);
+        const partitions = ExamSplitter.partition(allTestData, (t) => t.exam);
+        const paperDetailsMap = {};
+        const requiredIds = [...partitions.overall.slice(0, 5), ...partitions.jeeMain.slice(0, 5), ...partitions.jeeAdvanced.slice(0, 5)].map((t) => t.id);
+        if (requiredIds.length > 0) {
+            const tsWithPapers = await this.db.testStatus.findMany({
+                where: { id: { in: requiredIds } },
+                select: { id: true, papers: { select: { year: true, month: true, day: true, date: true, shift: true, mode: true, totalMarks: true, totalDuration: true, totalQuestions: true, exam: { select: { name: true } } } } },
+            });
+            for (const ts of tsWithPapers)
+                paperDetailsMap[ts.id] = ts.papers;
+        }
+        const subjectWiseUnique = {
+            Mathematics: { uniqueAttempted: 0, totalQuestions: subjectTotals["Mathematics"]?.totalQuestion ?? 0 },
+            Physics: { uniqueAttempted: 0, totalQuestions: subjectTotals["Physics"]?.totalQuestion ?? 0 },
+            Chemistry: { uniqueAttempted: 0, totalQuestions: subjectTotals["Chemistry"]?.totalQuestion ?? 0 },
+        };
+        if (attemptedQuestions.questionIds.length > 0) {
+            const questionSubjects = await this.db.questions.findMany({
+                where: { id: { in: attemptedQuestions.questionIds } },
+                select: { subjects: { select: { name: true } } },
+            });
+            for (const q of questionSubjects) {
+                if (subjectWiseUnique[q.subjects.name])
+                    subjectWiseUnique[q.subjects.name].uniqueAttempted++;
+            }
+        }
+        return {
+            studentId, generatedAt: new Date(),
+            totalUniqueMockTests: new Set(allTestData.map((t) => String(t.paperMeta?.id || t.paperId || t.id))).size,
+            tests: {
+                overall: this.processSnapshotGroup(partitions.overall, paperDetailsMap),
+                jeeMain: this.processSnapshotGroup(partitions.jeeMain, paperDetailsMap),
+                jeeAdvanced: this.processSnapshotGroup(partitions.jeeAdvanced, paperDetailsMap),
+            },
+            practice: practiceData,
+            uniqueQuestionsAttempted: { total: attemptedQuestions.totalUnique, subjectWise: subjectWiseUnique },
+        };
+    }
+}
+// ══════════════════════════════════════════
+// 10. REPORT SERVICE (The Orchestrator / Facade)
+// ══════════════════════════════════════════
+class ReportService {
+    db;
+    testFetcher;
+    mockAnalytics;
+    practiceAnalytics;
+    chapterAnalytics;
+    weaknessHunter;
+    snapshotAnalytics;
+    constructor(db) {
+        this.db = db;
+        this.testFetcher = new TestResultService();
+        this.mockAnalytics = new MockTestAnalyticsBuilder();
+        this.practiceAnalytics = new PracticeAnalyticsBuilder(this.db);
+        this.chapterAnalytics = new ChapterAnalyticsBuilder();
+        this.weaknessHunter = new WeaknessHunterBuilder(this.db);
+        this.snapshotAnalytics = new SnapshotBuilder(this.db, this.testFetcher, this.practiceAnalytics);
+    }
+    // ── ANALYTICS PAGE (Tests Only) ─────────────────────────────────────────────────
+    async reportMaking(studentId) {
+        const allTestData = await this.testFetcher.fetchAll(studentId);
+        if (allTestData.length === 0)
+            return null;
+        const partitions = ExamSplitter.partition(allTestData, t => t.exam);
+        const totalUniqueMockTests = new Set(allTestData.map(t => String(t.paperMeta?.id || t.paperId || t.id))).size;
+        return {
+            studentId,
+            generatedAt: new Date(),
+            totalUniqueMockTests,
+            overall: this.mockAnalytics.buildScopeReports(partitions.overall),
+            jeeMain: this.mockAnalytics.buildScopeReports(partitions.jeeMain),
+            jeeAdvanced: this.mockAnalytics.buildScopeReports(partitions.jeeAdvanced),
+        };
+    }
+    // ── DASHBOARD (The Full Tripartite Payload) ──────────────────────────────────
+    async fullDashboard(studentId) {
+        const allTestData = await this.testFetcher.fetchAll(studentId);
+        if (allTestData.length === 0) {
+            return { studentId, totalUniqueMockTests: 0, generatedAt: new Date(), overall: null, jeeMain: null, jeeAdvanced: null };
+        }
+        const practiceData = await this.practiceAnalytics.practiceReport(studentId);
+        const chapterReport = await this.chapterAnalytics.chapterReport(studentId);
+        const weaknessData = await this.weaknessHunter.buildPartitionedWeakness(chapterReport);
+        const partitions = ExamSplitter.partition(allTestData, t => t.exam);
+        const totalUniqueMockTests = new Set(allTestData.map(t => String(t.paperMeta?.id || t.paperId || t.id))).size;
+        const buildTab = (tests, practiceNode, weaknessNode) => ({
+            practiceAnalytics: practiceNode,
+            testReports: this.mockAnalytics.buildScopeReports(tests),
+            weakChapters: weaknessNode,
+            allTests: tests
+        });
+        return {
+            studentId,
+            generatedAt: new Date(),
+            totalUniqueMockTests,
+            overall: buildTab(partitions.overall, practiceData.overall, weaknessData.overall),
+            jeeMain: buildTab(partitions.jeeMain, practiceData.jeeMain, weaknessData.jeeMain),
+            jeeAdvanced: buildTab(partitions.jeeAdvanced, practiceData.jeeAdvanced, weaknessData.jeeAdvanced)
+        };
+    }
+    // Fallbacks if you need raw endpoints
+    async allTestResult(studentId) { return this.testFetcher.fetchAll(studentId); }
+    async studentSnapshot(studentId) { return this.snapshotAnalytics.studentSnapshot(studentId); }
 }
 exports.reportService = new ReportService(database_1.database);

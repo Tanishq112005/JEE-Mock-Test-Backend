@@ -42,7 +42,7 @@ class TestSyncService {
                                 include: {
                                     subjects: true, // for subjectName
                                     chapters: true, // for chapterId + chapterName
-                                    // ❌ NO markingScheme — not in schema
+                                    // NO markingScheme - not in schema
                                 },
                             },
                         },
@@ -68,13 +68,13 @@ class TestSyncService {
             //         ChapterAnalytics, SubjectAnalytics, ExamAnalytics,
             //         StudentOverallAnalytics, marks testStatus.isAnalyzed = true
             await analytics_db_1.analytics.persistTestAnalytics(testStatusId, studentId, report);
-            console.log(`[TestSync] ✅ DB analytics persisted for test ${testStatusId}`);
+            console.log(`[TestSync] DB analytics persisted for test ${testStatusId}`);
             // Remove from Redis — DB is now source of truth
             await this.cleanupRedis(studentId, testStatusId);
-            console.log(`[TestSync] ✅ Redis cleaned up for test ${testStatusId}`);
+            console.log(`[TestSync] Redis cleaned up for test ${testStatusId}`);
         }
         catch (err) {
-            console.error(`[TestSync] ❌ Sync failed for test ${testStatusId}:`, err);
+            console.error(`[TestSync] Sync failed for test ${testStatusId}:`, err);
             throw err;
         }
     }
@@ -97,11 +97,11 @@ class TestSyncService {
             try {
                 await this.syncAfterSubmission(test.id, test.studentId);
                 processed++;
-                console.log(`[TestSync] ✅ Backfilled ${test.id} (${processed}/${unanalyzed.length})`);
+                console.log(`[TestSync] Backfilled ${test.id} (${processed}/${unanalyzed.length})`);
             }
             catch (err) {
                 failed++;
-                console.error(`[TestSync] ❌ Failed to backfill ${test.id}:`, err);
+                console.error(`[TestSync] Failed to backfill ${test.id}:`, err);
             }
         }
         console.log(`[TestSync] Backfill done — processed: ${processed}, failed: ${failed}`);
@@ -317,7 +317,7 @@ class TestSyncService {
         }
         catch (err) {
             // Non-critical — DB already has the data
-            console.error(`[TestSync] ⚠️ Redis cleanup failed for ${testStatusId}:`, err);
+            console.error(`[TestSync] Redis cleanup failed for ${testStatusId}:`, err);
         }
     }
     // ===========================================================================

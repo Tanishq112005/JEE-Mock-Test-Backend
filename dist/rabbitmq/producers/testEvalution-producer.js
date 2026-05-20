@@ -13,10 +13,10 @@ class TestEvaluationProducer {
             await channel.assertExchange(exchange, "direct", { durable: true });
             channel.publish(exchange, routingKey, Buffer.from(JSON.stringify(data)), { persistent: true } // Ensures message survives server restart
             );
-            console.log(`📤 Update Test Details sent to RabbitMQ`);
+            console.log(`Update Test Details sent to RabbitMQ`);
         }
         catch (err) {
-            console.error("❌ Update Test Details Producer Error:", err);
+            console.error("Update Test Details Producer Error:", err);
             throw err;
         }
     }

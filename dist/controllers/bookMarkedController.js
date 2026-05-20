@@ -40,7 +40,7 @@ class BookMarkedController {
     remove = async (req, res) => {
         try {
             const studentId = req.user;
-            const { questionId } = req.params;
+            const { questionId } = req.query;
             await bookMarked_db_1.bookMarked.remove(studentId, questionId);
             return res.status(200).json(new ApiResponse_1.default("Question Is Removed From The BookMarked"));
         }

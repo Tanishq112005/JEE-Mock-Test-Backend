@@ -164,7 +164,7 @@ class TestStatus {
                 where: { id: updateDetails.testId },
             });
             if (!existingTest) {
-                console.warn(`⚠️ Skipped: TestID ${updateDetails.testId} not found.`);
+                console.warn(`Skipped: TestID ${updateDetails.testId} not found.`);
                 return null;
             }
             const studentId = existingTest.studentId;
@@ -227,11 +227,10 @@ class TestStatus {
                     }));
                 }
             }, { maxWait: 5000, timeout: 20000 });
-            console.log(`✅ Updated ${updateDetails.questionStatus?.length ?? 0} questions for test ${updateDetails.testId}`);
             return true;
         }
         catch (err) {
-            console.error("❌ updatingTestDetails failed:", err);
+            console.error("updatingTestDetails failed:", err);
             throw err;
         }
     }
@@ -319,11 +318,11 @@ class TestStatus {
                     });
                 }));
             }, { maxWait: 10000, timeout: 30000 });
-            console.log(`✅ finalSubmitTest complete — ${finalVerdict.length} questions saved for test ${testId}`);
+            console.log(`finalSubmitTest complete - ${finalVerdict.length} questions saved for test ${testId}`);
             return true;
         }
         catch (err) {
-            console.error("❌ finalSubmitTest failed:", err);
+            console.error("finalSubmitTest failed:", err);
             throw err;
         }
     }

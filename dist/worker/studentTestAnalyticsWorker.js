@@ -7,29 +7,38 @@ const express_1 = __importDefault(require("express"));
 const rabbitmq_connection_1 = require("../rabbitmq/connection/rabbitmq-connection");
 const env_1 = require("../config/env");
 const studentTestAnalytics_consumer_1 = require("../rabbitmq/consumers/studentTestAnalytics-consumer");
+const redisManager_1 = __importDefault(require("../lib/redisManager"));
 const studentTestAnalyticsWorker = async () => {
     try {
-        console.log("📧 Starting Student Test Analytics Worker Service...");
+        console.log("Starting Student Test Analytics Worker Service...");
         await rabbitmq_connection_1.rabbitMQClient.connect();
+        if (env_1.REDIS_HOST) {
+            await redisManager_1.default.addDashboardInstances([
+                { host: env_1.REDIS_HOST, port: Number(env_1.REDIS_PORT), username: env_1.REDIS_USERNAME, password: env_1.REDIS_PASSWORD, email: '' }
+            ]);
+            await redisManager_1.default.addAuthInstances([
+                { host: env_1.REDIS_HOST, port: Number(env_1.REDIS_PORT), username: env_1.REDIS_USERNAME, password: env_1.REDIS_PASSWORD, email: '' }
+            ]);
+        }
         // 2. Start the Consumer
         const studentTestAnalytics = new studentTestAnalytics_consumer_1.StudentTestAnanlyticsConsumer(rabbitmq_connection_1.rabbitMQClient);
         await studentTestAnalytics.start();
-        console.log("✅ Student Test Analytics  Worker is now listening for messages...");
+        console.log("Student Test Analytics  Worker is now listening for messages...");
         const app = (0, express_1.default)();
         const port = env_1.STUDENT_TEST_ANALYTICS_WORKER_PORT || 3006;
         app.get("/health", (req, res) => {
-            res.send("Student Test Analytics Worker is Running 🚀");
+            res.send("Student Test Analytics Worker is Running");
         });
         app.listen(port, () => {
-            console.log(`❤️ Health check server listening on port ${port}`);
+            console.log(`Health check server listening on port ${port}`);
         });
         process.on("SIGTERM", async () => {
-            console.log("🛑 SIGTERM received. Closing...");
+            console.log("SIGTERM received. Closing...");
             process.exit(0);
         });
     }
     catch (error) {
-        console.error("❌Student Test Analytics  Worker failed to start:", error);
+        console.error("Student Test Analytics  Worker failed to start:", error);
         process.exit(1);
     }
 };

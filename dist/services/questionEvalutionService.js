@@ -31,9 +31,8 @@ class PracticeQuestionEvaluationService {
             });
             if (!questionData)
                 throw new Error(`Question not found: ${input.questionId}`);
-            const markingSchemes = questionData.papers?.markingSchemes ?? [];
-            const evaluator = new answerVerifyService_1.AnswerVerifyService(markingSchemes);
-            const { verdict: rawVerdict, marks } = evaluator.questionResult(input.userAnswer, questionData.correctAnswer, questionData.type);
+            const evaluator = new answerVerifyService_1.AnswerVerifyService();
+            const { verdict: rawVerdict, marks } = evaluator.questionResult(input.userAnswer, questionData.correctAnswer, questionData.type, questionData.positiveMarks, questionData.negativeMarks);
             const verdict = rawVerdict;
             return {
                 questionId: questionData.id,

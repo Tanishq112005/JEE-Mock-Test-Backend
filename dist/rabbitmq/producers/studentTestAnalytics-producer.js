@@ -16,7 +16,7 @@ class StudentTestAnanlytics {
             console.log(`📤 Update Student Test Analytics sent to RabbitMQ`);
         }
         catch (err) {
-            console.error("❌ Update Student Test Analytics Producer Error:", err);
+            console.error("Update Student Test Analytics Producer Error:", err);
             throw err;
         }
     }

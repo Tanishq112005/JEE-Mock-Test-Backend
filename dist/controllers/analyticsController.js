@@ -49,6 +49,7 @@ class AnalyticsController {
             return res.status(200).json(new ApiResponse_1.default("Student report generated", studentReport));
         }
         catch (err) {
+            console.log(err);
             return res.status(500).json(new ApiError_1.default("Error in generating the report", err));
         }
     };

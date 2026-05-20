@@ -17,14 +17,14 @@ class UpdateChapterAttemptConsumer {
             await channel.assertExchange(exchangeName, "direct", { durable: true });
             await channel.assertQueue(queueName, { durable: true });
             await channel.bindQueue(queueName, exchangeName, routingKey);
-            console.log("🔄 UpdateChapterAttempt Consumer waiting for messages...");
+            console.log("UpdateChapterAttempt Consumer waiting for messages...");
             channel.prefetch(1);
             channel.consume(queueName, async (msg) => {
                 if (!msg)
                     return;
                 try {
                     const data = JSON.parse(msg.content.toString());
-                    console.log(`📥 Processing Chapter Attempt Update for User: ${data.studentId}`);
+                    console.log(`Processing Chapter Attempt Update for User: ${data.studentId}`);
                     // --- ACTUAL WORKER LOGIC ---
                     await chapterWisePractice_db_1.chapterWisePractice.saveQuestionAttempt({
                         studentId: data.studentId,
@@ -42,16 +42,16 @@ class UpdateChapterAttemptConsumer {
                     // heartbeat/submit writes fresh live state.
                     await chapterWiseCacheService_1.chapterWiseCacheService.deleteAttemptData(data.studentId, data.questionId);
                     channel.ack(msg);
-                    console.log("✅ Chapter Update Processed Successfully");
+                    console.log("Chapter Update Processed Successfully");
                 }
                 catch (err) {
-                    console.error("❌ Processing failed for Chapter Update:", err);
+                    console.error("Processing failed for Chapter Update:", err);
                     channel.nack(msg, false, false);
                 }
             });
         }
         catch (error) {
-            console.error("❌ Error in UpdateChapterAttemptConsumer:", error);
+            console.error("Error in UpdateChapterAttemptConsumer:", error);
             throw error;
         }
     }

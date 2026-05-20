@@ -21,10 +21,10 @@ class UpdateChapterAttemptProducer {
             this.channel.publish(exchangeName, routingKey, Buffer.from(JSON.stringify(data)), {
                 persistent: true,
             });
-            console.log("⬆️ Chapter attempt update Pushed to the Queue");
+            console.log("Chapter attempt update Pushed to the Queue");
         }
         catch (err) {
-            console.log("❌ Error pushing chapter attempt to Queue: ", err);
+            console.log("Error pushing chapter attempt to Queue: ", err);
             throw err;
         }
     }

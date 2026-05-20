@@ -21,7 +21,7 @@ class StudentTestAnanlyticsConsumer {
             // 3. Bind Queue to Exchange with specific Routing Key
             // This is CRITICAL: It tells RabbitMQ "Only put messages with key 'UpdateTestDetails.update.it' in this queue"
             await channel.bindQueue(queueName, exchangeName, routingKey);
-            console.log("🔄 Stduent Test Analytics Consumer waiting for messages...");
+            console.log("Stduent Test Analytics Consumer waiting for messages...");
             // 4. Consume
             channel.prefetch(1);
             channel.consume(queueName, async (msg) => {
@@ -29,7 +29,7 @@ class StudentTestAnanlyticsConsumer {
                     return;
                 try {
                     const data = JSON.parse(msg.content.toString());
-                    console.log(`📥 Processing Student Test Analytics Update for User: ${data.studentId}`);
+                    console.log(`Processing Student Test Analytics Update for User: ${data.studentId}`);
                     await analytics_db_1.analytics.persistTestAnalytics(data.testId, data.studentId, data.report);
                     await caching_1.cacheService.deleteCache(`${data.studentId}:${data.testId}:${data.created_at}`);
                     const upperLayer = await caching_1.cacheService.getCache(`${data.studentId}:testUpperLayer`);
@@ -38,16 +38,16 @@ class StudentTestAnanlyticsConsumer {
                         await caching_1.cacheService.setCache(`${data.studentId}:testUpperLayer`, upperLayer);
                     }
                     channel.ack(msg);
-                    console.log("✅ Update The Student Test Analytics  Evaluated SuccessFully");
+                    console.log("Update The Student Test Analytics  Evaluated SuccessFully");
                 }
                 catch (err) {
-                    console.error("❌ Processing failed for  Student Test Analytics :", err);
+                    console.error("Processing failed for  Student Test Analytics :", err);
                     channel.nack(msg, false, false);
                 }
             });
         }
         catch (error) {
-            console.error("❌ Error in   Student Test Analytics  Consumer:", error);
+            console.error("Error in   Student Test Analytics  Consumer:", error);
             throw error;
         }
     }

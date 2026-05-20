@@ -11,7 +11,7 @@ exports.cacheService = void 0;
 const redisManager_1 = __importDefault(require("./redisManager"));
 class CacheService {
     constructor() {
-        console.log("✅ CacheService initialized (Routing via Dashboard Ring)");
+        console.log("CacheService initialized (Routing via Dashboard Ring)");
     }
     getClientForKey(key) {
         // Keys are generally formulated as `${studentId}:...`
@@ -24,10 +24,10 @@ class CacheService {
         try {
             const client = this.getClientForKey(key);
             await client.set(key, JSON.stringify(data));
-            console.log(`✅ Cache SET — key: "${key}"`);
+            console.log(`Cache SET - key: "${key}"`);
         }
         catch (err) {
-            console.error(`❌ Cache SET failed — key: "${key}":`, err.message);
+            console.error(`Cache SET failed - key: "${key}":`, err.message);
             throw err;
         }
     }
@@ -48,7 +48,7 @@ class CacheService {
             return raw;
         }
         catch (err) {
-            console.error(`❌ Cache GET failed — key: "${key}":`, err.message);
+            console.error(`Cache GET failed - key: "${key}":`, err.message);
             return null; // never crash the caller on a cache miss
         }
     }
@@ -56,10 +56,10 @@ class CacheService {
         try {
             const client = this.getClientForKey(key);
             await client.del(key);
-            console.log(`🗑️  Cache DELETE — key: "${key}"`);
+            console.log(`Cache DELETE - key: "${key}"`);
         }
         catch (err) {
-            console.error(`❌ Cache DELETE failed — key: "${key}":`, err.message);
+            console.error(`Cache DELETE failed - key: "${key}":`, err.message);
         }
     }
 }

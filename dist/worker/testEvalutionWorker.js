@@ -11,7 +11,7 @@ const redisManager_1 = __importDefault(require("../lib/redisManager"));
 const env_2 = require("../config/env");
 const testEvaluationWorker = async () => {
     try {
-        console.log("📧 Starting Test Evalution Worker Service...");
+        console.log("Starting Test Evalution Worker Service...");
         await rabbitmq_connection_1.rabbitMQClient.connect();
         // 2. Initialize Redis Rings
         if (env_2.REDIS_HOST) {
@@ -25,22 +25,22 @@ const testEvaluationWorker = async () => {
         // 3. Start the Consumer
         const updateFinalEvaluation = new testEvalution_consumer_1.UpdateFinalEvaluationConsumer(rabbitmq_connection_1.rabbitMQClient);
         await updateFinalEvaluation.start();
-        console.log("✅ Evalution Worker is now listening for messages...");
+        console.log("Evalution Worker is now listening for messages...");
         const app = (0, express_1.default)();
         const port = env_1.EVALUATION_WORKER_PORT || 3006;
         app.get("/health", (req, res) => {
-            res.send("Evaluation Worker is Running 🚀");
+            res.send("Evaluation Worker is Running");
         });
         app.listen(port, () => {
-            console.log(`❤️ Health check server listening on port ${port}`);
+            console.log(`Health check server listening on port ${port}`);
         });
         process.on("SIGTERM", async () => {
-            console.log("🛑 SIGTERM received. Closing...");
+            console.log("SIGTERM received. Closing...");
             process.exit(0);
         });
     }
     catch (error) {
-        console.error("❌ Evaluation Worker failed to start:", error);
+        console.error("Evaluation Worker failed to start:", error);
         process.exit(1);
     }
 };

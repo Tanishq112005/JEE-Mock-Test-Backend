@@ -93,11 +93,11 @@ class User {
                 where: { id: user_id },
                 data: { password: password },
             });
-            console.log("✅ REPO SUCCESS: Password hash updated in DB.");
+            console.log("REPO SUCCESS: Password hash updated in DB.");
             return updated;
         }
         catch (err) {
-            console.error("❌ REPO CRASH: Prisma failed to update:", err.message);
+            console.error("REPO CRASH: Prisma failed to update:", err.message);
             throw err;
         }
     }
