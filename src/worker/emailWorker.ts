@@ -2,6 +2,7 @@ import express from "express";
 import { rabbitMQClient } from "../rabbitmq/connection/rabbitmq-connection";
 import { EmailConsumer } from "../rabbitmq/consumers/email-consumer";
 import { EMAIL_WORKER_PORT } from "../config/env";
+import { emailService } from "../services/brevoService";
 
 const startEmailWorker = async () => {
     try {
@@ -10,7 +11,7 @@ const startEmailWorker = async () => {
         await rabbitMQClient.connect();
 
         // 2. Start the Consumer
-        const emailConsumer = new EmailConsumer(rabbitMQClient);
+        const emailConsumer = new EmailConsumer(rabbitMQClient , emailService);
         await emailConsumer.start();
         
         console.log("Email Worker is now listening for messages...");

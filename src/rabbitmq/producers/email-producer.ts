@@ -1,15 +1,15 @@
 
 import { rabbitMQClient } from "../connection/rabbitmq-connection"; 
-import { email_data } from "../../types/email.worker.types";
+import { EmailPayload } from "../../types/emailPayload";
 
 export class EmailProducer {
   constructor() {
   }
 
-  async sendOtp(data: email_data) {
+  async sendOtp(data: EmailPayload) {
     try {
       const channel = await rabbitMQClient.getChannel(); 
-
+      
       const exchange = "main_exchange";
       const routingKey = "email.send";
 

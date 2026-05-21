@@ -1,23 +1,26 @@
 import axios from "axios";
-import { email_data } from "../types/email.worker.types";
-import ApiError from "./ApiError";
 import { BREVO_KEY_1, BREVO_KEY_2, EMAIL_ID } from "../config/env";
+import ApiError from "../utils/ApiError";
+import { EmailPayload } from "../types/emailPayload";
+import { IEmailProvider } from "../interfaces/emailInterface";
+import { emailTemplate } from "../utils/emailTemplate";
+
 
 const BREVO_KEYS = [
   BREVO_KEY_1,
   BREVO_KEY_2 
 ].filter(Boolean) as string[]; 
 
-class BrevoRotator {
+
+
+class Brevo implements IEmailProvider {
   private currentKeyIndex = 0;
 
-  async send(data: email_data) {
-    const { email_to, subject, content } = data;
-
+  async sendEmail(payload: EmailPayload) {
+    const { email_to, subject, content } = payload;
   
     let attempts = 0;
     
-  
     while (attempts < BREVO_KEYS.length) {
       const apiKey = BREVO_KEYS[this.currentKeyIndex];
       try {
@@ -29,7 +32,7 @@ class BrevoRotator {
             sender: { name: "JEE Archive Support", email: EMAIL_ID }, 
             to: [{ email: email_to, name: "User" }],
             subject: subject,
-            htmlContent: `<html><body>${content}</body></html>`,
+            htmlContent: emailTemplate(content),
           },
           {
             headers: {
@@ -57,13 +60,14 @@ class BrevoRotator {
           attempts++; 
         } else {
           console.error("Fatal Error (Not Quota Related). Stopping.");
-          throw new ApiError("Email Failed", errorMsg);
+          throw new ApiError(`Email Failed: ${errorMsg}` , 500);
         }
       }
     }
 
-    throw new ApiError("All Brevo Accounts Exhausted", 500);
+    throw new ApiError("All Brevo Accounts Exhausted" , 500);
   }
 }
 
-export const emailSender = new BrevoRotator();
+// FIX 3: Type the exported instance as the Interface
+export const emailService: IEmailProvider = new Brevo();

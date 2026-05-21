@@ -3,7 +3,7 @@ import { authController } from "../controllers/authController";
 import { authMiddleware } from "../middlewares/auth";
 import { SlidingWindowLog } from "../middlewares/RateLimiters/slidingWindowLog";
 import { MAX_ATTEMENTS, WINDOW_SIZE } from "../config/env";
-import { RateLimiter } from "../middlewares/RateLimiters/rateLimiter";
+import { RateLimiter } from "../interfaces/rateLimiterInterface";
 // redisClient import yahan se hata diya gaya hai!
 
 const router = Router();

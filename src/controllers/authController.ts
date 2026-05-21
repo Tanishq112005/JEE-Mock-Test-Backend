@@ -3,7 +3,7 @@ import { OTP_EXPIRE_TIME } from "../config/env";
 import { PrismaClient } from "@prisma/client";
 import { emailProducer } from "../rabbitmq/producers/email-producer";
 import { user } from "../repositories/user.db";
-import { email_data } from "../types/email.worker.types";
+import { EmailPayload } from "../types/emailPayload";
 import {
   jwtPayloadAccessToken,
   jwtPayloadRefershToken,
@@ -51,7 +51,7 @@ export class AuthController {
       const otp = random6digitnumber();
       const redis_key = redisConfig.getRedisEmailKey(email);
       const otp_expire_time = Number(OTP_EXPIRE_TIME) || 300;
-      const payload: email_data = {
+      const payload: EmailPayload = {
         email_to: email,
         subject: "Verify Account",
         content: `Your verification OTP is ${otp} and it will expire after ${
@@ -192,7 +192,7 @@ export class AuthController {
         const otp = random6digitnumber();
         const redis_key = redisConfig.getRedisEmailKey(email);
         const otp_expire_time = Number(OTP_EXPIRE_TIME) || 300;
-        const payload: email_data = {
+        const payload: EmailPayload = {
           email_to: email,
           subject: "Forgot Password OTP",
           content: `OTP To Reset Password is ${otp}, it will expire after ${

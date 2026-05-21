@@ -1,10 +1,14 @@
-import { emailSender } from "../../utils/email";
+import { IEmailProvider } from "../../interfaces/emailInterface";
+import { emailService } from "../../services/brevoService";
+import { EmailPayload } from "../../types/emailPayload";
+
 
 export class EmailConsumer {
   private rabbitMQ: any;
-
-  constructor(rabbitMQ: any) {
+  private emailService : IEmailProvider ; 
+  constructor(rabbitMQ: any , emailService : IEmailProvider) {
     this.rabbitMQ = rabbitMQ;
+    this.emailService = emailService ; 
   }
 
   async start() {
@@ -27,12 +31,13 @@ export class EmailConsumer {
         if (!msg) return;
 
         try {
-          let data = JSON.parse(msg.content.toString());
+          let data  = JSON.parse(msg.content.toString());
+       
           data.retryCount = data.retryCount || 0;
 
           console.log(`Email job received via Exchange (retry #${data.retryCount}):`, data);
 
-          await emailSender.send(data);
+          await this.emailService.sendEmail(data) ; 
 
           channel.ack(msg);
           console.log("Email sent and acknowledged");
@@ -50,3 +55,4 @@ export class EmailConsumer {
     }
   }
 }
+
