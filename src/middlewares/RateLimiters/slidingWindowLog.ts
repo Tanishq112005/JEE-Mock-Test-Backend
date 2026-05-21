@@ -1,14 +1,16 @@
 import ApiError from "../../utils/ApiError";
 import { redisConfig } from "../../lib/redis";
 import redisManager from "../../lib/redisManager"; // Import our new singleton
+import { RateLimiter } from "./rateLimiter";
 
-export class SlidingWindowLog {
+export class SlidingWindowLog extends RateLimiter  {
   private maxAttempts: number;
   private windowSize: number;
   private keyPrefix: string;
 
   // Constructor se 'redis' hata diya gaya hai
-  constructor(max_attempts: number, window_size: number, keyPrefix: string) {
+  constructor(max_attempts: number, window_size: number, keyPrefix: string)  {
+    super() ; 
     this.maxAttempts = max_attempts;
     this.windowSize = window_size;
     this.keyPrefix = keyPrefix;

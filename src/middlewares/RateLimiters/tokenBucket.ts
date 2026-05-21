@@ -1,14 +1,16 @@
 import { TOKEN_BUCKET_CAPACITY, TOKEN_BUCKET_REFLIER } from "../../config/env";
 import redisManager from "../../lib/redisManager";
 import ApiError from "../../utils/ApiError";
+import { RateLimiter } from "./rateLimiter";
 
 
-export class TokenBucket {
+export class TokenBucket extends RateLimiter {
     private capacity: number;
     private refillRate: number;
     private place : string ; 
     // Accept optional custom parameters
     constructor(place : string ,  customCapacity?: number, customRefillRate?: number  ) {
+        super() ; 
         this.capacity = customCapacity ?? parseInt(TOKEN_BUCKET_CAPACITY || "10", 10);
         this.refillRate = customRefillRate ?? parseInt(TOKEN_BUCKET_REFLIER || "1", 10);
         this.place = place ; 
