@@ -7,12 +7,13 @@ const express_1 = __importDefault(require("express"));
 const rabbitmq_connection_1 = require("../rabbitmq/connection/rabbitmq-connection");
 const email_consumer_1 = require("../rabbitmq/consumers/email-consumer");
 const env_1 = require("../config/env");
+const brevoService_1 = require("../services/brevoService");
 const startEmailWorker = async () => {
     try {
         console.log("Starting Email Worker Service...");
         await rabbitmq_connection_1.rabbitMQClient.connect();
         // 2. Start the Consumer
-        const emailConsumer = new email_consumer_1.EmailConsumer(rabbitmq_connection_1.rabbitMQClient);
+        const emailConsumer = new email_consumer_1.EmailConsumer(rabbitmq_connection_1.rabbitMQClient, brevoService_1.emailService);
         await emailConsumer.start();
         console.log("Email Worker is now listening for messages...");
         const app = (0, express_1.default)();

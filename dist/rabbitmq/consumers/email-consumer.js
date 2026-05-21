@@ -1,11 +1,12 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.EmailConsumer = void 0;
-const email_1 = require("../../utils/email");
 class EmailConsumer {
     rabbitMQ;
-    constructor(rabbitMQ) {
+    emailService;
+    constructor(rabbitMQ, emailService) {
         this.rabbitMQ = rabbitMQ;
+        this.emailService = emailService;
     }
     async start() {
         try {
@@ -25,7 +26,7 @@ class EmailConsumer {
                     let data = JSON.parse(msg.content.toString());
                     data.retryCount = data.retryCount || 0;
                     console.log(`Email job received via Exchange (retry #${data.retryCount}):`, data);
-                    await email_1.emailSender.send(data);
+                    await this.emailService.sendEmail(data);
                     channel.ack(msg);
                     console.log("Email sent and acknowledged");
                 }
