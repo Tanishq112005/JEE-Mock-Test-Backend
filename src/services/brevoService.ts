@@ -64,7 +64,7 @@ class Brevo implements IEmailProvider {
         console.warn(`Account #${this.currentKeyIndex + 1} Failed: ${errorMsg}`);
 
         // 5. Update logic to check for quota/credit errors
-        if (status === 400 || status === 402 || errorMsg.toLowerCase().includes("credit")) {
+        if (status === 400 || status === 402 || status === 429 || errorMsg.toLowerCase().includes("credit")) {
           console.log(`🔻 Account #${this.currentKeyIndex + 1} Empty. Switching to next...`);
           
           this.currentKeyIndex = (this.currentKeyIndex + 1) % BREVO_ACCOUNTS.length;
