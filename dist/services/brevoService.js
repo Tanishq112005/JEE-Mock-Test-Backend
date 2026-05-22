@@ -18,8 +18,16 @@ const BREVO_ACCOUNTS = [
 ].filter(account => account.apiKey !== "" && account.emailId !== "");
 class Brevo {
     currentKeyIndex = 0;
-    async sendEmail(payload) {
-        const { email_to, subject, content } = payload;
+    async send(message) {
+        if (!message.toEmail) {
+            throw new ApiError_1.default("Email destination is required for Brevo service", 400);
+        }
+        if (!message.content) {
+            throw new ApiError_1.default("No Content is There , Please Add It", 500);
+        }
+        if (!message.type) {
+            throw new ApiError_1.default("Error  message type is not present");
+        }
         let attempts = 0;
         // 2. Loop based on the length of our accounts array
         while (attempts < BREVO_ACCOUNTS.length) {
@@ -30,9 +38,9 @@ class Brevo {
                 const response = await axios_1.default.post("https://api.brevo.com/v3/smtp/email", {
                     // 4. Use the dynamic sender email from the account object
                     sender: { name: "JEE Archive Support", email: account.emailId },
-                    to: [{ email: email_to, name: "User" }],
-                    subject: subject,
-                    htmlContent: (0, emailTemplate_1.emailTemplate)(content),
+                    to: [{ email: message.toEmail, name: "User" }],
+                    subject: message.subject,
+                    htmlContent: (0, emailTemplate_1.emailTemplate)(message.content),
                 }, {
                     headers: {
                         "api-key": account.apiKey, // Use the specific key

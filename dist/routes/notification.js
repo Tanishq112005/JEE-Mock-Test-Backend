@@ -1,0 +1,12 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.notificationRoutes = void 0;
+const express_1 = require("express");
+const notificationController_1 = require("../controllers/notificationController");
+const developerRole_1 = require("../middlewares/developerRole");
+const auth_1 = require("../middlewares/auth");
+const router = (0, express_1.Router)();
+router.post('/sendingMailToParticularUser', auth_1.authMiddleware, developerRole_1.developerRoleMiddleware, notificationController_1.notificationController.sendingEmailParticularUser);
+router.post('/sendingEmailToAll', auth_1.authMiddleware, developerRole_1.developerRoleMiddleware, notificationController_1.notificationController.sendingEmailToAllUser);
+router.post('/sendEmailToSupport', auth_1.authMiddleware, notificationController_1.notificationController.emailToSupport);
+exports.notificationRoutes = router;

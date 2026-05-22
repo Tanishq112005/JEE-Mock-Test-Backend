@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.EmailConsumer = void 0;
+const notificationBuilder_1 = require("../../interfaces/notificationBuilder");
 class EmailConsumer {
     rabbitMQ;
     emailService;
@@ -24,14 +25,23 @@ class EmailConsumer {
                     return;
                 try {
                     let data = JSON.parse(msg.content.toString());
+                    const rawMessage = data.message ? data.message : data;
+                    if (!rawMessage.toEmail && !rawMessage.toPhone) {
+                        console.warn("⚠️ Found invalid/old message missing email/phone. Deleting from queue. Data was:", data);
+                        channel.ack(msg);
+                        return;
+                    }
                     data.retryCount = data.retryCount || 0;
                     console.log(`Email job received via Exchange (retry #${data.retryCount}):`, data);
-                    await this.emailService.sendEmail(data);
+                    const message = new notificationBuilder_1.NotificationBuilder()
+                        .fromJSON(data)
+                        .build();
+                    await this.emailService.send(message);
                     channel.ack(msg);
-                    console.log("Email sent and acknowledged");
+                    console.log("✅ Email sent and acknowledged");
                 }
                 catch (err) {
-                    console.error("Processing failed", err);
+                    console.error("Processing failed:", err);
                     channel.nack(msg, false, false);
                 }
             });

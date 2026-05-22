@@ -15,6 +15,7 @@ const jwtToken_1 = require("../utils/jwtToken");
 const password_1 = require("../utils/password");
 const redis_1 = require("../lib/redis");
 const redisManager_1 = __importDefault(require("../lib/redisManager")); // Fixed the import typo here
+const notificationBuilder_1 = require("../interfaces/notificationBuilder");
 class AuthController {
     db;
     constructor(dbClient) {
@@ -40,12 +41,10 @@ class AuthController {
             const otp = (0, generateOtp_1.random6digitnumber)();
             const redis_key = redis_1.redisConfig.getRedisEmailKey(email);
             const otp_expire_time = Number(env_1.OTP_EXPIRE_TIME) || 300;
-            const payload = {
-                email_to: email,
-                subject: "Verify Account",
-                content: `Your verification OTP is ${otp} and it will expire after ${otp_expire_time / 60} minutes`,
-            };
-            await email_producer_1.emailProducer.sendOtp(payload);
+            const payload = (new notificationBuilder_1.NotificationBuilder()).setToEmail(email)
+                .setSubject("Verify Account")
+                .setContent(`Your verification OTP is ${otp} and it will expire after ${otp_expire_time / 60} minutes`).setType("Create").build();
+            await email_producer_1.emailProducer.send(payload);
             // 1. Get the correct Redis Auth instance for this specific email
             const redisClient = redisManager_1.default.getAuthRedis(email);
             console.log(`4. Saving to Redis Node [${redisManager_1.default.authRing.getNodeConfig(email)?.host}]...`);
@@ -147,12 +146,11 @@ class AuthController {
                 const otp = (0, generateOtp_1.random6digitnumber)();
                 const redis_key = redis_1.redisConfig.getRedisEmailKey(email);
                 const otp_expire_time = Number(env_1.OTP_EXPIRE_TIME) || 300;
-                const payload = {
-                    email_to: email,
-                    subject: "Forgot Password OTP",
-                    content: `OTP To Reset Password is ${otp}, it will expire after ${otp_expire_time / 60} minutes`,
-                };
-                await email_producer_1.emailProducer.sendOtp(payload);
+                const payload = (new notificationBuilder_1.NotificationBuilder()).setToEmail(email)
+                    .setSubject("Forgot Password OTP")
+                    .setContent(`OTP To Reset Password is ${otp}, it will expire after ${otp_expire_time / 60} minutes`).setType("Forgot")
+                    .build();
+                await email_producer_1.emailProducer.send(payload);
                 // Fetch the correct Redis instance
                 const redisClient = redisManager_1.default.getAuthRedis(email);
                 await redisClient.setEx(redis_key, otp_expire_time, String(otp));
