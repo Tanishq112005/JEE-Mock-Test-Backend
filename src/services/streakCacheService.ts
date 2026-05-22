@@ -112,8 +112,8 @@ class StreakCacheService {
       if (lastActiveDate !== yesterdayStr) {
         // If they missed yesterday, streak is broken
         if (currentStreak > 0) {
-           currentStreak = 0;
-           this.fireResetEvent(studentId);
+          currentStreak = 0;
+          this.fireResetEvent(studentId);
         }
       }
       
@@ -148,6 +148,24 @@ class StreakCacheService {
       });
     } catch (err) {
       console.error("Failed to publish streak reset to RabbitMQ", err);
+    }
+  }
+
+  private fireUpdateEvent(studentId: string, currentStreak: number, maxStreak: number) {
+    try {
+      rabbitMQClient.getChannel().then(channel => {
+        const exchange = "main_exchange";
+        const routingKey = "streak.update";
+        channel.assertExchange(exchange, "direct", { durable: true });
+        channel.publish(
+          exchange,
+          routingKey,
+          Buffer.from(JSON.stringify({ studentId, currentStreak, maxStreak })),
+          { persistent: true }
+        );
+      });
+    } catch (err) {
+      console.error("Failed to publish streak update to RabbitMQ", err);
     }
   }
 
@@ -195,21 +213,7 @@ class StreakCacheService {
       });
       
       // Fire RabbitMQ event to sync this to DB asynchronously
-      try {
-        const channel = await rabbitMQClient.getChannel();
-        const exchange = "main_exchange";
-        const routingKey = "streak.update";
-        await channel.assertExchange(exchange, "direct", { durable: true });
-        
-        channel.publish(
-          exchange,
-          routingKey,
-          Buffer.from(JSON.stringify({ studentId })),
-          { persistent: true }
-        );
-      } catch (err) {
-        console.error("Failed to publish streak update to RabbitMQ", err);
-      }
+      this.fireUpdateEvent(studentId, currentStreak, maxStreak);
     }
   }
 }

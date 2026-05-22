@@ -34,7 +34,7 @@ export class StreakConsumer {
                 await analytics.resetStreak(data.studentId);
              } else {
                 // streak.update
-                await analytics.updateStreak(data.studentId);
+                await analytics.updateStreak(data.studentId, data.currentStreak, data.maxStreak);
              }
           }
 
