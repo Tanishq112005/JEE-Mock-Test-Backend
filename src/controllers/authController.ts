@@ -3,7 +3,7 @@ import { OTP_EXPIRE_TIME } from "../config/env";
 import { PrismaClient } from "@prisma/client";
 import { emailProducer } from "../rabbitmq/producers/email-producer";
 import { user } from "../repositories/user.db";
-import { EmailPayload } from "../types/emailPayload";
+
 import {
   jwtPayloadAccessToken,
   jwtPayloadRefershToken,
@@ -20,6 +20,8 @@ import {
 import { comparePasswords, hashPassword } from "../utils/password";
 import { redisConfig } from "../lib/redis";
 import redisManager from "../lib/redisManager"; // Fixed the import typo here
+import { NotificationMessage } from "../interfaces/notificationInterface";
+import { NotificationBuilder } from "../interfaces/notificationBuilder";
 
 export class AuthController {
   private db: PrismaClient | any;
@@ -51,15 +53,14 @@ export class AuthController {
       const otp = random6digitnumber();
       const redis_key = redisConfig.getRedisEmailKey(email);
       const otp_expire_time = Number(OTP_EXPIRE_TIME) || 300;
-      const payload: EmailPayload = {
-        email_to: email,
-        subject: "Verify Account",
-        content: `Your verification OTP is ${otp} and it will expire after ${
-          otp_expire_time / 60
-        } minutes`,
-      };
 
-      await emailProducer.sendOtp(payload);
+
+      const payload: NotificationMessage = (new NotificationBuilder()).setToEmail(email)
+        .setSubject("Verify Account")
+        .setContent(`Your verification OTP is ${otp} and it will expire after ${otp_expire_time / 60
+          } minutes`).setType("Create").build();
+
+      await emailProducer.send(payload);
 
       // 1. Get the correct Redis Auth instance for this specific email
       const redisClient = redisManager.getAuthRedis(email);
@@ -192,15 +193,14 @@ export class AuthController {
         const otp = random6digitnumber();
         const redis_key = redisConfig.getRedisEmailKey(email);
         const otp_expire_time = Number(OTP_EXPIRE_TIME) || 300;
-        const payload: EmailPayload = {
-          email_to: email,
-          subject: "Forgot Password OTP",
-          content: `OTP To Reset Password is ${otp}, it will expire after ${
-            otp_expire_time / 60
-          } minutes`,
-        };
 
-        await emailProducer.sendOtp(payload);
+        const payload: NotificationMessage = (new NotificationBuilder()).setToEmail(email)
+          .setSubject("Forgot Password OTP")
+          .setContent(`OTP To Reset Password is ${otp}, it will expire after ${otp_expire_time / 60
+            } minutes`).setType("Forgot")
+          .build();
+
+        await emailProducer.send(payload);
 
         // Fetch the correct Redis instance
         const redisClient = redisManager.getAuthRedis(email);

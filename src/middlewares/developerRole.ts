@@ -6,6 +6,7 @@ export const developerRoleMiddleware = (req :  any , res : any , next : any) => 
        return next() ; 
     }
     else {
+       
         res.status(500).json(
             new ApiError(
                 "Unauthorised Access" 

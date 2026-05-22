@@ -1,8 +1,8 @@
 import axios from "axios";
 import { BREVO_KEY_1, BREVO_KEY_2, BREVO_KEY_3, BREVO_KEY_4, BREVO_KEY_5, EMAIL_ID_1, EMAIL_ID_2, EMAIL_ID_3, EMAIL_ID_4, EMAIL_ID_5 } from "../config/env";
 import ApiError from "../utils/ApiError";
-import { EmailPayload } from "../types/emailPayload";
-import { IEmailProvider } from "../interfaces/emailInterface";
+
+import { INotificationService, NotificationMessage } from "../interfaces/notificationInterface";
 import { emailTemplate } from "../utils/emailTemplate";
 
 interface BrevoAccount {
@@ -20,12 +20,25 @@ const BREVO_ACCOUNTS: BrevoAccount[] = [
     
 ].filter(account => account.apiKey !== "" && account.emailId !== "");
 
-class Brevo implements IEmailProvider {
+class Brevo implements INotificationService {
   private currentKeyIndex = 0;
 
-  async sendEmail(payload: EmailPayload) {
-    const { email_to, subject, content } = payload;
+  async send(message: NotificationMessage) {
+    if (!message.toEmail ) {
+      throw new ApiError("Email destination is required for Brevo service", 400);
+    }
+
+    if(!message.content){
+      throw new ApiError(
+        "No Content is There , Please Add It" , 500
+      );
+    }
   
+    if(!message.type){
+      throw new ApiError(
+        "Error  message type is not present"
+      )
+    }
     let attempts = 0;
     
     // 2. Loop based on the length of our accounts array
@@ -41,9 +54,9 @@ class Brevo implements IEmailProvider {
           {
             // 4. Use the dynamic sender email from the account object
             sender: { name: "JEE Archive Support", email: account.emailId }, 
-            to: [{ email: email_to, name: "User" }],
-            subject: subject,
-            htmlContent: emailTemplate(content),
+            to: [{ email: message.toEmail, name: "User" }],
+            subject: message.subject,
+            htmlContent: emailTemplate(message.content),
           },
           {
             headers: {
@@ -81,4 +94,4 @@ class Brevo implements IEmailProvider {
   }
 }
 
-export const emailService: IEmailProvider = new Brevo();
+export const emailService: INotificationService = new Brevo();

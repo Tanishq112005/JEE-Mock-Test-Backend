@@ -1,24 +1,30 @@
-
 import { rabbitMQClient } from "../connection/rabbitmq-connection"; 
-import { EmailPayload } from "../../types/emailPayload";
+import { NotificationMessage } from "../../interfaces/notificationInterface";
 
 export class EmailProducer {
-  constructor() {
-  }
+  constructor() {}
 
-  async sendOtp(data: EmailPayload) {
+  async send(data: NotificationMessage) {
     try {
       const channel = await rabbitMQClient.getChannel(); 
+      console.log(data); 
+      console.log("From the producer");
       
       const exchange = "main_exchange";
       const routingKey = "email.send";
 
       await channel.assertExchange(exchange, "direct", { durable: true });
 
+      // 1. Convert the class instance properties into a JSON string
+      const jsonString = JSON.stringify(data);
+      
+      // 2. Convert the string into raw bytes (Buffer) for RabbitMQ
+      const bufferData = Buffer.from(jsonString);
+
       channel.publish(
         exchange,
         routingKey,
-        Buffer.from(JSON.stringify(data)),
+        bufferData, // <-- Send the Buffer, not the object
         { persistent: true }
       );
       

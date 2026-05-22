@@ -142,7 +142,33 @@ class User {
       throw err;
     }
   }
+ 
 
+  // for finding the details through the student id 
+  async userDetailsThroughStudentId(id : string){
+    try {
+      const studentDetails = await this.db.studentProfile.findUnique({
+        where : {
+          id : id , 
+        }
+      })
+
+      const allTheUserDetails = await this.db.user.findUnique({
+        where : {
+          id : studentDetails?.user_id 
+        }
+      })
+
+      return {
+         studentDetails , 
+         allTheUserDetails
+      }
+
+    }
+    catch(err : any){
+      throw err ; 
+    }
+  }
   async creatingStudent(userId: string) {
     try {
       // Use upsert so re-verifying OTP (e.g. retry) doesn't throw a unique constraint error
@@ -312,6 +338,22 @@ class User {
       });
     } catch (err: any) {
       throw err;
+    }
+  }
+
+
+
+
+
+  // getting all the user from the db 
+
+  async gettingAllUser() {
+    try {
+     const data : any = this.db.user.findMany() ; 
+     return data ; 
+    }
+    catch(err : any) {
+      throw err ;
     }
   }
 }

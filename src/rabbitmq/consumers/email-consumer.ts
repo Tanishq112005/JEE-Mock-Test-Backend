@@ -1,14 +1,13 @@
-import { IEmailProvider } from "../../interfaces/emailInterface";
-import { emailService } from "../../services/brevoService";
-import { EmailPayload } from "../../types/emailPayload";
-
+import { INotificationService } from "../../interfaces/notificationInterface";
+import { NotificationBuilder } from "../../interfaces/notificationBuilder";
 
 export class EmailConsumer {
   private rabbitMQ: any;
-  private emailService : IEmailProvider ; 
-  constructor(rabbitMQ: any , emailService : IEmailProvider) {
+  private emailService: INotificationService; 
+  
+  constructor(rabbitMQ: any, emailService: INotificationService) {
     this.rabbitMQ = rabbitMQ;
-    this.emailService = emailService ; 
+    this.emailService = emailService; 
   }
 
   async start() {
@@ -21,30 +20,41 @@ export class EmailConsumer {
       await channel.assertQueue(queueName, { durable: true });
       await channel.assertQueue("email_queue_dead", { durable: true });
 
-    
       const routingKey = "email.send";
       await channel.bindQueue(queueName, exchangeName, routingKey);
 
       console.log("Email Consumer started... Waiting for messages...");
-
+   
       channel.consume(queueName, async (msg: any) => {
         if (!msg) return;
 
         try {
-          let data  = JSON.parse(msg.content.toString());
-       
-          data.retryCount = data.retryCount || 0;
+          let data = JSON.parse(msg.content.toString());
+          
+  
+          const rawMessage = data.message ? data.message : data;
+          if (!rawMessage.toEmail && !rawMessage.toPhone) {
+            console.warn("⚠️ Found invalid/old message missing email/phone. Deleting from queue. Data was:", data);
+            channel.ack(msg); 
+            return; 
+          }
 
+          data.retryCount = data.retryCount || 0;
           console.log(`Email job received via Exchange (retry #${data.retryCount}):`, data);
 
-          await this.emailService.sendEmail(data) ; 
+        
+          const message = new NotificationBuilder()
+            .fromJSON(data)
+            .build();
+
+     
+          await this.emailService.send(message); 
 
           channel.ack(msg);
-          console.log("Email sent and acknowledged");
+          console.log("✅ Email sent and acknowledged");
 
         } catch (err) {
-       
-          console.error("Processing failed", err);
+          console.error("Processing failed:", err);
           channel.nack(msg, false, false);
         }
       });
@@ -55,4 +65,3 @@ export class EmailConsumer {
     }
   }
 }
-
