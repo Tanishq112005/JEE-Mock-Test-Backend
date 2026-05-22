@@ -555,37 +555,16 @@ class Analytics {
     // ══════════════════════════════════════════════════════════════════════════
     // STREAK
     // ══════════════════════════════════════════════════════════════════════════
-    async updateStreak(studentId) {
-        const now = new Date();
-        const todayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-        const yesterdayUTC = new Date(todayUTC);
-        yesterdayUTC.setUTCDate(yesterdayUTC.getUTCDate() - 1);
-        await this.db.$transaction(async (tx) => {
-            const todayLog = await tx.dailyActivityLog.findUnique({
-                where: { studentId_date: { studentId, date: todayUTC } },
-            });
-            if (todayLog)
-                return;
-            await tx.dailyActivityLog.upsert({
-                where: { studentId_date: { studentId, date: todayUTC } },
-                create: { studentId, date: todayUTC, questionsSolved: 1 },
-                update: { questionsSolved: { increment: 1 } },
-            });
-            const profile = await tx.studentProfile.findUnique({
-                where: { id: studentId },
-                select: { streak: true, maximumStreak: true },
-            });
-            if (!profile)
-                throw new Error(`Profile not found: ${studentId}`);
-            const yesterdayLog = await tx.dailyActivityLog.findUnique({
-                where: { studentId_date: { studentId, date: yesterdayUTC } },
-            });
-            const newStreak = yesterdayLog ? profile.streak + 1 : 1;
-            const newMaxStreak = Math.max(newStreak, profile.maximumStreak);
-            await tx.studentProfile.update({
-                where: { id: studentId },
-                data: { streak: newStreak, maximumStreak: newMaxStreak },
-            });
+    async updateStreak(studentId, currentStreak, maxStreak) {
+        await this.db.studentProfile.update({
+            where: { id: studentId },
+            data: { streak: currentStreak, maximumStreak: maxStreak },
+        });
+    }
+    async resetStreak(studentId) {
+        await this.db.studentProfile.update({
+            where: { id: studentId },
+            data: { streak: 0 },
         });
     }
     // ══════════════════════════════════════════════════════════════════════════

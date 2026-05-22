@@ -9,6 +9,7 @@ const analytics_db_1 = require("../repositories/analytics.db");
 const reportService_1 = require("../services/reportService");
 const ApiError_1 = __importDefault(require("../utils/ApiError"));
 const ApiResponse_1 = __importDefault(require("../utils/ApiResponse"));
+const streakCacheService_1 = require("../services/streakCacheService");
 class AnalyticsController {
     constructor() { }
     testAnalytics = async (req, res) => {
@@ -51,6 +52,17 @@ class AnalyticsController {
         catch (err) {
             console.log(err);
             return res.status(500).json(new ApiError_1.default("Error in generating the report", err));
+        }
+    };
+    getStreakStatus = async (req, res) => {
+        try {
+            const studentId = req.user;
+            const streakData = await streakCacheService_1.streakCacheService.getStreakStatus(studentId);
+            return res.status(200).json(new ApiResponse_1.default("Streak data retrieved successfully", streakData));
+        }
+        catch (err) {
+            console.error(err);
+            return res.status(500).json(new ApiError_1.default("Error in retrieving streak status", err));
         }
     };
 }

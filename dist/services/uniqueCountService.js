@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.questionBitmapRegistry = void 0;
 const redis_1 = require("../lib/redis");
 const database_1 = require("../lib/database");
+const streakCacheService_1 = require("./streakCacheService");
 // ─── Registry ─────────────────────────────────────────────────────────────────
 /**
  * QuestionBitmapRegistry
@@ -90,9 +91,10 @@ class QuestionBitmapRegistry {
             bitIndex = await this.registerNewQuestion(questionId);
         }
         const key = this.studentKey(studentId);
-        // SETBIT is atomic and returns the *previous* bit value (0 or 1).
         const previousValue = await this.redis.setBit(key, bitIndex, 1);
         const isFirstAttempt = previousValue === 0;
+        // Update streak for EVERY question solved (even if not unique)
+        streakCacheService_1.streakCacheService.incrementActivity(studentId, 1).catch(err => console.error("[Streak] Error updating:", err));
         return { isFirstAttempt, bitIndex };
     }
     async markAttemptedBatch(studentId, questionIds) {
@@ -120,6 +122,10 @@ class QuestionBitmapRegistry {
             const isFirstAttempt = previousValue === 0;
             results.set(questionId, { isFirstAttempt, bitIndex });
         });
+        // Update streak for ALL questions in the batch (even if not unique)
+        if (indexedQuestions.length > 0) {
+            streakCacheService_1.streakCacheService.incrementActivity(studentId, indexedQuestions.length).catch(err => console.error("[Streak] Error updating batch:", err));
+        }
         return results;
     }
     async hasAttempted(studentId, questionId) {
