@@ -302,15 +302,11 @@ class TestEvaluation {
 
       // --- PERFORMANCE FIX: Execute DB calls efficiently outside the loop ---
       if (correctQuestionIdsForRegistry.length > 0) {
-        // Run them all concurrently
-        await Promise.all(
-          correctQuestionIdsForRegistry.map((qId) =>
-            questionBitmapRegistry.markAttempted(studentId, qId),
-          ),
-        );
+        // Run them all concurrently as a batch
+        await questionBitmapRegistry.markAttemptedBatch(studentId, correctQuestionIdsForRegistry);
       }
-      // Only update the streak ONCE for the whole test, not 50 times
-      await analytics.updateStreak(studentId);
+      // Streak update is now handled asynchronously by streakCacheService
+      // when questionBitmapRegistry.markAttemptedBatch is called.
       // ----------------------------------------------------------------------
 
       // Accuracies for question types

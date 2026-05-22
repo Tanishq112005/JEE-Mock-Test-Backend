@@ -6,8 +6,14 @@ import { WATCHDOG_INACTIVITY_THRESHOLD_SEC, WATCHDOG_INTERVAL, WATCHDOG_PORT } f
 const CHECK_INTERVAL_MS = parseInt(WATCHDOG_INTERVAL || '60000'); 
 const INACTIVITY_THRESHOLD_SEC = parseInt(WATCHDOG_INACTIVITY_THRESHOLD_SEC || '90');
 
+import { rabbitMQClient } from "../rabbitmq/connection/rabbitmq-connection";
+import { StreakConsumer } from "../rabbitmq/consumers/streak-consumer";
+
 const startWatchdogWorker = async () => {
     try {
+        await rabbitMQClient.connect();
+        const streakConsumer = new StreakConsumer(rabbitMQClient);
+        await streakConsumer.start();
         
         const intervalId = setInterval(async () => {
             try {

@@ -15,5 +15,6 @@ router.get("/analyticsWindow" , authMiddleware , analyticsLimiter.limit ,  analy
 
 router.get("/test" ,authMiddleware , testAnalyticsLimiter.limit ,  analyticsController.testAnalytics) ; 
 
+router.get("/streak", authMiddleware, analyticsController.getStreakStatus);
 
 export const analyticsRoutes = router ; 

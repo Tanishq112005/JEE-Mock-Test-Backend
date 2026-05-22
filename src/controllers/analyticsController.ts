@@ -3,6 +3,7 @@ import { analytics } from "../repositories/analytics.db";
 import { reportService } from "../services/reportService";
 import ApiError from "../utils/ApiError";
 import ApiResponse from "../utils/ApiResponse";
+import { streakCacheService } from "../services/streakCacheService";
 
 class AnalyticsController {
 
@@ -86,6 +87,21 @@ class AnalyticsController {
                 new ApiError("Error in generating the report", err)
             );
         }   
+    };
+
+    public getStreakStatus = async (req: any, res: any) => {
+        try {
+            const studentId = req.user;
+            const streakData = await streakCacheService.getStreakStatus(studentId);
+            return res.status(200).json(
+                new ApiResponse("Streak data retrieved successfully", streakData)
+            );
+        } catch (err: any) {
+            console.error(err);
+            return res.status(500).json(
+                new ApiError("Error in retrieving streak status", err)
+            );
+        }
     };
 }
 

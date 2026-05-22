@@ -4,6 +4,7 @@ import { redisClient } from "../lib/redis";
 import { database } from "../lib/database";
 import { PrismaClient } from "@prisma/client";
 import { BitmapCheckResult, SeenQuestionsResult } from "../types/uniqueQuestion.types";
+import { streakCacheService } from "./streakCacheService";
 
 // ─── Registry ─────────────────────────────────────────────────────────────────
 
@@ -126,9 +127,11 @@ class QuestionBitmapRegistry {
 
     const key = this.studentKey(studentId);
 
-    // SETBIT is atomic and returns the *previous* bit value (0 or 1).
     const previousValue = await this.redis.setBit(key, bitIndex, 1);
     const isFirstAttempt = previousValue === 0;
+
+    // Update streak for EVERY question solved (even if not unique)
+    streakCacheService.incrementActivity(studentId, 1).catch(err => console.error("[Streak] Error updating:", err));
 
     return { isFirstAttempt, bitIndex };
   }
@@ -165,6 +168,11 @@ class QuestionBitmapRegistry {
       const isFirstAttempt = previousValue === 0;
       results.set(questionId, { isFirstAttempt, bitIndex });
     });
+
+    // Update streak for ALL questions in the batch (even if not unique)
+    if (indexedQuestions.length > 0) {
+      streakCacheService.incrementActivity(studentId, indexedQuestions.length).catch(err => console.error("[Streak] Error updating batch:", err));
+    }
 
     return results;
   }

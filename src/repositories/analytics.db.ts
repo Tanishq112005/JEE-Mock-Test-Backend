@@ -760,6 +760,13 @@ class Analytics {
     });
   }
 
+  async resetStreak(studentId: string): Promise<void> {
+    await this.db.studentProfile.update({
+      where: { id: studentId },
+      data: { streak: 0 },
+    });
+  }
+
   // ══════════════════════════════════════════════════════════════════════════
   // PRACTICE ANALYTICS
   // ══════════════════════════════════════════════════════════════════════════
