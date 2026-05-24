@@ -65,7 +65,7 @@ class ChapterWiseController {
       const userId = req.user;
 
       if (!chapterName)
-        return res.status(400).json(new ApiError("chapterName is required"));
+        return res.status(400).json(new ApiError("ChapterName is required"));
 
       let chapterRecord: any;
       try {
@@ -155,13 +155,9 @@ class ChapterWiseController {
     try {
       const { questionId } = req.params;
       const userId = req.user;
-      const {
-        status,
-        timeSpent,
-        userAnswerRaw, 
-      } = req.body;
-
+      const { status, timeSpent, userAnswerRaw } = req.body;
       const studentId = req.user; 
+
       const result = await practiceQuestionEvaluation.evaluate({
         questionId: questionId,
         userAnswer: userAnswerRaw || [],
@@ -169,34 +165,45 @@ class ChapterWiseController {
         created_at: new Date()
       });
       
+
+      const isActuallyCorrect = result.verdict && String(result.verdict).toLowerCase() === "correct";
+      
+      console.log(`[Submit] Evaluated Question ${questionId}. Verdict: "${result.verdict}". Parsed as Correct: ${isActuallyCorrect}`);
+
+      console.log(isActuallyCorrect) ; 
+      if (isActuallyCorrect) {
+        console.log(`[Submit] Marking question as attempted in Redis Bitmap...`);
+        const f = await questionBitmapRegistry.markAttempted(studentId, questionId); 
+        console.log(f) ; 
+        console.log(`[Submit] Successfully marked in Redis Bitmap.`);
+      }
+      
+      
+
       const payload = {
         studentId: userId,
         questionId,
         status: status || AttemptStatus.answered,
         timeSpent: timeSpent || 0,
         userAnswer: userAnswerRaw || [],
-        isCorrect: result.verdict === "correct",
+        isCorrect: isActuallyCorrect, // Use the safe boolean
         marksObtained: result.marks,
       };
 
-      if(result.verdict === "correct"){
-        await questionBitmapRegistry.markAttempted(studentId, questionId); 
-      }
-      
       await chapterWiseCacheService.upsertAttemptData(userId, questionId, payload);
       await submitChapterAttemptProducer.submitAttemptData(payload);
+     
 
       return res.status(200).json(
         new ApiResponse("Question submitted and evaluated", {
           marksObtained: result.marks,
           verdict: result.verdict,
-          isCorrect: result.verdict === "correct",
+          isCorrect: isActuallyCorrect,
         }),
       );
     } catch (err: any) {
-      return res
-        .status(500)
-        .json(new ApiError("Error evaluating answer", err as any));
+      console.error("[Submit] Evaluation Error:", err);
+      return res.status(500).json(new ApiError("Error evaluating answer", err as any));
     }
   };
 }

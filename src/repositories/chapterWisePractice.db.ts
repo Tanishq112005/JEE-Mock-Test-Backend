@@ -41,7 +41,7 @@ class ChapterWisePractice {
       return yearB - yearA;
     });
 
-    await questionBitmapRegistry.syncFromDB(studentId);
+   
 
     const { questionIds: attemptedIdsList } =
       await questionBitmapRegistry.getAttemptedQuestionIds(studentId);
