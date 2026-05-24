@@ -12,8 +12,19 @@ class AnswerVerifyService {
                 verdict: "unattempted",
             };
         }
-        const isExactMatch = userAnswer.length === correctAnswer.length &&
-            [...userAnswer].sort().join(",") === [...correctAnswer].sort().join(",");
+        const isNumericalType = questionType === "Integer" || questionType === "ComprehensionInteger";
+        let isExactMatch = false;
+        if (isNumericalType) {
+            if (userAnswer.length === 1 && correctAnswer.length > 0) {
+                const parsedUser = parseFloat(userAnswer[0]);
+                isExactMatch = correctAnswer.some(ca => parseFloat(ca) === parsedUser);
+            }
+        }
+        else {
+            isExactMatch =
+                userAnswer.length === correctAnswer.length &&
+                    [...userAnswer].sort().join(",") === [...correctAnswer].sort().join(",");
+        }
         const isPartialAllowed = questionType === "MultiCorrect" ||
             questionType === "ComprehensionMultiCorrect";
         if (isPartialAllowed) {

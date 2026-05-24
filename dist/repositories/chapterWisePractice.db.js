@@ -64,7 +64,6 @@ class ChapterWisePractice {
             const yearB = b.papers?.year ?? 0;
             return yearB - yearA;
         });
-        await uniqueCountService_1.questionBitmapRegistry.syncFromDB(studentId);
         const { questionIds: attemptedIdsList } = await uniqueCountService_1.questionBitmapRegistry.getAttemptedQuestionIds(studentId);
         const attemptedSet = new Set(attemptedIdsList);
         let totalMainQuestions = 0;

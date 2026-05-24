@@ -56,7 +56,7 @@ class ChapterWiseController {
             const { chapterName } = req.params;
             const userId = req.user;
             if (!chapterName)
-                return res.status(400).json(new ApiError_1.default("chapterName is required"));
+                return res.status(400).json(new ApiError_1.default("ChapterName is required"));
             let chapterRecord;
             try {
                 chapterRecord = await chapter_db_1.chapter.gettingChapterId(chapterName);
@@ -124,7 +124,7 @@ class ChapterWiseController {
         try {
             const { questionId } = req.params;
             const userId = req.user;
-            const { status, timeSpent, userAnswerRaw, } = req.body;
+            const { status, timeSpent, userAnswerRaw } = req.body;
             const studentId = req.user;
             const result = await questionEvalutionService_1.practiceQuestionEvaluation.evaluate({
                 questionId: questionId,
@@ -132,30 +132,35 @@ class ChapterWiseController {
                 timeSpent: timeSpent || 0,
                 created_at: new Date()
             });
+            const isActuallyCorrect = result.verdict && String(result.verdict).toLowerCase() === "correct";
+            console.log(`[Submit] Evaluated Question ${questionId}. Verdict: "${result.verdict}". Parsed as Correct: ${isActuallyCorrect}`);
+            console.log(isActuallyCorrect);
+            if (isActuallyCorrect) {
+                console.log(`[Submit] Marking question as attempted in Redis Bitmap...`);
+                const f = await uniqueCountService_1.questionBitmapRegistry.markAttempted(studentId, questionId);
+                console.log(f);
+                console.log(`[Submit] Successfully marked in Redis Bitmap.`);
+            }
             const payload = {
                 studentId: userId,
                 questionId,
                 status: status || client_1.AttemptStatus.answered,
                 timeSpent: timeSpent || 0,
                 userAnswer: userAnswerRaw || [],
-                isCorrect: result.verdict === "correct",
+                isCorrect: isActuallyCorrect, // Use the safe boolean
                 marksObtained: result.marks,
             };
-            if (result.verdict === "correct") {
-                await uniqueCountService_1.questionBitmapRegistry.markAttempted(studentId, questionId);
-            }
             await chapterWiseCacheService_1.chapterWiseCacheService.upsertAttemptData(userId, questionId, payload);
             await submitChapterAttempt_producer_1.submitChapterAttemptProducer.submitAttemptData(payload);
             return res.status(200).json(new ApiResponse_1.default("Question submitted and evaluated", {
                 marksObtained: result.marks,
                 verdict: result.verdict,
-                isCorrect: result.verdict === "correct",
+                isCorrect: isActuallyCorrect,
             }));
         }
         catch (err) {
-            return res
-                .status(500)
-                .json(new ApiError_1.default("Error evaluating answer", err));
+            console.error("[Submit] Evaluation Error:", err);
+            return res.status(500).json(new ApiError_1.default("Error evaluating answer", err));
         }
     };
 }
