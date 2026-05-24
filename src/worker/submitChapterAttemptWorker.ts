@@ -2,7 +2,7 @@ import express from "express";
 import { rabbitMQClient } from "../rabbitmq/connection/rabbitmq-connection";
 import { SubmitChapterAttemptConsumer } from "../rabbitmq/consumers/submitChapterAttempt-consumer";
 import redisManager from "../lib/redisManager";
-import { REDIS_HOST, REDIS_PORT, REDIS_USERNAME, REDIS_PASSWORD, UPDATE_WORKER_PORT,  SUBMIT_CHAPTER_WISE_PORT } from "../config/env";
+import { REDIS_HOST, REDIS_PORT, REDIS_USERNAME, REDIS_PASSWORD,   SUBMIT_CHAPTER_WISE_PORT } from "../config/env";
 import { questionBitmapRegistry } from "../services/uniqueCountService";
 
 const startSubmitChapterWorker = async () => {
@@ -27,7 +27,7 @@ const startSubmitChapterWorker = async () => {
     console.log("Submit Chapter Worker is now listening for messages...");
 
     const app = express();
-    const port = SUBMIT_CHAPTER_WISE_PORT || 3008; // Hardcoded fallback or use env
+    const port = SUBMIT_CHAPTER_WISE_PORT || 3000; // Hardcoded fallback or use env
 
     app.get("/health", (req: any, res: any) => {
       res.send("Submit Chapter Worker is Running");
