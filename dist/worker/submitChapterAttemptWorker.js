@@ -25,7 +25,7 @@ const startSubmitChapterWorker = async () => {
         await submitConsumer.start();
         console.log("Submit Chapter Worker is now listening for messages...");
         const app = (0, express_1.default)();
-        const port = env_1.SUBMIT_CHAPTER_WISE_PORT || 3008; // Hardcoded fallback or use env
+        const port = env_1.SUBMIT_CHAPTER_WISE_PORT || 3000; // Hardcoded fallback or use env
         app.get("/health", (req, res) => {
             res.send("Submit Chapter Worker is Running");
         });
