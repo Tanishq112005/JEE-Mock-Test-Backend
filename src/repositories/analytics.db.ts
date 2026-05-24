@@ -755,10 +755,12 @@ class Analytics {
       chapterId:     string | null;
       examName:      string | null;
     },
+    options: { persistAttemptRecord?: boolean } = {},
   ): Promise<void> {
     if (!result.isVisited) return;
 
     const isCorrect = result.verdict === "correct";
+    const shouldPersistAttemptRecord = options.persistAttemptRecord ?? true;
 
     await this.db.$transaction(async (tx) => {
       const _tx    = tx as unknown as PrismaClient;
@@ -767,18 +769,20 @@ class Analytics {
 
       await Promise.all([
         // Attempt record
-        _tx.chapterWiseQuestionAttemptStatus.create({
-          data: {
-            questionId:     result.questionId,
-            studentId,
-            questionStatus: result.isVisited ? "answered" : "notAnswered",
-            isCorrect,
-            marksObtained:  result.marks,
-            timeSpent:      result.timeSpent,
-            userAnswer:     result.userAnswer,
-            isAnalyzed:     true,
-          },
-        }),
+        shouldPersistAttemptRecord
+          ? _tx.chapterWiseQuestionAttemptStatus.create({
+              data: {
+                questionId:     result.questionId,
+                studentId,
+                questionStatus: result.isVisited ? "answered" : "notAnswered",
+                isCorrect,
+                marksObtained:  result.marks,
+                timeSpent:      result.timeSpent,
+                userAnswer:     result.userAnswer,
+                isAnalyzed:     true,
+              },
+            })
+          : Promise.resolve(),
 
         // Overall
         _tx.studentOverallAnalytics.upsert({
@@ -857,6 +861,32 @@ class Analytics {
             timeSpent:        { increment: result.timeSpent },
           },
         }),
+
+        result.examName
+          ? _tx.examAnalytics.upsert({
+              where: {
+                studentId_examName: {
+                  studentId,
+                  examName: result.examName as ExamName,
+                },
+              },
+              create: {
+                studentId,
+                examName: result.examName as ExamName,
+                practiceAttempts: 1,
+                practiceTimeSpent: result.timeSpent,
+                practiceMarksEarned: result.marks,
+                practiceMaxPossible: result.positiveMarks,
+              },
+              update: {
+                practiceAttempts: { increment: 1 },
+                practiceTimeSpent: { increment: result.timeSpent },
+                practiceMarksEarned: { increment: result.marks },
+                practiceMaxPossible: { increment: result.positiveMarks },
+                updated_at: new Date(),
+              },
+            })
+          : Promise.resolve(),
 
         // Chapter (only if both chapterId and examName present)
         result.chapterId && result.examName

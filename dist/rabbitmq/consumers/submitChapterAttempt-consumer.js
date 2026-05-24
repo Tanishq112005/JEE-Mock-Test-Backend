@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SubmitChapterAttemptConsumer = void 0;
 const chapterWisePractice_db_1 = require("../../repositories/chapterWisePractice.db");
+const analytics_db_1 = require("../../repositories/analytics.db");
 const chapterWiseCacheService_1 = require("../../services/chapterWiseCacheService");
 class SubmitChapterAttemptConsumer {
     connection;
@@ -36,6 +37,20 @@ class SubmitChapterAttemptConsumer {
                         marksObtained: data.marksObtained,
                         isFinalSubmit: true
                     });
+                    if (data.subjectId && data.type) {
+                        await analytics_db_1.analytics.persistPracticeAnalytics(data.studentId, data.subjectId, {
+                            questionId: data.questionId,
+                            verdict: data.verdict ?? (data.isCorrect ? "correct" : "wrong"),
+                            marks: data.marksObtained ?? 0,
+                            positiveMarks: data.positiveMarks ?? 0,
+                            type: data.type,
+                            timeSpent: data.timeSpent ?? 0,
+                            userAnswer: data.userAnswer ?? [],
+                            isVisited: true,
+                            chapterId: data.chapterId ?? null,
+                            examName: data.examName ?? null,
+                        }, { persistAttemptRecord: false });
+                    }
                     // DB confirmed — now safe to delete from Redis
                     await chapterWiseCacheService_1.chapterWiseCacheService.deleteAttemptData(data.studentId, data.questionId);
                     // We should also trigger analytics evaluation for chapter wise practice here if needed

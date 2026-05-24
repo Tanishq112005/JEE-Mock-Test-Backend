@@ -1,5 +1,6 @@
 import { ConsumeMessage } from "amqplib";
 import { chapterWisePractice } from "../../repositories/chapterWisePractice.db";
+import { analytics } from "../../repositories/analytics.db";
 import { chapterWiseCacheService } from "../../services/chapterWiseCacheService";
 import { questionBitmapRegistry } from "../../services/uniqueCountService";
 
@@ -43,6 +44,21 @@ export class SubmitChapterAttemptConsumer {
               marksObtained: data.marksObtained,
               isFinalSubmit: true
           });
+
+          if (data.subjectId && data.type) {
+            await analytics.persistPracticeAnalytics(data.studentId, data.subjectId, {
+              questionId: data.questionId,
+              verdict: data.verdict ?? (data.isCorrect ? "correct" : "wrong"),
+              marks: data.marksObtained ?? 0,
+              positiveMarks: data.positiveMarks ?? 0,
+              type: data.type,
+              timeSpent: data.timeSpent ?? 0,
+              userAnswer: data.userAnswer ?? [],
+              isVisited: true,
+              chapterId: data.chapterId ?? null,
+              examName: data.examName ?? null,
+            }, { persistAttemptRecord: false });
+          }
 
       
 

@@ -385,12 +385,30 @@ class PracticeAnalyticsBuilder {
         const dbQTOverall = questionTypeAnalytics.map((qt) => ({
             type: qt.questioType, dbAttempts: qt.practiceAttempts, dbTime: qt.practiceTimeSpent, dbMarks: qt.practiceMarksEarned, dbMax: qt.practiceMaxPossible
         }));
+        const findExamPractice = (examName) => {
+            const row = examAnalytics.find((ea) => ea.examName === examName);
+            return {
+                attempts: row?.practiceAttempts ?? 0,
+                timeSpent: row?.practiceTimeSpent ?? 0,
+                marksEarned: row?.practiceMarksEarned ?? 0,
+                maxPossible: row?.practiceMaxPossible ?? 0,
+            };
+        };
+        const emptySubjectRows = allSubjects.map(s => ({
+            id: s.id,
+            name: s.name,
+            dbAttempts: 0,
+            dbTime: 0,
+            dbMarks: 0,
+            dbMax: 0,
+        }));
+        console.log(dbSubsOverall, dbQTOverall);
         return {
             overall: this.processPracticeGroup(redisPartitions.overall, {
                 attempts: overallAnalytics?.practiceAttempts, timeSpent: overallAnalytics?.practiceTimeSpent, marksEarned: overallAnalytics?.practiceMarksEarned, maxPossible: overallAnalytics?.practiceMaxPossible
             }, dbSubsOverall, dbQTOverall),
-            jeeMain: this.processPracticeGroup(redisPartitions.jeeMain, { attempts: 0, timeSpent: 0, marksEarned: 0, maxPossible: 0 }, allSubjects.map(s => ({ id: s.id, name: s.name, dbAttempts: 0, dbTime: 0, dbMarks: 0, dbMax: 0 })), []),
-            jeeAdvanced: this.processPracticeGroup(redisPartitions.jeeAdvanced, { attempts: 0, timeSpent: 0, marksEarned: 0, maxPossible: 0 }, allSubjects.map(s => ({ id: s.id, name: s.name, dbAttempts: 0, dbTime: 0, dbMarks: 0, dbMax: 0 })), []),
+            jeeMain: this.processPracticeGroup(redisPartitions.jeeMain, findExamPractice("JEE_MAIN"), emptySubjectRows, []),
+            jeeAdvanced: this.processPracticeGroup(redisPartitions.jeeAdvanced, findExamPractice("JEE_ADVANCED"), emptySubjectRows, []),
         };
     }
 }
@@ -403,6 +421,7 @@ class ChapterAnalyticsBuilder {
             analytics_db_1.analytics.chapterWiseAnalytics(studentId),
             dashboardCacheService_1.dashboardCacheService.reddisTestData(studentId),
         ]);
+        console.log(dbChapters, reddisData);
         const chapterMap = {};
         for (const ch of dbChapters) {
             const pMain = this.buildSubReport(ch.practiceJeeMainAttempts, ch.practiceJeeMainTimeSpent, ch.practiceJeeMainMarksEarned, ch.practiceJeeMainMaxPossible, ch.practiceJeeMainCorrect, ch.practiceJeeMainWrong, ch.practiceJeeMainPartial);

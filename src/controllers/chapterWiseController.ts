@@ -121,14 +121,25 @@ class ChapterWiseController {
     try {
       const { questionId } = req.params;
       const userId = req.user;
-      const { status, timeSpent, userAnswer } = req.body;
+      const { status, timeSpent, userAnswer, userAnswerRaw, numericAnswer, selectedOptionIds } = req.body;
+
+      let formattedAnswer: string[] = [];
+      if (numericAnswer !== null && numericAnswer !== undefined && numericAnswer !== "") {
+        formattedAnswer.push(String(numericAnswer));
+      } else if (Array.isArray(selectedOptionIds) && selectedOptionIds.length > 0) {
+        formattedAnswer = selectedOptionIds.map(String);
+      } else if (userAnswer !== null && userAnswer !== undefined) {
+        formattedAnswer = Array.isArray(userAnswer) ? userAnswer.map(String) : [String(userAnswer)];
+      } else if (userAnswerRaw !== null && userAnswerRaw !== undefined) {
+        formattedAnswer = Array.isArray(userAnswerRaw) ? userAnswerRaw.map(String) : [String(userAnswerRaw)];
+      }
 
       const payload = {
         studentId: userId,
         questionId,
         status: status || AttemptStatus.notAnswered,
         timeSpent: timeSpent || 0,
-        userAnswer: userAnswer || [],
+        userAnswer: formattedAnswer,
       };
 
       await chapterWiseCacheService.upsertAttemptData(
@@ -155,12 +166,23 @@ class ChapterWiseController {
     try {
       const { questionId } = req.params;
       const userId = req.user;
-      const { status, timeSpent, userAnswerRaw } = req.body;
+      const { status, timeSpent, userAnswerRaw, numericAnswer, selectedOptionIds, userAnswer } = req.body;
       const studentId = req.user; 
+
+      let formattedAnswer: string[] = [];
+      if (numericAnswer !== null && numericAnswer !== undefined && numericAnswer !== "") {
+        formattedAnswer.push(String(numericAnswer));
+      } else if (Array.isArray(selectedOptionIds) && selectedOptionIds.length > 0) {
+        formattedAnswer = selectedOptionIds.map(String);
+      } else if (userAnswer !== null && userAnswer !== undefined) {
+        formattedAnswer = Array.isArray(userAnswer) ? userAnswer.map(String) : [String(userAnswer)];
+      } else if (userAnswerRaw !== null && userAnswerRaw !== undefined) {
+        formattedAnswer = Array.isArray(userAnswerRaw) ? userAnswerRaw.map(String) : [String(userAnswerRaw)];
+      }
 
       const result = await practiceQuestionEvaluation.evaluate({
         questionId: questionId,
-        userAnswer: userAnswerRaw || [],
+        userAnswer: formattedAnswer,
         timeSpent: timeSpent || 0,
         created_at: new Date()
       });
@@ -185,9 +207,16 @@ class ChapterWiseController {
         questionId,
         status: status || AttemptStatus.answered,
         timeSpent: timeSpent || 0,
-        userAnswer: userAnswerRaw || [],
+        userAnswer: formattedAnswer,
         isCorrect: isActuallyCorrect, // Use the safe boolean
         marksObtained: result.marks,
+        verdict: result.verdict,
+        positiveMarks: result.positiveMarks,
+        negativeMarks: result.negativeMarks,
+        type: result.type,
+        subjectId: result.subjectId,
+        chapterId: result.chapterId,
+        examName: result.examName,
       };
 
       await chapterWiseCacheService.upsertAttemptData(userId, questionId, payload);

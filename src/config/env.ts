@@ -14,6 +14,7 @@ function requireEnv(key: string): string {
 
 export const {
     PORT,
+    SUBMIT_CHAPTER_WISE_PORT,
     JWT_SECRET_ACCESS_TOKEN,
     JWT_TEMP_EXPIRES_IN_ACCESS_TOKEN,
     JWT_ALGORITHM_ACCESS_TOKEN,
