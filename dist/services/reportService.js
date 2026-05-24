@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.reportService = void 0;
+const client_1 = require("@prisma/client");
 const database_1 = require("../lib/database");
 const analytics_db_1 = require("../repositories/analytics.db");
 const subject_db_1 = require("../repositories/subject.db");
@@ -314,6 +315,96 @@ class PracticeAnalyticsBuilder {
     constructor(db) {
         this.db = db;
     }
+    createEmptyPracticeSubjectRows(allSubjects) {
+        return allSubjects.map((s) => ({
+            id: s.id,
+            name: s.name,
+            dbAttempts: 0,
+            dbTime: 0,
+            dbMarks: 0,
+            dbMax: 0,
+        }));
+    }
+    createEmptyPracticeQuestionTypeRows() {
+        return KNOWN_QUESTION_TYPES.map((type) => ({
+            type,
+            dbAttempts: 0,
+            dbTime: 0,
+            dbMarks: 0,
+            dbMax: 0,
+        }));
+    }
+    async loadPracticeBreakdownByExam(studentId, allSubjects) {
+        const createBucket = () => ({
+            subjects: this.createEmptyPracticeSubjectRows(allSubjects),
+            questionTypes: this.createEmptyPracticeQuestionTypeRows(),
+        });
+        const byExam = {
+            JEE_MAIN: createBucket(),
+            JEE_ADVANCED: createBucket(),
+        };
+        const subjectRowsByExam = {
+            JEE_MAIN: Object.fromEntries(byExam.JEE_MAIN.subjects.map((s) => [s.id, s])),
+            JEE_ADVANCED: Object.fromEntries(byExam.JEE_ADVANCED.subjects.map((s) => [s.id, s])),
+        };
+        const questionTypeRowsByExam = {
+            JEE_MAIN: Object.fromEntries(byExam.JEE_MAIN.questionTypes.map((qt) => [qt.type, qt])),
+            JEE_ADVANCED: Object.fromEntries(byExam.JEE_ADVANCED.questionTypes.map((qt) => [qt.type, qt])),
+        };
+        const attempts = await this.db.chapterWiseQuestionAttemptStatus.findMany({
+            where: {
+                studentId,
+                questionStatus: client_1.AttemptStatus.answered,
+                question: {
+                    papers: {
+                        exam: {
+                            name: { in: ["JEE_MAIN", "JEE_ADVANCED"] },
+                        },
+                    },
+                },
+            },
+            select: {
+                marksObtained: true,
+                timeSpent: true,
+                question: {
+                    select: {
+                        subjectId: true,
+                        type: true,
+                        positiveMarks: true,
+                        papers: {
+                            select: {
+                                exam: { select: { name: true } },
+                            },
+                        },
+                    },
+                },
+            },
+        });
+        for (const attempt of attempts) {
+            const examName = attempt.question.papers?.exam?.name;
+            if (examName !== "JEE_MAIN" && examName !== "JEE_ADVANCED")
+                continue;
+            const subjectRow = subjectRowsByExam[examName][attempt.question.subjectId];
+            if (subjectRow) {
+                subjectRow.dbAttempts += 1;
+                subjectRow.dbTime += attempt.timeSpent ?? 0;
+                subjectRow.dbMarks += attempt.marksObtained ?? 0;
+                subjectRow.dbMax += attempt.question.positiveMarks ?? 0;
+            }
+            const questionType = attempt.question.type;
+            if (!questionTypeRowsByExam[examName][questionType]) {
+                const row = { type: questionType, dbAttempts: 0, dbTime: 0, dbMarks: 0, dbMax: 0 };
+                questionTypeRowsByExam[examName][questionType] = row;
+                byExam[examName].questionTypes.push(row);
+            }
+            const questionTypeRow = questionTypeRowsByExam[examName][questionType];
+            questionTypeRow.dbAttempts += 1;
+            questionTypeRow.dbTime += attempt.timeSpent ?? 0;
+            questionTypeRow.dbMarks += attempt.marksObtained ?? 0;
+            questionTypeRow.dbMax += attempt.question.positiveMarks ?? 0;
+        }
+        return byExam;
+    }
     processPracticeGroup(records, overallAnalyticsDb, dbSubjects, dbQuestionTypes) {
         const totalAttempts = (overallAnalyticsDb?.attempts ?? 0) + records.length;
         const totalTimeSpent = (overallAnalyticsDb?.timeSpent ?? 0) + records.reduce((sum, q) => sum + (q.timeSpent ?? 0), 0);
@@ -374,6 +465,7 @@ class PracticeAnalyticsBuilder {
             dashboardCacheService_1.dashboardCacheService.reddisPraticeWiseData(studentId),
             this.db.subjects.findMany({ select: { id: true, name: true } }),
         ]);
+        const examPracticeBreakdown = await this.loadPracticeBreakdownByExam(studentId, allSubjects);
         const redisQuestions = (redisPracticeData.praticeWiseData ?? [])
             .filter((q) => q?.questionData != null)
             .map((q) => q.questionData);
@@ -394,21 +486,12 @@ class PracticeAnalyticsBuilder {
                 maxPossible: row?.practiceMaxPossible ?? 0,
             };
         };
-        const emptySubjectRows = allSubjects.map(s => ({
-            id: s.id,
-            name: s.name,
-            dbAttempts: 0,
-            dbTime: 0,
-            dbMarks: 0,
-            dbMax: 0,
-        }));
-        console.log(dbSubsOverall, dbQTOverall);
         return {
             overall: this.processPracticeGroup(redisPartitions.overall, {
                 attempts: overallAnalytics?.practiceAttempts, timeSpent: overallAnalytics?.practiceTimeSpent, marksEarned: overallAnalytics?.practiceMarksEarned, maxPossible: overallAnalytics?.practiceMaxPossible
             }, dbSubsOverall, dbQTOverall),
-            jeeMain: this.processPracticeGroup(redisPartitions.jeeMain, findExamPractice("JEE_MAIN"), emptySubjectRows, []),
-            jeeAdvanced: this.processPracticeGroup(redisPartitions.jeeAdvanced, findExamPractice("JEE_ADVANCED"), emptySubjectRows, []),
+            jeeMain: this.processPracticeGroup(redisPartitions.jeeMain, findExamPractice("JEE_MAIN"), examPracticeBreakdown.JEE_MAIN.subjects, examPracticeBreakdown.JEE_MAIN.questionTypes),
+            jeeAdvanced: this.processPracticeGroup(redisPartitions.jeeAdvanced, findExamPractice("JEE_ADVANCED"), examPracticeBreakdown.JEE_ADVANCED.subjects, examPracticeBreakdown.JEE_ADVANCED.questionTypes),
         };
     }
 }
