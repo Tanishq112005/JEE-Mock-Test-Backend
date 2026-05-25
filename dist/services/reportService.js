@@ -5,6 +5,7 @@ const client_1 = require("@prisma/client");
 const database_1 = require("../lib/database");
 const analytics_db_1 = require("../repositories/analytics.db");
 const subject_db_1 = require("../repositories/subject.db");
+const chapterWiseCacheService_1 = require("./chapterWiseCacheService");
 const dashboardCacheService_1 = require("./dashboardCacheService");
 const uniqueCountService_1 = require("./uniqueCountService");
 // ── Actual Prisma questionType enum values ───────────
@@ -315,6 +316,12 @@ class PracticeAnalyticsBuilder {
     constructor(db) {
         this.db = db;
     }
+    getPracticeExamName(question) {
+        return question?.examName ?? question?.exam ?? undefined;
+    }
+    getPracticeMarks(question) {
+        return question?.marks ?? question?.marksObtained ?? 0;
+    }
     createEmptyPracticeSubjectRows(allSubjects) {
         return allSubjects.map((s) => ({
             id: s.id,
@@ -408,7 +415,7 @@ class PracticeAnalyticsBuilder {
     processPracticeGroup(records, overallAnalyticsDb, dbSubjects, dbQuestionTypes) {
         const totalAttempts = (overallAnalyticsDb?.attempts ?? 0) + records.length;
         const totalTimeSpent = (overallAnalyticsDb?.timeSpent ?? 0) + records.reduce((sum, q) => sum + (q.timeSpent ?? 0), 0);
-        const totalMarksEarned = (overallAnalyticsDb?.marksEarned ?? 0) + records.reduce((sum, q) => sum + (q.marks ?? 0), 0);
+        const totalMarksEarned = (overallAnalyticsDb?.marksEarned ?? 0) + records.reduce((sum, q) => sum + this.getPracticeMarks(q), 0);
         const totalMaxPossible = (overallAnalyticsDb?.maxPossible ?? 0) + records.reduce((sum, q) => sum + (q.positiveMarks ?? 0), 0);
         const subjectMap = {};
         dbSubjects.forEach((s) => { subjectMap[s.id] = { subjectId: s.id, subjectName: s.name, attempts: s.dbAttempts ?? 0, timeSpent: s.dbTime ?? 0, marksEarned: s.dbMarks ?? 0, maxPossible: s.dbMax ?? 0 }; });
@@ -416,7 +423,7 @@ class PracticeAnalyticsBuilder {
             if (q?.subjectId && subjectMap[q.subjectId]) {
                 subjectMap[q.subjectId].attempts += 1;
                 subjectMap[q.subjectId].timeSpent += q.timeSpent ?? 0;
-                subjectMap[q.subjectId].marksEarned += q.marks ?? 0;
+                subjectMap[q.subjectId].marksEarned += this.getPracticeMarks(q);
                 subjectMap[q.subjectId].maxPossible += q.positiveMarks ?? 0;
             }
         });
@@ -431,13 +438,14 @@ class PracticeAnalyticsBuilder {
             qtMap[qt.type].maxPossible += qt.dbMax ?? 0;
         });
         records.forEach((q) => {
-            if (q?.type) {
-                if (!qtMap[q.type])
-                    qtMap[q.type] = { questionType: q.type, attempts: 0, timeSpent: 0, marksEarned: 0, maxPossible: 0 };
-                qtMap[q.type].attempts += 1;
-                qtMap[q.type].timeSpent += q.timeSpent ?? 0;
-                qtMap[q.type].marksEarned += q.marks ?? 0;
-                qtMap[q.type].maxPossible += q.positiveMarks ?? 0;
+            const questionType = q?.type ?? q?.questionType;
+            if (questionType) {
+                if (!qtMap[questionType])
+                    qtMap[questionType] = { questionType, attempts: 0, timeSpent: 0, marksEarned: 0, maxPossible: 0 };
+                qtMap[questionType].attempts += 1;
+                qtMap[questionType].timeSpent += q.timeSpent ?? 0;
+                qtMap[questionType].marksEarned += this.getPracticeMarks(q);
+                qtMap[questionType].maxPossible += q.positiveMarks ?? 0;
             }
         });
         return {
@@ -469,7 +477,7 @@ class PracticeAnalyticsBuilder {
         const redisQuestions = (redisPracticeData.praticeWiseData ?? [])
             .filter((q) => q?.questionData != null)
             .map((q) => q.questionData);
-        const redisPartitions = ExamSplitter.partition(redisQuestions, (q) => q.examName);
+        const redisPartitions = ExamSplitter.partition(redisQuestions, (q) => this.getPracticeExamName(q));
         const dbSubsOverall = allSubjects.map(s => {
             const dbS = subjectAnalytics.find((sa) => sa.subjectId === s.id);
             return { id: s.id, name: s.name, dbAttempts: dbS?.practiceAttempts, dbTime: dbS?.practiceTimeSpent, dbMarks: dbS?.practiceMarksEarned, dbMax: dbS?.practiceMaxPossible };
@@ -500,11 +508,11 @@ class PracticeAnalyticsBuilder {
 // ══════════════════════════════════════════
 class ChapterAnalyticsBuilder {
     async chapterReport(studentId) {
-        const [dbChapters, reddisData] = await Promise.all([
+        const [dbChapters, reddisData, activePracticeAttempts] = await Promise.all([
             analytics_db_1.analytics.chapterWiseAnalytics(studentId),
             dashboardCacheService_1.dashboardCacheService.reddisTestData(studentId),
+            chapterWiseCacheService_1.chapterWiseCacheService.getAllActiveAttempts(studentId),
         ]);
-        console.log(dbChapters, reddisData);
         const chapterMap = {};
         for (const ch of dbChapters) {
             const pMain = this.buildSubReport(ch.practiceJeeMainAttempts, ch.practiceJeeMainTimeSpent, ch.practiceJeeMainMarksEarned, ch.practiceJeeMainMaxPossible, ch.practiceJeeMainCorrect, ch.practiceJeeMainWrong, ch.practiceJeeMainPartial);
@@ -544,9 +552,45 @@ class ChapterAnalyticsBuilder {
                 }
             }
         }
+        for (const attempts of Object.values(activePracticeAttempts)) {
+            for (const attempt of attempts) {
+                const chapterId = attempt.chapterId;
+                const examName = attempt.examName ?? attempt.exam;
+                const isJeeMain = examName === "JEE_MAIN";
+                const isJeeAdv = examName === "JEE_ADVANCED";
+                if (!chapterId || (!isJeeMain && !isJeeAdv))
+                    continue;
+                if (!chapterMap[chapterId]) {
+                    chapterMap[chapterId] = {
+                        chapterId,
+                        practice: { overall: this.buildSubReport(0, 0, 0, 0, 0, 0, 0), jeeMain: this.buildSubReport(0, 0, 0, 0, 0, 0, 0), jeeAdvanced: this.buildSubReport(0, 0, 0, 0, 0, 0, 0) },
+                        test: { overall: this.buildSubReport(0, 0, 0, 0, 0, 0, 0), jeeMain: this.buildSubReport(0, 0, 0, 0, 0, 0, 0), jeeAdvanced: this.buildSubReport(0, 0, 0, 0, 0, 0, 0) }
+                    };
+                }
+                const section = isJeeMain ? chapterMap[chapterId].practice.jeeMain : chapterMap[chapterId].practice.jeeAdvanced;
+                const verdict = attempt.verdict ?? (attempt.isCorrect ? "correct" : "wrong");
+                section.attempts += 1;
+                section.timeSpent += attempt.timeSpent ?? 0;
+                section.marksEarned += attempt.marks ?? attempt.marksObtained ?? 0;
+                section.maxPossible += attempt.positiveMarks ?? 0;
+                section.correct += verdict === "correct" ? 1 : 0;
+                section.wrong += verdict === "wrong" ? 1 : 0;
+                section.partial += verdict === "partial" ? 1 : 0;
+                section.accuracy = MathUtil.calcAccuracy(section.correct, section.wrong);
+                section.percentage = MathUtil.calcPercentage(section.marksEarned, section.maxPossible);
+                chapterMap[chapterId].practice.overall = ExamSplitter.finalizeStats(ExamSplitter.combineStats(chapterMap[chapterId].practice.jeeMain, chapterMap[chapterId].practice.jeeAdvanced));
+            }
+        }
         return { chapters: Object.values(chapterMap) };
     }
     buildSubReport(attempts = 0, timeSpent = 0, marksEarned = 0, maxPossible = 0, correct = 0, wrong = 0, partial = 0) {
+        attempts = attempts ?? 0;
+        timeSpent = timeSpent ?? 0;
+        marksEarned = marksEarned ?? 0;
+        maxPossible = maxPossible ?? 0;
+        correct = correct ?? 0;
+        wrong = wrong ?? 0;
+        partial = partial ?? 0;
         return { attempts, timeSpent, marksEarned, maxPossible, correct, wrong, partial, accuracy: MathUtil.calcAccuracy(correct, wrong), percentage: MathUtil.calcPercentage(marksEarned, maxPossible) };
     }
 }

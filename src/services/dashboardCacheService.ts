@@ -2,11 +2,11 @@ import { cacheService } from "../lib/caching";
 import { analytics } from "../repositories/analytics.db";
 import { user } from "../repositories/user.db";
 import {
-  cachingDataPraticeUpperLayer,
   cachingDataTestUpperLayer,
 } from "../types/caching.types";
 import { TestEvaluationSummaryReport } from "../types/report.types";
 import { updatingDetails } from "../types/testStatus.types";
+import { chapterWiseCacheService } from "./chapterWiseCacheService";
 import { testEvaluation } from "./testEvaluationService";
 import { questionBitmapRegistry } from "./uniqueCountService";
 
@@ -53,31 +53,31 @@ class DashboardCacheService {
   // =================================================================
   async reddisPraticeWiseData(studentId: any) {
     try {
-      const userPraticeWiseData: cachingDataPraticeUpperLayer =
-        await cacheService.getCache(`${studentId}:praticeUpperLayer`);
-
-      if (!userPraticeWiseData || !userPraticeWiseData.praticeStatus?.length) {
-        return { praticeWiseData: [] };
-      }
-
-      const userPraticeWiseReddis = await Promise.all(
-        userPraticeWiseData.praticeStatus.map(async (entry) => {
-          const questionData = await cacheService.getCache(
-            `${studentId}:${entry.questionId}:${entry.created_at}`,
-          );
-          return {
-            questionId: entry.questionId,
-            created_at: entry.created_at,
-            questionData,
-          };
-        }),
+      const activeAttempts = await chapterWiseCacheService.getAllActiveAttempts(
+        studentId,
       );
 
-      return {
-        praticeWiseData: userPraticeWiseReddis.filter(
-          (q) => q.questionData != null,
-        ),
-      };
+      const praticeWiseData = Object.entries(activeAttempts).flatMap(
+        ([questionId, attempts]) =>
+          attempts.map((attempt) => ({
+            questionId,
+            created_at: attempt.timestamp
+              ? new Date(attempt.timestamp)
+              : new Date(),
+            questionData: {
+              ...attempt,
+              questionId: attempt.questionId ?? questionId,
+              marks: attempt.marks ?? attempt.marksObtained ?? 0,
+              positiveMarks: attempt.positiveMarks ?? 0,
+              timeSpent: attempt.timeSpent ?? 0,
+              type: attempt.type ?? attempt.questionType,
+              examName: attempt.examName ?? attempt.exam ?? null,
+              chapterId: attempt.chapterId ?? null,
+            },
+          })),
+      );
+
+      return { praticeWiseData };
     } catch (err: any) {
       console.error(err);
       throw err;

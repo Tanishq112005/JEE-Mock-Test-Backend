@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.dashboardCacheService = void 0;
 const caching_1 = require("../lib/caching");
+const chapterWiseCacheService_1 = require("./chapterWiseCacheService");
 class DashboardCacheService {
     constructor() { }
     // =================================================================
@@ -35,21 +36,24 @@ class DashboardCacheService {
     // =================================================================
     async reddisPraticeWiseData(studentId) {
         try {
-            const userPraticeWiseData = await caching_1.cacheService.getCache(`${studentId}:praticeUpperLayer`);
-            if (!userPraticeWiseData || !userPraticeWiseData.praticeStatus?.length) {
-                return { praticeWiseData: [] };
-            }
-            const userPraticeWiseReddis = await Promise.all(userPraticeWiseData.praticeStatus.map(async (entry) => {
-                const questionData = await caching_1.cacheService.getCache(`${studentId}:${entry.questionId}:${entry.created_at}`);
-                return {
-                    questionId: entry.questionId,
-                    created_at: entry.created_at,
-                    questionData,
-                };
-            }));
-            return {
-                praticeWiseData: userPraticeWiseReddis.filter((q) => q.questionData != null),
-            };
+            const activeAttempts = await chapterWiseCacheService_1.chapterWiseCacheService.getAllActiveAttempts(studentId);
+            const praticeWiseData = Object.entries(activeAttempts).flatMap(([questionId, attempts]) => attempts.map((attempt) => ({
+                questionId,
+                created_at: attempt.timestamp
+                    ? new Date(attempt.timestamp)
+                    : new Date(),
+                questionData: {
+                    ...attempt,
+                    questionId: attempt.questionId ?? questionId,
+                    marks: attempt.marks ?? attempt.marksObtained ?? 0,
+                    positiveMarks: attempt.positiveMarks ?? 0,
+                    timeSpent: attempt.timeSpent ?? 0,
+                    type: attempt.type ?? attempt.questionType,
+                    examName: attempt.examName ?? attempt.exam ?? null,
+                    chapterId: attempt.chapterId ?? null,
+                },
+            })));
+            return { praticeWiseData };
         }
         catch (err) {
             console.error(err);

@@ -8,6 +8,16 @@ export interface CachedAttemptData {
   status: string;
   isCorrect?: boolean;
   marksObtained?: number;
+  marks?: number;
+  positiveMarks?: number;
+  negativeMarks?: number;
+  verdict?: string;
+  type?: string;
+  questionType?: string;
+  subjectId?: string;
+  chapterId?: string | null;
+  examName?: string | null;
+  exam?: string | null;
   timestamp?: number; // Added to track exact order
 }
 
