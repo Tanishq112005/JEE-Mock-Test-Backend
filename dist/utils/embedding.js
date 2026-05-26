@@ -16,7 +16,8 @@ async function getEmbedding(text) {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 5000);
         // 2. Call Ollama API
-        const response = await (0, node_fetch_1.default)("http://localhost:11434/api/embeddings", {
+        const ollamaUrl = process.env.OLLAMA_URL || "http://localhost:11434";
+        const response = await (0, node_fetch_1.default)(`${ollamaUrl}/api/embeddings`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({

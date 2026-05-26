@@ -12,7 +12,8 @@ export async function getEmbedding(text: string): Promise<number[]> {
     const timeoutId = setTimeout(() => controller.abort(), 5000);
 
     // 2. Call Ollama API
-    const response = await fetch("http://localhost:11434/api/embeddings", {
+    const ollamaUrl = process.env.OLLAMA_URL || "http://localhost:11434";
+    const response = await fetch(`${ollamaUrl}/api/embeddings`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
