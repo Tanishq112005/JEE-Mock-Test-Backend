@@ -133,7 +133,7 @@ model user {
   email           String          @unique
   type            UserType        @default(Student)
   password        String          @unique
-  refersh_token   String?         @unique
+  refersh_token   String?         @unique @db.VarChar(512)
   lastVisited     DateTime        @default(now())
   created_at      DateTime        @default(now())
   is_verified     Boolean         @default(false)
