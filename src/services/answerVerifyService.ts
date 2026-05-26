@@ -3,9 +3,14 @@ import { questionType } from "@prisma/client";
 export class AnswerVerifyService {
   constructor() {}
 
+  private toStringArray(value: unknown): string[] {
+    if (!Array.isArray(value)) return [];
+    return value.filter((item): item is string => typeof item === "string");
+  }
+
   questionResult(
-    rawUserAnswer: string[],
-    rawCorrectAnswer: string[],
+    rawUserAnswer: unknown,
+    rawCorrectAnswer: unknown,
     questionType: questionType,
     positiveMarks: number,
     negativeMarks: number
@@ -15,12 +20,12 @@ export class AnswerVerifyService {
   } {
     const userAnswer = Array.from(
       new Set(
-        (rawUserAnswer || []).map((a) => a.trim()).filter((a) => a !== ""),
+        this.toStringArray(rawUserAnswer).map((a) => a.trim()).filter((a) => a !== ""),
       ),
     );
     const correctAnswer = Array.from(
       new Set(
-        (rawCorrectAnswer || []).map((a) => a.trim()).filter((a) => a !== ""),
+        this.toStringArray(rawCorrectAnswer).map((a) => a.trim()).filter((a) => a !== ""),
       ),
     );
 

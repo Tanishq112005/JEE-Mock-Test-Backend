@@ -3,9 +3,14 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AnswerVerifyService = void 0;
 class AnswerVerifyService {
     constructor() { }
+    toStringArray(value) {
+        if (!Array.isArray(value))
+            return [];
+        return value.filter((item) => typeof item === "string");
+    }
     questionResult(rawUserAnswer, rawCorrectAnswer, questionType, positiveMarks, negativeMarks) {
-        const userAnswer = Array.from(new Set((rawUserAnswer || []).map((a) => a.trim()).filter((a) => a !== "")));
-        const correctAnswer = Array.from(new Set((rawCorrectAnswer || []).map((a) => a.trim()).filter((a) => a !== "")));
+        const userAnswer = Array.from(new Set(this.toStringArray(rawUserAnswer).map((a) => a.trim()).filter((a) => a !== "")));
+        const correctAnswer = Array.from(new Set(this.toStringArray(rawCorrectAnswer).map((a) => a.trim()).filter((a) => a !== "")));
         if (userAnswer.length === 0) {
             return {
                 marks: 0,

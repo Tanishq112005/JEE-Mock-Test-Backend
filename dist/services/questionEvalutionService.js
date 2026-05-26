@@ -11,6 +11,11 @@ class PracticeQuestionEvaluationService {
     constructor(db) {
         this.db = db;
     }
+    toStringArray(value) {
+        if (!Array.isArray(value))
+            return [];
+        return value.filter((item) => typeof item === "string");
+    }
     // ══════════════════════════════════════════
     // SINGLE question evaluation
     // ══════════════════════════════════════════
@@ -32,7 +37,8 @@ class PracticeQuestionEvaluationService {
             if (!questionData)
                 throw new Error(`Question not found: ${input.questionId}`);
             const evaluator = new answerVerifyService_1.AnswerVerifyService();
-            const { verdict: rawVerdict, marks } = evaluator.questionResult(input.userAnswer, questionData.correctAnswer, questionData.type, questionData.positiveMarks, questionData.negativeMarks);
+            const correctAnswer = this.toStringArray(questionData.correctAnswer);
+            const { verdict: rawVerdict, marks } = evaluator.questionResult(input.userAnswer, correctAnswer, questionData.type, questionData.positiveMarks, questionData.negativeMarks);
             const verdict = rawVerdict;
             return {
                 questionId: questionData.id,
@@ -40,7 +46,7 @@ class PracticeQuestionEvaluationService {
                 marks,
                 positiveMarks: questionData.positiveMarks,
                 negativeMarks: questionData.negativeMarks,
-                correctAnswer: questionData.correctAnswer,
+                correctAnswer,
                 userAnswer: input.userAnswer,
                 timeSpent: input.timeSpent,
                 type: questionData.type,

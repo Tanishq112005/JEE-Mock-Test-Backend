@@ -49,6 +49,11 @@ class PracticeQuestionEvaluationService {
     this.db = db;
   }
 
+  private toStringArray(value: unknown): string[] {
+    if (!Array.isArray(value)) return [];
+    return value.filter((item): item is string => typeof item === "string");
+  }
+
   // ══════════════════════════════════════════
   // SINGLE question evaluation
   // ══════════════════════════════════════════
@@ -75,10 +80,11 @@ class PracticeQuestionEvaluationService {
 
       
       const evaluator      = new AnswerVerifyService();
+      const correctAnswer = this.toStringArray(questionData.correctAnswer);
 
       const { verdict: rawVerdict, marks } = evaluator.questionResult(
         input.userAnswer,
-        questionData.correctAnswer,
+        correctAnswer,
         questionData.type,
         questionData.positiveMarks,
         questionData.negativeMarks
@@ -92,7 +98,7 @@ class PracticeQuestionEvaluationService {
         marks,
         positiveMarks:   questionData.positiveMarks,
         negativeMarks:   questionData.negativeMarks,
-        correctAnswer:   questionData.correctAnswer,
+        correctAnswer,
         userAnswer:      input.userAnswer,
         timeSpent:       input.timeSpent , 
         type:            questionData.type,

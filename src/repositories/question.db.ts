@@ -106,6 +106,18 @@ class Question {
     return { finalQuestionHtml, finalCompHtml, processedOptions, processedSolution };
   }
 
+  private getOptionByIdentifier(
+    options: questionParameters["options"],
+    identifier: "A" | "B" | "C" | "D",
+    fallbackIndex: number,
+  ) {
+    return (
+      options.find(
+        (option) => option.identifier?.toUpperCase() === identifier,
+      ) ?? options[fallbackIndex]
+    );
+  }
+
   // ---------------------------------------------------------
   // 4. Helper: Flatten relationships and apply naming changes
   // ---------------------------------------------------------
@@ -216,6 +228,10 @@ class Question {
       const chapterInformation: chapters = await chapter.gettingChapterId(
         questionData.chapter,
       );
+      const optionA = this.getOptionByIdentifier(questionData.options, "A", 0);
+      const optionB = this.getOptionByIdentifier(questionData.options, "B", 1);
+      const optionC = this.getOptionByIdentifier(questionData.options, "C", 2);
+      const optionD = this.getOptionByIdentifier(questionData.options, "D", 3);
 
       await this.db.questions.create({
         data: {
@@ -238,14 +254,14 @@ class Question {
           options: questionData.options
             ? {
                 create: {
-                  optionAtext: questionData.options[0]?.content ?? "",
-                  optionAimage: questionData.options[0]?.image ?? [],
-                  optionBtext: questionData.options[1]?.content ?? "",
-                  optionBimage: questionData.options[1]?.image ?? [],
-                  optionCtext: questionData.options[2]?.content ?? "",
-                  optionCimage: questionData.options[2]?.image ?? [],
-                  optionDtext: questionData.options[3]?.content ?? "",
-                  optionDimage: questionData.options[3]?.image ?? [],
+                  optionAtext: optionA?.content ?? "",
+                  optionAimage: optionA?.image ?? [],
+                  optionBtext: optionB?.content ?? "",
+                  optionBimage: optionB?.image ?? [],
+                  optionCtext: optionC?.content ?? "",
+                  optionCimage: optionC?.image ?? [],
+                  optionDtext: optionD?.content ?? "",
+                  optionDimage: optionD?.image ?? [],
                 },
               }
             : undefined,

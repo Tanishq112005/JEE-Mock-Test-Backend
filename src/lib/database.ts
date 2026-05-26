@@ -1,10 +1,30 @@
-import { Pool } from 'pg'
-import { PrismaPg } from '@prisma/adapter-pg'
+import { PrismaMariaDb } from "@prisma/adapter-mariadb";
 import { PrismaClient } from "@prisma/client";
-import { DATABASE_URL } from "../config/env";
+import { DATABASE_URL, DATABASE_URL_PRODUCTION } from "../config/env";
 
 
-const globalForPrisma = globalThis as unknown as { prisma: PrismaClient }
+const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
+
+function createMariaDbAdapter() {
+  const connectionUrl = DATABASE_URL_PRODUCTION ;
+
+  if (!connectionUrl) {
+    throw new Error('Missing required environment variable: "DATABASE_URL_PRODUCTION" or "DATABASE_URL"');
+  }
+
+  const databaseUrl = new URL(connectionUrl);
+  const database = databaseUrl.pathname.replace(/^\//, "");
+
+  return new PrismaMariaDb({
+    host: databaseUrl.hostname,
+    port: databaseUrl.port ? Number(databaseUrl.port) : 3306,
+    user: decodeURIComponent(databaseUrl.username),
+    password: decodeURIComponent(databaseUrl.password),
+    database,
+    connectionLimit: Number(databaseUrl.searchParams.get("connection_limit") ?? 5),
+    ssl: databaseUrl.searchParams.has("sslaccept") ? true : undefined,
+  });
+}
 
 class Database {
   private static instance: PrismaClient | null = null;
@@ -15,14 +35,12 @@ class Database {
       return this.instance;
     }
 
-    const pool = new Pool({ connectionString: DATABASE_URL })
-    const adapter = new PrismaPg(pool)
-    this.instance = new PrismaClient({ adapter })
+    this.instance = new PrismaClient({ adapter: createMariaDbAdapter() });
     return this.instance;
   }
 }
 
 
-export const database = globalForPrisma.prisma || Database.getClient()
+export const database = globalForPrisma.prisma || Database.getClient();
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = database
+if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = database;

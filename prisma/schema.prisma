@@ -297,7 +297,8 @@ model options {
   optionBimage Json?     
   optionCtext  String?   @db.Text
   optionCimage Json?    
-  optionDtext  String? 
+  optionDtext  String?   @db.Text
+  optionDimage Json?
   questions    questions @relation(fields: [questionId], references: [id], onDelete: Cascade)
 }
 
