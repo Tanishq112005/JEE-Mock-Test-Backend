@@ -1,7 +1,8 @@
 import fetch from "node-fetch";
+import { NOMIC_API_KEY } from "../config/env";
 
 /**
- * Fetches the vector embedding for a given text string from the local Ollama instance.
+ * Fetches the vector embedding for a given text string from the Nomic API.
  * @param text The string to embed.
  * @returns An array of numbers representing the vector.
  */
@@ -11,26 +12,38 @@ export async function getEmbedding(text: string): Promise<number[]> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-    // 2. Call Ollama API
-    const ollamaUrl = process.env.OLLAMA_URL || "http://localhost:11434";
-    const response = await fetch(`${ollamaUrl}/api/embeddings`, {
+    // 2. Setup API Key
+    const nomicApiKey = NOMIC_API_KEY;
+    if (!nomicApiKey) {
+      throw new Error("Missing NOMIC_API_KEY environment variable.");
+    }
+
+    // 3. Call Nomic API
+    const response = await fetch("https://api-atlas.nomic.ai/v1/embedding/text", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${nomicApiKey}`
+      },
       body: JSON.stringify({
-        model: "nomic-embed-text", // Make sure you ran `ollama pull nomic-embed-text`
-        prompt: text
+        model: "nomic-embed-text-v1.5", 
+        texts: [text], 
+        task_type: "search_document" 
       }),
-      signal: controller.signal
+      signal: controller.signal as any 
     });
 
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-        throw new Error(`Ollama API Error: ${response.statusText}`);
+        const errorText = await response.text();
+        throw new Error(`Nomic API Error: ${response.status} - ${errorText}`);
     }
 
     const data: any = await response.json();
-    return data.embedding;
+    
+    // Nomic returns an array of embeddings matching the 'texts' array provided
+    return data.embeddings[0];
 
   } catch (err) {
     console.error("Embedding Generation Failed:", err);

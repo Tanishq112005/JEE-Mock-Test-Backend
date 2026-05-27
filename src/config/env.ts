@@ -13,6 +13,7 @@ function requireEnv(key: string): string {
 }
 
 export const {
+    NOMIC_API_KEY,
     PORT,
     SUBMIT_CHAPTER_WISE_PORT,
     JWT_SECRET_ACCESS_TOKEN,
