@@ -5,8 +5,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getEmbedding = getEmbedding;
 const node_fetch_1 = __importDefault(require("node-fetch"));
+const env_1 = require("../config/env");
 /**
- * Fetches the vector embedding for a given text string from the local Ollama instance.
+ * Fetches the vector embedding for a given text string from the Nomic API.
  * @param text The string to embed.
  * @returns An array of numbers representing the vector.
  */
@@ -15,23 +16,33 @@ async function getEmbedding(text) {
         // 1. Setup Timeout (Aborts request after 5 seconds to prevent hanging)
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 5000);
-        // 2. Call Ollama API
-        const ollamaUrl = process.env.OLLAMA_URL || "http://localhost:11434";
-        const response = await (0, node_fetch_1.default)(`${ollamaUrl}/api/embeddings`, {
+        // 2. Setup API Key
+        const nomicApiKey = env_1.NOMIC_API_KEY;
+        if (!nomicApiKey) {
+            throw new Error("Missing NOMIC_API_KEY environment variable.");
+        }
+        // 3. Call Nomic API
+        const response = await (0, node_fetch_1.default)("https://api-atlas.nomic.ai/v1/embedding/text", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${nomicApiKey}`
+            },
             body: JSON.stringify({
-                model: "nomic-embed-text", // Make sure you ran `ollama pull nomic-embed-text`
-                prompt: text
+                model: "nomic-embed-text-v1.5",
+                texts: [text],
+                task_type: "search_document"
             }),
             signal: controller.signal
         });
         clearTimeout(timeoutId);
         if (!response.ok) {
-            throw new Error(`Ollama API Error: ${response.statusText}`);
+            const errorText = await response.text();
+            throw new Error(`Nomic API Error: ${response.status} - ${errorText}`);
         }
         const data = await response.json();
-        return data.embedding;
+        // Nomic returns an array of embeddings matching the 'texts' array provided
+        return data.embeddings[0];
     }
     catch (err) {
         console.error("Embedding Generation Failed:", err);
