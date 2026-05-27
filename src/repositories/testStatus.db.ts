@@ -391,7 +391,7 @@ class TestStatus {
             }),
           );
         },
-        { maxWait: 10000, timeout: 30000 },
+        { maxWait: 20000, timeout: 60000 },
       );
 
       console.log(`finalSubmitTest complete - ${finalVerdict.length} questions saved for test ${testId}`);
