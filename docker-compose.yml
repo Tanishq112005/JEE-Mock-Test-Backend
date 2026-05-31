@@ -8,35 +8,6 @@ services:
     restart: always 
     env_file:
       - .env 
-    environment:
-      - OLLAMA_URL=http://ollama:11434
     ports: 
       - "3000:3005" 
       - "3005:3005"
-    depends_on:
-      ollama:
-        condition: service_started
-      ollama_pull:
-        condition: service_completed_successfully
-
-  ollama:
-    image: ollama/ollama:latest
-    container_name: ollama
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-    restart: always
-
-  # This service runs once to automatically pull your model
-  ollama_pull:
-    image: curlimages/curl:latest
-    container_name: ollama_pull
-    depends_on:
-      - ollama
-    command: >
-      sh -c "sleep 5 && curl -X POST http://ollama:11434/api/pull -d '{\"name\": \"llama3\"}' && curl -X POST http://ollama:11434/api/pull -d '{\"name\": \"nomic-embed-text\"}'"
-    restart: "no"
-
-volumes:
-  ollama_data:

@@ -88,6 +88,8 @@ enum questionType {
 enum Session {
   Session_1
   Session_2
+  Session_3
+  Session_4
   Advanced
   Not_Assign
 }
