@@ -314,7 +314,7 @@ class Analytics {
                 where: { id: testStatusId },
                 data: { isAnalyzed: true, updated_at: new Date() },
             });
-        }, { maxWait: 5000, timeout: 30000 });
+        }, { maxWait: 8000, timeout: 80000 });
     }
     // ══════════════════════════════════════════════════════════════════════════
     // WRITE HELPERS — test analytics

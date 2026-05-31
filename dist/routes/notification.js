@@ -9,4 +9,7 @@ const router = (0, express_1.Router)();
 router.post('/sendingMailToParticularUser', auth_1.authMiddleware, developerRole_1.developerRoleMiddleware, notificationController_1.notificationController.sendingEmailParticularUser);
 router.post('/sendingEmailToAll', auth_1.authMiddleware, developerRole_1.developerRoleMiddleware, notificationController_1.notificationController.sendingEmailToAllUser);
 router.post('/sendEmailToSupport', auth_1.authMiddleware, notificationController_1.notificationController.emailToSupport);
+router.get('/getNotification', auth_1.authMiddleware, notificationController_1.notificationController.getEmailsOfUser);
+router.get('/gettingAllUserNotifications', auth_1.authMiddleware, developerRole_1.developerRoleMiddleware, notificationController_1.notificationController.gettingEmailFromTheAllTheUser);
+router.post('/gettingParticularUserNotifications', auth_1.authMiddleware, developerRole_1.developerRoleMiddleware, notificationController_1.notificationController.gettingEmailFromTheParticularUser);
 exports.notificationRoutes = router;

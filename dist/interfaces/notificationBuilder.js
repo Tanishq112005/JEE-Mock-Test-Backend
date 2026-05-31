@@ -30,8 +30,20 @@ class NotificationBuilder {
         this.message.cc.push(email);
         return this;
     }
+    setFrom(from) {
+        this.message.from = from;
+        return this;
+    }
+    setTo(to) {
+        this.message.to = to;
+        return this;
+    }
     setType(type) {
         this.message.type = type;
+        return this;
+    }
+    setStudentId(type) {
+        this.message.studentId = type;
         return this;
     }
     fromJSON(data) {

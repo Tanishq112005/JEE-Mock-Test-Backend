@@ -309,7 +309,11 @@ class User {
     // getting all the user from the db 
     async gettingAllUser() {
         try {
-            const data = this.db.user.findMany();
+            const data = this.db.user.findMany({
+                include: {
+                    student_profile: true
+                }
+            });
             return data;
         }
         catch (err) {

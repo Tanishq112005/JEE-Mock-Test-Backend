@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.authController = exports.AuthController = void 0;
 const database_1 = require("../lib/database");
 const env_1 = require("../config/env");
+const client_1 = require("@prisma/client");
 const email_producer_1 = require("../rabbitmq/producers/email-producer");
 const user_db_1 = require("../repositories/user.db");
 const ApiError_1 = __importDefault(require("../utils/ApiError"));
@@ -43,7 +44,7 @@ class AuthController {
             const otp_expire_time = Number(env_1.OTP_EXPIRE_TIME) || 300;
             const payload = (new notificationBuilder_1.NotificationBuilder()).setToEmail(email)
                 .setSubject("Verify Account")
-                .setContent(`Your verification OTP is ${otp} and it will expire after ${otp_expire_time / 60} minutes`).setType("Create").build();
+                .setContent(`Your verification OTP is ${otp} and it will expire after ${otp_expire_time / 60} minutes`).setType(client_1.NotificationTypes.VerificationEmail).build();
             await email_producer_1.emailProducer.send(payload);
             // 1. Get the correct Redis Auth instance for this specific email
             const redisClient = redisManager_1.default.getAuthRedis(email);
@@ -148,7 +149,7 @@ class AuthController {
                 const otp_expire_time = Number(env_1.OTP_EXPIRE_TIME) || 300;
                 const payload = (new notificationBuilder_1.NotificationBuilder()).setToEmail(email)
                     .setSubject("Forgot Password OTP")
-                    .setContent(`OTP To Reset Password is ${otp}, it will expire after ${otp_expire_time / 60} minutes`).setType("Forgot")
+                    .setContent(`OTP To Reset Password is ${otp}, it will expire after ${otp_expire_time / 60} minutes`).setType(client_1.NotificationTypes.ForgotPassword)
                     .build();
                 await email_producer_1.emailProducer.send(payload);
                 // Fetch the correct Redis instance
