@@ -20,7 +20,6 @@ export class EmailProducer {
       
       // 2. Convert the string into raw bytes (Buffer) for RabbitMQ
       const bufferData = Buffer.from(jsonString);
-
       channel.publish(
         exchange,
         routingKey,

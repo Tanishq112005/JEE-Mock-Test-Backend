@@ -1,6 +1,6 @@
 import { database } from "../lib/database";
 import { OTP_EXPIRE_TIME } from "../config/env";
-import { PrismaClient } from "@prisma/client";
+import { NotificationTypes, PrismaClient } from "@prisma/client";
 import { emailProducer } from "../rabbitmq/producers/email-producer";
 import { user } from "../repositories/user.db";
 
@@ -58,7 +58,7 @@ export class AuthController {
       const payload: NotificationMessage = (new NotificationBuilder()).setToEmail(email)
         .setSubject("Verify Account")
         .setContent(`Your verification OTP is ${otp} and it will expire after ${otp_expire_time / 60
-          } minutes`).setType("Create").build();
+          } minutes`).setType(NotificationTypes.VerificationEmail).build();
 
       await emailProducer.send(payload);
 
@@ -197,7 +197,7 @@ export class AuthController {
         const payload: NotificationMessage = (new NotificationBuilder()).setToEmail(email)
           .setSubject("Forgot Password OTP")
           .setContent(`OTP To Reset Password is ${otp}, it will expire after ${otp_expire_time / 60
-            } minutes`).setType("Forgot")
+            } minutes`).setType(NotificationTypes.ForgotPassword)
           .build();
 
         await emailProducer.send(payload);

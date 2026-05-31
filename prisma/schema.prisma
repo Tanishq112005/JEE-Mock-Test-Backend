@@ -3,12 +3,11 @@
 // ==========================================
 
 generator client {
-  provider        = "prisma-client-js"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "mysql"
- 
 }
 
 // ==========================================
@@ -25,6 +24,14 @@ enum Day {
   Sunday
 }
 
+enum NotificationTypes {
+  TechnicalGlitch
+  Update
+  Review 
+  VerificationEmail
+  ForgotPassword
+}
+
 enum Month {
   January
   February
@@ -39,6 +46,14 @@ enum Month {
   November
   December
 }
+
+
+enum SendingPerson {
+  User 
+  Developer  
+}
+
+
 
 enum UserType {
   Student
@@ -150,13 +165,13 @@ model studentProfile {
   phone              BigInt?   @unique
   phone_country_code String?
   gender             Gender?
-  
+
   // Gamification & Standing
-  streak             Int       @default(0)
-  maximumStreak      Int       @default(0)
-  globalRank         Int       @default(1)
-  stage              Int       @default(0)
-  
+  streak        Int @default(0)
+  maximumStreak Int @default(0)
+  globalRank    Int @default(1)
+  stage         Int @default(0)
+
   // Relationships
   testSession         testStatus[]
   chapterWiseStatus   chapterWiseQuestionAttemptStatus[]
@@ -171,7 +186,8 @@ model studentProfile {
   examAnalytics        ExamAnalytics[]
   questionAnalytics    StudentQuestionAnalytics[]
   testSummaries        TestAttemptSummary[]
-  testChapterAnalytics TestChapterAnalytics[] 
+  testChapterAnalytics TestChapterAnalytics[]
+  userNotifications    userNotifications[]
 
   created_at DateTime @default(now())
   updated_at DateTime @default(now())
@@ -198,8 +214,8 @@ model subjects {
 }
 
 model chapters {
-  id            String  @id @default(uuid())
-  name          String  @unique
+  id            String @id @default(uuid())
+  name          String @unique
   subjectId     String
   group         String
   class         Int
@@ -210,7 +226,7 @@ model chapters {
 
   questions            questions[]
   chapterAnalytics     ChapterAnalytics[]
-  testChapterAnalytics TestChapterAnalytics[] 
+  testChapterAnalytics TestChapterAnalytics[]
   subjects             subjects               @relation(fields: [subjectId], references: [id], onDelete: Cascade)
 }
 
@@ -219,7 +235,7 @@ model chapters {
 // ==========================================
 
 model papers {
-  id             String             @id @default(uuid())
+  id             String   @id @default(uuid())
   examId         String
   year           Int?
   mode           ExamMode
@@ -227,12 +243,12 @@ model papers {
   day            Day
   date           String
   shift          Shift
-  session        Session            @default(Not_Assign)
-  totalMarks     Int?               @default(0)
-  totalDuration  Int?               @default(0)
-  totalQuestions Int?               @default(0)
+  session        Session  @default(Not_Assign)
+  totalMarks     Int?     @default(0)
+  totalDuration  Int?     @default(0)
+  totalQuestions Int?     @default(0)
 
-  exam           exam               @relation(fields: [examId], references: [id], onDelete: Cascade)
+  exam           exam                 @relation(fields: [examId], references: [id], onDelete: Cascade)
   questions      questions[]
   testSession    testStatus[]
   markingSchemes paperMarkingScheme[]
@@ -256,49 +272,49 @@ model paperMarkingScheme {
 // ==========================================
 
 model questions {
-  id                   String        @id @default(uuid())
-  subjectId            String
-  chapterId            String?
-  paperId              String?
+  id        String  @id @default(uuid())
+  subjectId String
+  chapterId String?
+  paperId   String?
 
-  class                Int
-  content              String        @db.Text
-  image                Json?        
-  type                 questionType
-  questionNumber       Int
+  class          Int
+  content        String       @db.Text
+  image          Json?
+  type           questionType
+  questionNumber Int
 
-  comprehensionContent String?       @db.Text
-  comprehensionImage   Json?         
+  comprehensionContent String? @db.Text
+  comprehensionImage   Json?
 
-  positiveMarks        Int
-  negativeMarks        Int
-  isOutOfSyllabus      Boolean       @default(false)
-  isBonus              Boolean       @default(false)
-  correctAnswer        Json       
+  positiveMarks   Int
+  negativeMarks   Int
+  isOutOfSyllabus Boolean @default(false)
+  isBonus         Boolean @default(false)
+  correctAnswer   Json
 
-  options              options?
-  solution             solution?
+  options  options?
+  solution solution?
 
-  papers               papers?       @relation(fields: [paperId], references: [id], onDelete: Cascade)
-  chapters             chapters?     @relation(fields: [chapterId], references: [id], onDelete: Cascade)
-  subjects             subjects      @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  papers   papers?   @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  chapters chapters? @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  subjects subjects  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
 
-  attempts             testQuestionAttemptStatus[]
-  chapterWiseAttempts  chapterWiseQuestionAttemptStatus[]
-  globalStats          QuestionGlobalStats?
-  bookmarkedBy         bookmarkedQuestion[]
-  activeInTests        testStatus[]                       @relation("ActiveQuestion")
+  attempts            testQuestionAttemptStatus[]
+  chapterWiseAttempts chapterWiseQuestionAttemptStatus[]
+  globalStats         QuestionGlobalStats?
+  bookmarkedBy        bookmarkedQuestion[]
+  activeInTests       testStatus[]                       @relation("ActiveQuestion")
 }
 
 model options {
   id           String    @id @default(uuid())
   questionId   String    @unique
   optionAtext  String?   @db.Text
-  optionAimage Json?     
+  optionAimage Json?
   optionBtext  String?   @db.Text
-  optionBimage Json?     
+  optionBimage Json?
   optionCtext  String?   @db.Text
-  optionCimage Json?    
+  optionCimage Json?
   optionDtext  String?   @db.Text
   optionDimage Json?
   questions    questions @relation(fields: [questionId], references: [id], onDelete: Cascade)
@@ -309,7 +325,7 @@ model solution {
   questionId String    @unique
   text       String    @db.Text
   videoUrl   String?
-  image      Json?     // Changed from String[]
+  image      Json? // Changed from String[]
   question   questions @relation(fields: [questionId], references: [id], onDelete: Cascade)
 }
 
@@ -318,22 +334,22 @@ model solution {
 // ==========================================
 
 model testStatus {
-  id               String       @id @default(uuid())
-  studentId        String
-  paperId          String
+  id        String @id @default(uuid())
+  studentId String
+  paperId   String
 
-  status           TestState    @default(IN_PROGRESS)
+  status           TestState @default(IN_PROGRESS)
   timeLeft         Int
   activeQuestionId String?
-  isAnalyzed       Boolean      @default(false)
+  isAnalyzed       Boolean   @default(false)
 
-  created_at       DateTime     @default(now())
-  updated_at       DateTime     @default(now())
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
 
-  user             studentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  papers           papers         @relation(fields: [paperId], references: [id], onDelete: Cascade)
-  activeSection    String?
-  activeQuestion   questions?     @relation("ActiveQuestion", fields: [activeQuestionId], references: [id])
+  user           studentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  papers         papers         @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  activeSection  String?
+  activeQuestion questions?     @relation("ActiveQuestion", fields: [activeQuestionId], references: [id])
 
   testQuestionStatus testQuestionAttemptStatus[]
   summary            TestAttemptSummary?
@@ -342,19 +358,19 @@ model testStatus {
 }
 
 model testQuestionAttemptStatus {
-  id              String         @id @default(uuid())
+  id              String        @id @default(uuid())
   questionId      String
   testStatusId    String
   studentId       String
-  isCorrect       Boolean        @default(false)
-  status          AttemptStatus  @default(notAnswered)
-  marksObtained   Float          @default(0.0)
+  isCorrect       Boolean       @default(false)
+  status          AttemptStatus @default(notAnswered)
+  marksObtained   Float         @default(0.0)
   timeSpent       Int
-  userAnswer      Json?         
-  isVisited       Boolean        @default(false)
-  markedForReview Boolean        @default(false)
-  isAnalyzed      Boolean        @default(false)
-  updated_at      DateTime       @default(now())
+  userAnswer      Json?
+  isVisited       Boolean       @default(false)
+  markedForReview Boolean       @default(false)
+  isAnalyzed      Boolean       @default(false)
+  updated_at      DateTime      @default(now())
 
   testStatus          testStatus     @relation(fields: [testStatusId], references: [id], onDelete: Cascade)
   questions           questions      @relation(fields: [questionId], references: [id], onDelete: Cascade)
@@ -364,19 +380,19 @@ model testQuestionAttemptStatus {
 }
 
 model chapterWiseQuestionAttemptStatus {
-  id             String         @id @default(uuid())
+  id             String        @id @default(uuid())
   questionId     String
   studentId      String
   questionStatus AttemptStatus
-  isCorrect      Boolean        @default(false)
-  marksObtained  Float          @default(0.0)
+  isCorrect      Boolean       @default(false)
+  marksObtained  Float         @default(0.0)
   timeSpent      Int
-  userAnswer     Json?         
-  created_at     DateTime       @default(now())
-  isAnalyzed     Boolean        @default(false)
-  
-  question       questions      @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  user           studentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  userAnswer     Json?
+  created_at     DateTime      @default(now())
+  isAnalyzed     Boolean       @default(false)
+
+  question questions      @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  user     studentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@index([studentId, questionId, created_at])
 }
@@ -422,38 +438,38 @@ model SubjectAnalytics {
 }
 
 model ChapterAnalytics {
-  id                             String         @id @default(uuid())
+  id                             String   @id @default(uuid())
   studentId                      String
   chapterId                      String
-  practiceJeeMainAttempts        Int            @default(0)
-  practiceJeeMainTimeSpent       Int            @default(0)
-  practiceJeeMainMarksEarned     Float          @default(0.0)
-  practiceJeeMainMaxPossible     Float          @default(0.0)
-  practiceJeeMainCorrect         Int            @default(0)
-  practiceJeeMainWrong           Int            @default(0)
-  practiceJeeMainPartial         Int            @default(0)
-  practiceJeeAdvancedAttempts    Int            @default(0)
-  practiceJeeAdvancedTimeSpent   Int            @default(0)
-  practiceJeeAdvancedMarksEarned Float          @default(0.0)
-  practiceJeeAdvancedMaxPossible Float          @default(0.0)
-  practiceJeeAdvancedCorrect     Int            @default(0)
-  practiceJeeAdvancedWrong       Int            @default(0)
-  practiceJeeAdvancedPartial     Int            @default(0)
-  testJeeMainAttempts            Int            @default(0)
-  testJeeMainTimeSpent           Int            @default(0)
-  testJeeMainMarksEarned         Float          @default(0.0)
-  testJeeMainMaxPossible         Float          @default(0.0)
-  testJeeMainCorrect             Int            @default(0)
-  testJeeMainWrong               Int            @default(0)
-  testJeeMainPartial             Int            @default(0)
-  testJeeAdvancedAttempts        Int            @default(0)
-  testJeeAdvancedTimeSpent       Int            @default(0)
-  testJeeAdvancedMarksEarned     Float          @default(0.0)
-  testJeeAdvancedMaxPossible     Float          @default(0.0)
-  testJeeAdvancedCorrect         Int            @default(0)
-  testJeeAdvancedWrong           Int            @default(0)
-  testJeeAdvancedPartial         Int            @default(0)
-  updated_at                     DateTime       @default(now())
+  practiceJeeMainAttempts        Int      @default(0)
+  practiceJeeMainTimeSpent       Int      @default(0)
+  practiceJeeMainMarksEarned     Float    @default(0.0)
+  practiceJeeMainMaxPossible     Float    @default(0.0)
+  practiceJeeMainCorrect         Int      @default(0)
+  practiceJeeMainWrong           Int      @default(0)
+  practiceJeeMainPartial         Int      @default(0)
+  practiceJeeAdvancedAttempts    Int      @default(0)
+  practiceJeeAdvancedTimeSpent   Int      @default(0)
+  practiceJeeAdvancedMarksEarned Float    @default(0.0)
+  practiceJeeAdvancedMaxPossible Float    @default(0.0)
+  practiceJeeAdvancedCorrect     Int      @default(0)
+  practiceJeeAdvancedWrong       Int      @default(0)
+  practiceJeeAdvancedPartial     Int      @default(0)
+  testJeeMainAttempts            Int      @default(0)
+  testJeeMainTimeSpent           Int      @default(0)
+  testJeeMainMarksEarned         Float    @default(0.0)
+  testJeeMainMaxPossible         Float    @default(0.0)
+  testJeeMainCorrect             Int      @default(0)
+  testJeeMainWrong               Int      @default(0)
+  testJeeMainPartial             Int      @default(0)
+  testJeeAdvancedAttempts        Int      @default(0)
+  testJeeAdvancedTimeSpent       Int      @default(0)
+  testJeeAdvancedMarksEarned     Float    @default(0.0)
+  testJeeAdvancedMaxPossible     Float    @default(0.0)
+  testJeeAdvancedCorrect         Int      @default(0)
+  testJeeAdvancedWrong           Int      @default(0)
+  testJeeAdvancedPartial         Int      @default(0)
+  updated_at                     DateTime @default(now())
 
   student       studentProfile         @relation(fields: [studentId], references: [id], onDelete: Cascade)
   chapter       chapters               @relation(fields: [chapterId], references: [id], onDelete: Cascade)
@@ -463,7 +479,7 @@ model ChapterAnalytics {
 }
 
 model TestChapterAnalytics {
-  id             String           @id @default(uuid())
+  id             String   @id @default(uuid())
   studentId      String
   chapterId      String
   testStatusId   String
@@ -471,18 +487,18 @@ model TestChapterAnalytics {
   chapterName    String
   subjectName    String
   totalQuestions Int
-  attempt        Int              @default(0)
-  correct        Int              @default(0)
-  partial        Int              @default(0)
-  wrong          Int              @default(0)
-  marksEarned    Float            @default(0.0)
-  maxPossible    Float            @default(0.0)
-  positiveMarks  Float            @default(0.0)
-  partialMarks   Float            @default(0.0)
-  negativeMarks  Float            @default(0.0)
-  timeTaken      Int              @default(0)
-  accuracy       Float            @default(0.0)
-  created_at     DateTime         @default(now())
+  attempt        Int      @default(0)
+  correct        Int      @default(0)
+  partial        Int      @default(0)
+  wrong          Int      @default(0)
+  marksEarned    Float    @default(0.0)
+  maxPossible    Float    @default(0.0)
+  positiveMarks  Float    @default(0.0)
+  partialMarks   Float    @default(0.0)
+  negativeMarks  Float    @default(0.0)
+  timeTaken      Int      @default(0)
+  accuracy       Float    @default(0.0)
+  created_at     DateTime @default(now())
 
   student          studentProfile   @relation(fields: [studentId], references: [id], onDelete: Cascade)
   chapter          chapters         @relation(fields: [chapterId], references: [id], onDelete: Cascade)
@@ -533,14 +549,14 @@ model StudentQuestionAnalytics {
 // ==========================================
 
 model TestAttemptSummary {
-  id            String                   @id @default(uuid())
-  testStatusId  String                   @unique
+  id            String @id @default(uuid())
+  testStatusId  String @unique
   studentId     String
   totalScore    Float
   maxScore      Float
   percentage    Float
   accuracy      Float
-  avgTimePerQ   Float                    @default(0.0)
+  avgTimePerQ   Float  @default(0.0)
   timeTaken     Int
   chapterSplits Json?
 
@@ -553,7 +569,7 @@ model TestAttemptSummary {
 }
 
 model SubjectTestResult {
-  id             String             @id @default(uuid())
+  id             String      @id @default(uuid())
   summaryId      String
   subjectName    SubjectName
   totalQuestions Int
@@ -562,7 +578,7 @@ model SubjectTestResult {
   partial        Int
   wrong          Int
   marks          Float
-  maxMarks       Float              @default(0.0)
+  maxMarks       Float       @default(0.0)
   positiveMarks  Float
   partialMarks   Float
   negativeMarks  Float
@@ -575,7 +591,7 @@ model SubjectTestResult {
 }
 
 model QuestionTypeTestResult {
-  id             String             @id @default(uuid())
+  id             String       @id @default(uuid())
   summaryId      String
   questionType   questionType
   totalQuestions Int
@@ -584,7 +600,7 @@ model QuestionTypeTestResult {
   partial        Int
   wrong          Int
   marks          Float
-  maxMarks       Float              @default(0.0)
+  maxMarks       Float        @default(0.0)
   positiveMarks  Float
   partialMarks   Float
   negativeMarks  Float
@@ -656,7 +672,32 @@ model bookmarkedQuestion {
   @@unique([studentId, questionId])
 }
 
+
+
 model Email {
   id    String @id @default(uuid())
   email String @unique
 }
+
+
+
+// ==========================================
+// 9. USERS'S NOTIFICATIONS 
+// ==========================================
+model userNotifications {
+  id            String         @id @default(uuid())
+  content       String
+  subject       String
+  studentId     String
+  created_at    DateTime       @default(now())
+  sendingMedium Json
+  from          SendingPerson
+  to            SendingPerson
+  type          NotificationTypes
+  user          studentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+
+
+
+

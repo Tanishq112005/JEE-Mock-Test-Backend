@@ -1,7 +1,8 @@
+import { NotificationTypes, SendingPerson } from "@prisma/client";
 import { NotificationMessage } from "./notificationInterface";
 
 export class NotificationBuilder {
-  private message: NotificationMessage;
+  public message: NotificationMessage;
 
   constructor() {
     // We create a fresh instance to hold our data
@@ -39,11 +40,26 @@ export class NotificationBuilder {
   }
 
    
-  setType(type : string) : this {
+  setFrom(from : SendingPerson){
+    this.message.from = from;
+    return this ; 
+  }
+
+  setTo(to : SendingPerson){
+    this.message.to = to ;
+    return this ; 
+  }
+
+
+  setType(type : NotificationTypes) : this {
      this.message.type = type ; 
      return this ; 
   }
 
+  setStudentId(type : any) {
+    this.message.studentId = type ; 
+    return this ; 
+  }
 
   fromJSON(data: any): this {
 
