@@ -22,7 +22,7 @@ class NotificationController {
     sendingEmailParticularUser = async (req, res) => {
         try {
             const { to, subject, content, student_Id, type } = req.body;
-            const payload = (new notificationBuilder_1.NotificationBuilder())
+            const message = (new notificationBuilder_1.NotificationBuilder())
                 .setToEmail(to)
                 .setSubject(subject)
                 .setContent(content)
@@ -31,7 +31,33 @@ class NotificationController {
                 .setFrom(client_1.SendingPerson.Developer)
                 .setStudentId(student_Id)
                 .build();
-            await this.emailInstance.send(payload);
+            await this.emailInstance.send(message);
+            const isValidString = (val) => typeof val === "string" && val.trim().length > 0;
+            // Extract the string values RabbitMQ gave us
+            const incomingTo = message.to;
+            const incomingFrom = message.from;
+            const incomingType = message.type;
+            // Verify if those strings actually match your Prisma Enums
+            const isToValid = Object.values(client_1.SendingPerson).includes(incomingTo);
+            const isFromValid = Object.values(client_1.SendingPerson).includes(incomingFrom);
+            const isTypeValid = Object.values(client_1.NotificationTypes).includes(incomingType);
+            // 2. Validate and Save to Database
+            if (isValidString(message.studentId) &&
+                isValidString(message.content) &&
+                isValidString(message.subject) &&
+                isToValid &&
+                isFromValid &&
+                isTypeValid) {
+                console.log("Worker Validation passed. Offloading DB write...");
+                // Safely cast the strings back to Enums for Prisma
+                await notifications_db_1.notificationRepositories.addingNotifications(message.studentId, incomingTo, incomingFrom, message.content, message.subject, new Date(), ["Email"], incomingType);
+                console.log("Worker successfully saved to database.");
+            }
+            else {
+                console.error(" Worker DB Storage skipped. Data mismatch:", {
+                    to: incomingTo, from: incomingFrom, type: incomingType
+                });
+            }
             return res.status(200).json(new ApiResponse_1.default("Message is Sended"));
         }
         catch (err) {
@@ -46,7 +72,7 @@ class NotificationController {
             const allTheUser = await user_db_1.user.gettingAllUser();
             console.log(allTheUser);
             for (let i = 0; i < allTheUser.length; i++) {
-                const payload = (new notificationBuilder_1.NotificationBuilder())
+                const message = (new notificationBuilder_1.NotificationBuilder())
                     .setToEmail(allTheUser[i].email)
                     .setSubject(subject)
                     .setContent(content)
@@ -55,7 +81,33 @@ class NotificationController {
                     .setTo(client_1.SendingPerson.User)
                     .setStudentId(allTheUser[i].student_profile.id)
                     .build();
-                await this.emailInstance.send(payload);
+                await this.emailInstance.send(message);
+                const isValidString = (val) => typeof val === "string" && val.trim().length > 0;
+                // Extract the string values RabbitMQ gave us
+                const incomingTo = message.to;
+                const incomingFrom = message.from;
+                const incomingType = message.type;
+                // Verify if those strings actually match your Prisma Enums
+                const isToValid = Object.values(client_1.SendingPerson).includes(incomingTo);
+                const isFromValid = Object.values(client_1.SendingPerson).includes(incomingFrom);
+                const isTypeValid = Object.values(client_1.NotificationTypes).includes(incomingType);
+                // 2. Validate and Save to Database
+                if (isValidString(message.studentId) &&
+                    isValidString(message.content) &&
+                    isValidString(message.subject) &&
+                    isToValid &&
+                    isFromValid &&
+                    isTypeValid) {
+                    console.log("Worker Validation passed. Offloading DB write...");
+                    // Safely cast the strings back to Enums for Prisma
+                    await notifications_db_1.notificationRepositories.addingNotifications(message.studentId, incomingTo, incomingFrom, message.content, message.subject, new Date(), ["Email"], incomingType);
+                    console.log("Worker successfully saved to database.");
+                }
+                else {
+                    console.error(" Worker DB Storage skipped. Data mismatch:", {
+                        to: incomingTo, from: incomingFrom, type: incomingType
+                    });
+                }
             }
             return res.status(200).json(new ApiResponse_1.default("Email is Sended To Every One Perfectfully"));
         }
