@@ -9,10 +9,34 @@ exports.SYLLABUS_DATA = [
         subject: "Physics",
         chapters: [
             {
+                name: "Physical World",
+                slug: "physical-world",
+                description: "Nature of physics, scope of physics, physics and technology",
+                keywords: ["nature of physics", "scientific method", "fundamental forces", "physics and technology"],
+                isJeeMain: false,
+                isJeeAdvanced: false,
+                chapterNumber: 1,
+                class: 11
+            },
+            {
+                name: "Units and Dimensions",
+                slug: "units-and-dimensions",
+                description: "Physical quantities, units, dimensions, dimensional analysis, conversion of units, significant figures, errors in measurements",
+                keywords: [
+                    "physical quantities", "fundamental units", "derived units", "dimensional formula",
+                    "dimensional analysis", "unit conversion", "significant figures", "measurement errors",
+                    "accuracy", "precision"
+                ],
+                isJeeMain: true,
+                isJeeAdvanced: true,
+                chapterNumber: 2,
+                class: 11
+            },
+            {
                 name: "Motion in a Straight Line",
                 slug: "motion-in-a-straight-line",
-                description: "One dimensional motion, displacement, velocity, acceleration, equations of motion, graphs",
-                keywords: ["rectilinear", "instantaneous velocity", "kinematics", "1d motion", "speed", "average velocity", "free fall"],
+                description: "Kinematics in one dimension, velocity, acceleration, graphs",
+                keywords: ["kinematics", "uniform motion", "relative motion", "velocity time graph", "acceleration", "equations of motion"],
                 isJeeMain: true,
                 isJeeAdvanced: true,
                 chapterNumber: 3,
@@ -69,6 +93,26 @@ exports.SYLLABUS_DATA = [
                 class: 11
             },
             {
+                name: "Mechanical Properties of Solids",
+                slug: "mechanical-properties-of-solids",
+                description: "Elasticity, stress, strain, Young modulus",
+                keywords: ["stress", "strain", "young modulus", "elasticity", "poisson ratio"],
+                isJeeMain: true,
+                isJeeAdvanced: true,
+                chapterNumber: 9,
+                class: 11
+            },
+            {
+                name: "Mechanical Properties of Fluids",
+                slug: "mechanical-properties-of-fluids",
+                description: "Fluid pressure, viscosity, surface tension, Bernoulli theorem",
+                keywords: ["bernoulli theorem", "surface tension", "viscosity", "fluid flow", "stokes law"],
+                isJeeMain: true,
+                isJeeAdvanced: true,
+                chapterNumber: 10,
+                class: 11
+            },
+            {
                 name: "Oscillations",
                 slug: "oscillations",
                 description: "Simple harmonic motion, time period, energy in SHM, damped and forced Oscillations",
@@ -86,6 +130,16 @@ exports.SYLLABUS_DATA = [
                 isJeeMain: true,
                 isJeeAdvanced: true,
                 chapterNumber: 15,
+                class: 11
+            },
+            {
+                name: "Experimental Physics",
+                slug: "experimental-physics",
+                description: "Vernier calipers, screw gauge, simple pendulum, meter scale, and other laboratory experiments",
+                keywords: ["vernier caliper", "screw gauge", "least count", "zero error", "simple pendulum", "experiments", "focal length experiment", "resonance column"],
+                isJeeMain: true,
+                isJeeAdvanced: true,
+                chapterNumber: 16,
                 class: 11
             }
         ]
@@ -198,6 +252,16 @@ exports.SYLLABUS_DATA = [
                 isJeeMain: true,
                 isJeeAdvanced: true,
                 chapterNumber: 7,
+                class: 12
+            },
+            {
+                name: "Electromagnetic Waves",
+                slug: "electromagnetic-waves",
+                description: "Electromagnetic spectrum and propagation",
+                keywords: ["electromagnetic spectrum", "maxwell equations", "radio waves", "x rays", "gamma rays"],
+                isJeeMain: true,
+                isJeeAdvanced: false,
+                chapterNumber: 8,
                 class: 12
             }
         ]
@@ -492,6 +556,16 @@ exports.SYLLABUS_DATA = [
         subject: "Chemistry",
         chapters: [
             {
+                name: "Practical Organic Chemistry",
+                slug: "practical-organic-chemistry",
+                description: "Purification and qualitative analysis of organic compounds",
+                keywords: ["lassaigne test", "chromatography", "crystallization", "distillation", "organic analysis"],
+                isJeeMain: false,
+                isJeeAdvanced: true,
+                chapterNumber: 0,
+                class: 12
+            },
+            {
                 name: "Organic Chemistry - Some Basic Principles",
                 slug: "organic-chemistry-basics",
                 description: "Nomenclature, reaction mechanisms, purification techniques",
@@ -619,6 +693,16 @@ exports.SYLLABUS_DATA = [
                 class: 11
             },
             {
+                name: "Principle of Mathematical Induction",
+                slug: "principle-of-mathematical-induction",
+                description: "Proof techniques using mathematical induction",
+                keywords: ["pmi", "induction step", "base case", "divisibility proofs", "summation proofs"],
+                isJeeMain: false,
+                isJeeAdvanced: false,
+                chapterNumber: 4,
+                class: 11
+            },
+            {
                 name: "Complex Numbers and Quadratic Equations",
                 slug: "complex-numbers-quadratic-equations",
                 description: "Complex numbers, algebraic operations, quadratic equations",
@@ -669,6 +753,26 @@ exports.SYLLABUS_DATA = [
                 class: 11
             },
             {
+                name: "Mathematical Reasoning",
+                slug: "mathematical-reasoning",
+                description: "Statements, logical connectives, reasoning techniques",
+                keywords: ["logic gates", "truth table", "tautology", "fallacy", "contradiction", "implication", "negation", "converse inverse"],
+                isJeeMain: false,
+                isJeeAdvanced: false,
+                chapterNumber: 14,
+                class: 11
+            },
+            {
+                name: "Functions",
+                slug: "functions",
+                description: "Types of functions, composition and inverse functions",
+                keywords: ["composition", "inverse function", "domain", "range", "bijection"],
+                isJeeMain: true,
+                isJeeAdvanced: true,
+                chapterNumber: 1,
+                class: 12
+            },
+            {
                 name: "Matrices",
                 slug: "matrices",
                 description: "Matrix operations, types of matrices, applications",
@@ -687,26 +791,6 @@ exports.SYLLABUS_DATA = [
                 isJeeAdvanced: true,
                 chapterNumber: 4,
                 class: 12
-            },
-            {
-                name: "Mathematical Reasoning",
-                slug: "mathematical-reasoning",
-                description: "Statements, logical connectives, reasoning techniques",
-                keywords: ["logic gates", "truth table", "tautology", "fallacy", "contradiction", "implication", "negation", "converse inverse"],
-                isJeeMain: false,
-                isJeeAdvanced: false,
-                chapterNumber: 14,
-                class: 11
-            },
-            {
-                name: "Principle of Mathematical Induction",
-                slug: "principle-of-mathematical-induction",
-                description: "Proof techniques using mathematical induction",
-                keywords: ["pmi", "induction step", "base case", "divisibility proofs", "summation proofs"],
-                isJeeMain: false,
-                isJeeAdvanced: false,
-                chapterNumber: 4,
-                class: 11
             }
         ]
     },
@@ -715,6 +799,16 @@ exports.SYLLABUS_DATA = [
         subject: "Mathematics",
         chapters: [
             {
+                name: "Trigonometric Equations",
+                slug: "trigonometric-equations",
+                description: "Solutions of trigonometric equations",
+                keywords: ["general solution", "principal solution", "trigonometric equation", "multiple angles", "periodicity"],
+                isJeeMain: true,
+                isJeeAdvanced: true,
+                chapterNumber: 0,
+                class: 11
+            },
+            {
                 name: "Trigonometric Functions",
                 slug: "trigonometric-functions",
                 description: "Trigonometric ratios, identities, equations, graphs",
@@ -722,6 +816,26 @@ exports.SYLLABUS_DATA = [
                 isJeeMain: true,
                 isJeeAdvanced: true,
                 chapterNumber: 3,
+                class: 11
+            },
+            {
+                name: "Properties of Triangles",
+                slug: "properties-of-triangles",
+                description: "Sine rule, cosine rule, projection rule, Napier's analogy, incircle and excircles",
+                keywords: ["solution of triangles", "sot", "sine rule", "cosine rule", "circumcircle", "incircle", "excircle", "orthocentre", "pedal triangle"],
+                isJeeMain: false,
+                isJeeAdvanced: true,
+                chapterNumber: 4,
+                class: 11
+            },
+            {
+                name: "Heights and Distances",
+                slug: "heights-and-distances",
+                description: "Applications of trigonometry, angle of elevation and depression",
+                keywords: ["angle of elevation", "angle of depression", "applications of trigonometry", "tower", "shadow"],
+                isJeeMain: true,
+                isJeeAdvanced: true,
+                chapterNumber: 5,
                 class: 11
             },
             {
@@ -751,13 +865,43 @@ exports.SYLLABUS_DATA = [
                 class: 11
             },
             {
-                name: "Conic Sections",
-                slug: "conic-sections",
-                description: "Circle, parabola, ellipse, hyperbola",
-                keywords: ["circle", "parabola", "ellipse", "hyperbola", "eccentricity", "tangent", "normal", "chord", "focus", "directrix"],
+                name: "Circle",
+                slug: "circle",
+                description: "Equation of circle, tangent and normal",
+                keywords: ["circle equation", "tangent", "normal", "director circle", "radical axis"],
                 isJeeMain: true,
                 isJeeAdvanced: true,
-                chapterNumber: 11,
+                chapterNumber: 12,
+                class: 11
+            },
+            {
+                name: "Parabola",
+                slug: "parabola",
+                description: "Standard equations, tangent, normal and focal properties",
+                keywords: ["focus", "directrix", "latus rectum", "tangent", "normal"],
+                isJeeMain: true,
+                isJeeAdvanced: true,
+                chapterNumber: 13,
+                class: 11
+            },
+            {
+                name: "Ellipse",
+                slug: "ellipse",
+                description: "Standard equation and properties of ellipse",
+                keywords: ["eccentricity", "foci", "major axis", "minor axis", "director circle"],
+                isJeeMain: true,
+                isJeeAdvanced: true,
+                chapterNumber: 14,
+                class: 11
+            },
+            {
+                name: "Hyperbola",
+                slug: "hyperbola",
+                description: "Standard equation, asymptotes and properties",
+                keywords: ["asymptotes", "eccentricity", "transverse axis", "conjugate axis"],
+                isJeeMain: true,
+                isJeeAdvanced: true,
+                chapterNumber: 15,
                 class: 11
             },
             {
