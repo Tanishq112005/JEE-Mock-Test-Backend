@@ -28,7 +28,9 @@
     "dev:worker:emailAdding": "npx ts-node src/worker/emailAddingWorker.ts",
     "dev:worker:updateChapter": "npx ts-node src/worker/updateChapterAttemptWorker.ts",
     "dev:worker:submitChapter": "npx ts-node src/worker/submitChapterAttemptWorker.ts",
-    "start": "concurrently \"npm run dev:api\" \"npm run dev:worker:email\" \"npm run dev:worker:update\" \"npm run dev:worker:watchdog\" \"npm run dev:worker:testEvalution\" \"npm run dev:worker:studentAnalytics\" \"npm run dev:worker:emailAdding\" \"npm run dev:worker:updateChapter\" \"npm run dev:worker:submitChapter\" --names \"API,EMAIL,UPDATE,WATCH,EVAL,ANALYTICS,EMAIL_ADD,CH_UPDATE,CH_SUBMIT\" --prefix-colors \"blue,magenta,yellow,green,cyan,red,black,white,gray\""
+    "start": "concurrently \"npm run dev:api\" \"npm run dev:worker:email\" \"npm run dev:worker:update\" \"npm run dev:worker:watchdog\" \"npm run dev:worker:testEvalution\" \"npm run dev:worker:studentAnalytics\" \"npm run dev:worker:emailAdding\" \"npm run dev:worker:updateChapter\" \"npm run dev:worker:submitChapter\" --names \"API,EMAIL,UPDATE,WATCH,EVAL,ANALYTICS,EMAIL_ADD,CH_UPDATE,CH_SUBMIT\" --prefix-colors \"blue,magenta,yellow,green,cyan,red,black,white,gray\"",
+    "script:upsert-chapters": "npx ts-node src/scripts/upsertChapters.ts",
+    "script:map-questions": "npx ts-node src/scripts/mapQuestionsToChapters.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.958.0",
