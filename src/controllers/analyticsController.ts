@@ -4,7 +4,7 @@ import { reportService } from "../services/reportService";
 import ApiError from "../utils/ApiError";
 import ApiResponse from "../utils/ApiResponse";
 import { streakCacheService } from "../services/streakCacheService";
-
+import { encryptPayload } from "../utils/encryption";
 class AnalyticsController {
 
     constructor() {}
@@ -42,7 +42,7 @@ class AnalyticsController {
             }
 
             return res.status(200).json(
-                new ApiResponse("Test data from DB", data)
+                new ApiResponse("Test data from DB", encryptPayload(data))
             );
 
         } catch (err: any) {
@@ -60,7 +60,7 @@ class AnalyticsController {
             const finalDashboard = await reportService.fullDashboard(studentId);
 
             return res.status(200).json(
-                new ApiResponse("Full analytics", finalDashboard)
+                new ApiResponse("Full analytics", encryptPayload(finalDashboard))
             );
 
         } catch (err: any) {
@@ -78,7 +78,7 @@ class AnalyticsController {
             const studentReport = await reportService.studentSnapshot(studentId);
 
             return res.status(200).json(
-                new ApiResponse("Student report generated", studentReport)
+                new ApiResponse("Student report generated", encryptPayload(studentReport))
             );
 
         } catch (err: any) {
@@ -94,7 +94,7 @@ class AnalyticsController {
             const studentId = req.user;
             const streakData = await streakCacheService.getStreakStatus(studentId);
             return res.status(200).json(
-                new ApiResponse("Streak data retrieved successfully", streakData)
+                new ApiResponse("Streak data retrieved successfully", encryptPayload(streakData))
             );
         } catch (err: any) {
             console.error(err);

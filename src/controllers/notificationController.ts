@@ -7,7 +7,7 @@ import { emailService } from "../services/brevoService";
 import ApiError from "../utils/ApiError";
 import ApiResponse from "../utils/ApiResponse";
 import { notificationRepositories } from "../repositories/notifications.db";
-
+import { encryptPayload } from "../utils/encryption";
 
 
 
@@ -240,7 +240,7 @@ class NotificationController {
             return res.status(200).json(
                 new ApiResponse(
                     "User All Notifications",
-                    allNotificationsOfUser
+                    encryptPayload(allNotificationsOfUser)
                 )
             )
         }

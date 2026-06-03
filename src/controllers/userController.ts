@@ -4,7 +4,7 @@ import ApiError from "../utils/ApiError";
 import { user } from "../repositories/user.db";
 import ApiResponse from "../utils/ApiResponse";
 import { compare } from "bcrypt";
-
+import { encryptPayload } from "../utils/encryption";
 class UserController {
 
    
@@ -22,7 +22,7 @@ class UserController {
            return res.status(200).json(
             new ApiResponse(
                 `Student Is At The Stage ${stageNumber}`,
-                stageNumber
+                encryptPayload( stageNumber)
             )
            )
         }
@@ -133,7 +133,7 @@ class UserController {
            return res.status(200).json(
             new ApiResponse(
                 "Student Profile Data" , 
-                finalData 
+                encryptPayload(finalData) 
             )
            )
         }

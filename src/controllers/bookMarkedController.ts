@@ -1,7 +1,7 @@
 import { bookMarked } from "../repositories/bookMarked.db";
 import ApiError from "../utils/ApiError";
 import ApiResponse from "../utils/ApiResponse";
-
+import { encryptPayload } from "../utils/encryption";
 class BookMarkedController {
     constructor(){
 
@@ -93,7 +93,7 @@ class BookMarkedController {
              return res.status(200).json(
                 new ApiResponse(
                     "Question List Is" , 
-                    questionList
+                    encryptPayload(questionList)
                 )
              )
 

@@ -12,7 +12,7 @@ import { submitChapterAttemptProducer } from "../rabbitmq/producers/submitChapte
 import { AttemptStatus, SubjectName } from "@prisma/client";
 import { chapter } from "../repositories/chapter.db";
 import { chapterWisePractice } from "../repositories/chapterWisePractice.db";
-
+import { encryptPayload } from "../utils/encryption";
 class ChapterWiseController {
   constructor() {}
 
@@ -32,7 +32,7 @@ class ChapterWiseController {
       return res
         .status(200)
         .json(
-          new ApiResponse(`Group Of the ${subjectName} are: `, finalResponse),
+          new ApiResponse(`Group Of the ${subjectName} are: `, encryptPayload(finalResponse)),
         );
     } catch (err: any) {
       return res
@@ -51,7 +51,7 @@ class ChapterWiseController {
       const chapters = await chapter.gettingChapter({ group: groupName as string });
       return res
         .status(200)
-        .json(new ApiResponse(`Chapters for group ${groupName}`, chapters));
+        .json(new ApiResponse(`Chapters for group ${groupName}`, encryptPayload(chapters)));
     } catch (err: any) {
       return res
         .status(500)
@@ -82,11 +82,12 @@ class ChapterWiseController {
       );
 
       return res.status(200).json(
-        new ApiResponse("Chapter Stats fetched", {
+        new ApiResponse("Chapter Stats fetched", encryptPayload({
           chapterId: chapterRecord.id,
           chapterName: chapterRecord.name,
           ...stats,
-        }),
+          
+        })),
       );
     } catch (err) {
       return res
@@ -109,7 +110,7 @@ class ChapterWiseController {
       );
       return res
         .status(200)
-        .json(new ApiResponse("Question history fetched", history));
+        .json(new ApiResponse("Question history fetched", encryptPayload(history)));
     } catch (err) {
       return res
         .status(500)
@@ -153,7 +154,7 @@ class ChapterWiseController {
       return res
         .status(200)
         .json(
-          new ApiResponse("Question progress updated continuously", payload),
+          new ApiResponse("Question progress updated continuously",encryptPayload( payload)),
         );
     } catch (err: any) {
       return res
@@ -224,11 +225,11 @@ class ChapterWiseController {
      
 
       return res.status(200).json(
-        new ApiResponse("Question submitted and evaluated", {
+        new ApiResponse("Question submitted and evaluated", encryptPayload({
           marksObtained: result.marks,
           verdict: result.verdict,
           isCorrect: isActuallyCorrect,
-        }),
+        })),
       );
     } catch (err: any) {
       console.error("[Submit] Evaluation Error:", err);

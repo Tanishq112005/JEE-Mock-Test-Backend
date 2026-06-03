@@ -3,7 +3,7 @@ import ApiError from "../utils/ApiError";
 import { ExamName } from "@prisma/client";
 import { exam } from "../repositories/exam.db";
 import ApiResponse from "../utils/ApiResponse";
-
+import { encryptPayload } from "../utils/encryption";
 class ExamController {
   constructor() {}
 
@@ -43,7 +43,7 @@ class ExamController {
       const exmaList: string[] = await exam.gettingExam();
       res
         .status(200)
-        .json(new ApiResponse("All Exams Present in db are :", exmaList));
+        .json(new ApiResponse("All Exams Present in db are :", encryptPayload(exmaList)));
     } catch (err: any) {
       res.status(500).json(new ApiError("Error in getting the exam", err));
     }

@@ -6,7 +6,7 @@ import ApiResponse from "../utils/ApiResponse";
 import { questionParameters } from "../types/questions.types";
 import { questionService } from "../services/questionService";
 import { paper } from "../repositories/paper.db";
-
+import { encryptPayload } from "../utils/encryption";
 export class QuestionController {
   constructor() {}
 
@@ -93,7 +93,7 @@ export class QuestionController {
 
       return res
         .status(200)
-        .json(new ApiResponse("Questions fetched successfully", questionsList));
+        .json(new ApiResponse("Questions fetched successfully", encryptPayload(questionsList)));
     } catch (err: any) {
       return res
         .status(500)
@@ -124,7 +124,7 @@ export class QuestionController {
       return res
         .status(200)
         .json(
-          new ApiResponse("Paper questions fetched successfully", paperData)
+          new ApiResponse("Paper questions fetched successfully", encryptPayload(paperData))
         );
     } catch (err: any) {
       return res

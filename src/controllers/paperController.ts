@@ -4,7 +4,7 @@ import { ExamName, Session } from "@prisma/client";
 import ApiError from "../utils/ApiError";
 import ApiResponse from "../utils/ApiResponse";
 import { markingSchemePayload, paperDetails } from "../types/paper.types";
-
+import { encryptPayload } from "../utils/encryption";
 export class PaperController {
   constructor() {}
 
@@ -99,7 +99,7 @@ export class PaperController {
 
       return res
         .status(200)
-        .json(new ApiResponse("Papers fetched successfully", papersList));
+        .json(new ApiResponse("Papers fetched successfully", encryptPayload(papersList)));
     } catch (err: any) {
       return res
         .status(500)
@@ -137,7 +137,7 @@ export class PaperController {
       return res.status(200).json(
         new ApiResponse(
           "Your Marking Scheme Of The Paper" , 
-          data
+          encryptPayload(data)
         ) 
       )
     }

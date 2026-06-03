@@ -17,7 +17,7 @@ import {
 } from "../types/caching.types";
 import { dashboardCacheService } from "../services/dashboardCacheService";
 import { paper } from "../repositories/paper.db";
-
+import { encryptPayload } from "../utils/encryption";
 class TestController {
   constructor() {}
 
@@ -34,7 +34,7 @@ class TestController {
 
       return res
         .status(200)
-        .json(new ApiResponse("Test Details", testStatusDetails));
+        .json(new ApiResponse("Test Details", encryptPayload(testStatusDetails)));
     } catch (err: any) {
       return res.status(500).json(new ApiError("Error in Creating Test", err));
     }
@@ -128,7 +128,7 @@ class TestController {
 
       return res
         .status(200)
-        .json(new ApiResponse("Your question + test result", mergedPayload));
+        .json(new ApiResponse("Your question + test result", encryptPayload(mergedPayload)));
     } catch (err: any) {
 
       console.log(err) ; 
@@ -247,7 +247,7 @@ class TestController {
         };
       }
 
-      return res.status(200).json(new ApiResponse("Last Test Data", payload));
+      return res.status(200).json(new ApiResponse("Last Test Data", encryptPayload(payload)));
     } catch (err: any) {
       return res
         .status(500)
@@ -368,7 +368,7 @@ class TestController {
 
       return res
         .status(200)
-        .json(new ApiResponse("Test submitted successfully", testEvaluate));
+        .json(new ApiResponse("Test submitted successfully", encryptPayload(testEvaluate)));
     } catch (err: any) {
       return res
         .status(500)
@@ -519,7 +519,7 @@ class TestController {
 
       return res
         .status(200)
-        .json(new ApiResponse("Papers with attempt status", result));
+        .json(new ApiResponse("Papers with attempt status", encryptPayload(result)));
     } catch (err: any) {
       return res
         .status(500)
