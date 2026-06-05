@@ -8,6 +8,7 @@ const client_1 = require("@prisma/client");
 const ApiError_1 = __importDefault(require("../utils/ApiError"));
 const user_db_1 = require("../repositories/user.db");
 const ApiResponse_1 = __importDefault(require("../utils/ApiResponse"));
+const encryption_1 = require("../utils/encryption");
 class UserController {
     constructor() {
     }
@@ -16,7 +17,7 @@ class UserController {
             const studentId = req.user;
             let stageNumber = await user_db_1.user.stageNumber(studentId);
             stageNumber = stageNumber + 1;
-            return res.status(200).json(new ApiResponse_1.default(`Student Is At The Stage ${stageNumber}`, stageNumber));
+            return res.status(200).json(new ApiResponse_1.default(`Student Is At The Stage ${stageNumber}`, (0, encryption_1.encryptPayload)(stageNumber)));
         }
         catch (err) {
             return new ApiError_1.default("Error in getting the stage number", err);
@@ -68,7 +69,7 @@ class UserController {
         try {
             const studentId = req.user;
             const finalData = await user_db_1.user.studentProfile(studentId);
-            return res.status(200).json(new ApiResponse_1.default("Student Profile Data", finalData));
+            return res.status(200).json(new ApiResponse_1.default("Student Profile Data", (0, encryption_1.encryptPayload)(finalData)));
         }
         catch (err) {
             console.log(err);

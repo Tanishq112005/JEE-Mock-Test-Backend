@@ -8,6 +8,7 @@ const ApiError_1 = __importDefault(require("../utils/ApiError"));
 const client_1 = require("@prisma/client");
 const exam_db_1 = require("../repositories/exam.db");
 const ApiResponse_1 = __importDefault(require("../utils/ApiResponse"));
+const encryption_1 = require("../utils/encryption");
 class ExamController {
     constructor() { }
     // adding the exam
@@ -44,7 +45,7 @@ class ExamController {
             const exmaList = await exam_db_1.exam.gettingExam();
             res
                 .status(200)
-                .json(new ApiResponse_1.default("All Exams Present in db are :", exmaList));
+                .json(new ApiResponse_1.default("All Exams Present in db are :", (0, encryption_1.encryptPayload)(exmaList)));
         }
         catch (err) {
             res.status(500).json(new ApiError_1.default("Error in getting the exam", err));

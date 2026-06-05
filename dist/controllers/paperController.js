@@ -8,6 +8,7 @@ const paper_db_1 = require("../repositories/paper.db");
 const client_1 = require("@prisma/client");
 const ApiError_1 = __importDefault(require("../utils/ApiError"));
 const ApiResponse_1 = __importDefault(require("../utils/ApiResponse"));
+const encryption_1 = require("../utils/encryption");
 class PaperController {
     constructor() { }
     createPaper = async (req, res) => {
@@ -70,7 +71,7 @@ class PaperController {
             }
             return res
                 .status(200)
-                .json(new ApiResponse_1.default("Papers fetched successfully", papersList));
+                .json(new ApiResponse_1.default("Papers fetched successfully", (0, encryption_1.encryptPayload)(papersList)));
         }
         catch (err) {
             return res
@@ -92,7 +93,7 @@ class PaperController {
         try {
             const { paperId } = req.params;
             const data = await paper_db_1.paper.paperMarkingScheme(paperId);
-            return res.status(200).json(new ApiResponse_1.default("Your Marking Scheme Of The Paper", data));
+            return res.status(200).json(new ApiResponse_1.default("Your Marking Scheme Of The Paper", (0, encryption_1.encryptPayload)(data)));
         }
         catch (err) {
             return res.status(400).json(new ApiError_1.default("Error in getting the Marking Scheme"));

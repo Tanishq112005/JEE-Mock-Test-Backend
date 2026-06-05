@@ -12,6 +12,7 @@ const brevoService_1 = require("../services/brevoService");
 const ApiError_1 = __importDefault(require("../utils/ApiError"));
 const ApiResponse_1 = __importDefault(require("../utils/ApiResponse"));
 const notifications_db_1 = require("../repositories/notifications.db");
+const encryption_1 = require("../utils/encryption");
 const technicalEmail = 'techjeearchive@gmail.com';
 class NotificationController {
     emailInstance;
@@ -150,7 +151,7 @@ class NotificationController {
         try {
             const studentId = req.user;
             const allNotificationsOfUser = await notifications_db_1.notificationRepositories.gettingAllTheNotificationsForUser(studentId);
-            return res.status(200).json(new ApiResponse_1.default("User All Notifications", allNotificationsOfUser));
+            return res.status(200).json(new ApiResponse_1.default("User All Notifications", (0, encryption_1.encryptPayload)(allNotificationsOfUser)));
         }
         catch (err) {
             return res.status(500).json(new ApiError_1.default("Error in getting the Email For The User", err));

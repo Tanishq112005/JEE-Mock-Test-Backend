@@ -6,11 +6,14 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.mapQuestions = void 0;
 const database_1 = require("../lib/database");
 const axios_1 = __importDefault(require("axios"));
-const NOMIC_API_KEY = process.env.NOMIC_API_KEY;
-if (!NOMIC_API_KEY) {
-    console.error("❌ Missing NOMIC_API_KEY in environment variables.");
+// Parse all keys
+const rawKeys = process.env.NOMIC_API_KEYS || process.env.NOMIC_API_KEY || "";
+const NOMIC_API_KEYS = rawKeys.split(",").map(k => k.trim()).filter(k => k.length > 0);
+if (NOMIC_API_KEYS.length === 0) {
+    console.error("❌ Missing NOMIC_API_KEYS in environment variables.");
     process.exit(1);
 }
+let currentKeyIndex = 0;
 // Compute Cosine Similarity
 function cosineSimilarity(A, B) {
     let dotproduct = 0;
@@ -27,32 +30,39 @@ function cosineSimilarity(A, B) {
 }
 // Sleep for delays
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-// Get Nomic Embeddings with retry logic
-async function getEmbeddings(texts, taskType = "search_document", retries = 3) {
+// Get Nomic Embeddings with retry logic and multi-key fallback
+async function getEmbeddings(texts, taskType = "search_document", retries = 5) {
+    // Truncate texts to prevent huge payloads that cause Nomic to hang
+    // Increased back to 10000 characters as requested
+    const safeTexts = texts.map(text => text.length > 10000 ? text.substring(0, 10000) : text);
     for (let attempt = 1; attempt <= retries; attempt++) {
+        const key = NOMIC_API_KEYS[currentKeyIndex];
         try {
             const response = await axios_1.default.post("https://api-atlas.nomic.ai/v1/embedding/text", {
                 model: "nomic-embed-text-v1.5",
-                texts: texts,
+                texts: safeTexts,
                 task_type: taskType
             }, {
                 headers: {
-                    Authorization: `Bearer ${NOMIC_API_KEY}`,
+                    Authorization: `Bearer ${key}`,
                     "Content-Type": "application/json",
                 },
-                timeout: 10000, // 10s timeout
+                timeout: 20000, // Reduced to 20s so it fails faster instead of hanging for a minute
             });
             return response.data.embeddings;
         }
         catch (error) {
-            console.warn(`⚠️ Nomic API error on attempt ${attempt}: ${error.message}`);
+            console.warn(`⚠️ Nomic API error (Key ${currentKeyIndex + 1}/${NOMIC_API_KEYS.length}) on attempt ${attempt}: ${error.message}`);
+            // On failure, rotate to the next key
+            currentKeyIndex = (currentKeyIndex + 1) % NOMIC_API_KEYS.length;
             if (attempt === retries)
                 throw error;
-            await sleep(2000 * attempt); // Exponential backoff
+            await sleep(1000 * attempt); // Faster retry (1s, 2s, 3s...)
         }
     }
     return [];
 }
+const chapter_1 = require("../utils/chapter");
 const mapQuestions = async () => {
     console.log("🚀 Fetching all chapters...");
     const chapters = await database_1.database.chapters.findMany();
@@ -60,8 +70,21 @@ const mapQuestions = async () => {
         console.error("❌ No chapters found in DB.");
         return;
     }
-    console.log(`🚀 Generating embeddings for ${chapters.length} chapters...`);
-    const chapterTexts = chapters.map(ch => `${ch.name} ${ch.group} ${ch.class}`);
+    console.log(`🚀 Generating enriched embeddings for ${chapters.length} chapters...`);
+    // Dramatically improve accuracy by injecting Syllabus Keywords into the Chapter Embedding
+    const chapterTexts = chapters.map(ch => {
+        let description = "";
+        let keywords = "";
+        for (const group of chapter_1.SYLLABUS_DATA) {
+            const found = group.chapters.find(c => c.name === ch.name);
+            if (found) {
+                description = found.description || "";
+                keywords = (found.keywords || []).join(", ");
+                break;
+            }
+        }
+        return `Chapter: ${ch.name} | Subject: ${ch.group} | Class: ${ch.class} | Description: ${description} | Topics & Keywords: ${keywords}`;
+    });
     const chapterEmbeddings = await getEmbeddings(chapterTexts, "search_document");
     const chaptersWithEmbeddings = chapters.map((ch, i) => ({
         ...ch,
@@ -69,10 +92,10 @@ const mapQuestions = async () => {
     }));
     console.log("🚀 Fetching all questions...");
     const questions = await database_1.database.questions.findMany();
-    console.log(`Found ${questions.length} questions. Processing in batches of 100...`);
+    console.log(`Found ${questions.length} questions. Processing in batches of 20...`);
     let successCount = 0;
     let failCount = 0;
-    const BATCH_SIZE = 50;
+    const BATCH_SIZE = 20; // Lower batch size to make Nomic requests extremely fast
     for (let i = 0; i < questions.length; i += BATCH_SIZE) {
         const batch = questions.slice(i, i + BATCH_SIZE);
         console.log(`\n📝 Processing batch ${Math.floor(i / BATCH_SIZE) + 1} / ${Math.ceil(questions.length / BATCH_SIZE)} (Questions ${i + 1} to ${i + batch.length})`);

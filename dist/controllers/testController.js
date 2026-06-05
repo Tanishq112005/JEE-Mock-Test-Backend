@@ -14,6 +14,7 @@ const testEvaluationService_1 = require("../services/testEvaluationService");
 const caching_1 = require("../lib/caching");
 const dashboardCacheService_1 = require("../services/dashboardCacheService");
 const paper_db_1 = require("../repositories/paper.db");
+const encryption_1 = require("../utils/encryption");
 class TestController {
     constructor() { }
     // ── Creating new test ────────────────────────────────────────────
@@ -24,7 +25,7 @@ class TestController {
             const testStatusDetails = await testStatus_db_1.testStatus.startNewTestSession(userId, paperId);
             return res
                 .status(200)
-                .json(new ApiResponse_1.default("Test Details", testStatusDetails));
+                .json(new ApiResponse_1.default("Test Details", (0, encryption_1.encryptPayload)(testStatusDetails)));
         }
         catch (err) {
             return res.status(500).json(new ApiError_1.default("Error in Creating Test", err));
@@ -96,7 +97,7 @@ class TestController {
             };
             return res
                 .status(200)
-                .json(new ApiResponse_1.default("Your question + test result", mergedPayload));
+                .json(new ApiResponse_1.default("Your question + test result", (0, encryption_1.encryptPayload)(mergedPayload)));
         }
         catch (err) {
             console.log(err);
@@ -179,7 +180,7 @@ class TestController {
                     testId: testStatusDetails[0].id,
                 };
             }
-            return res.status(200).json(new ApiResponse_1.default("Last Test Data", payload));
+            return res.status(200).json(new ApiResponse_1.default("Last Test Data", (0, encryption_1.encryptPayload)(payload)));
         }
         catch (err) {
             return res
@@ -263,7 +264,7 @@ class TestController {
             });
             return res
                 .status(200)
-                .json(new ApiResponse_1.default("Test submitted successfully", testEvaluate));
+                .json(new ApiResponse_1.default("Test submitted successfully", (0, encryption_1.encryptPayload)(testEvaluate)));
         }
         catch (err) {
             return res
@@ -381,7 +382,7 @@ class TestController {
             });
             return res
                 .status(200)
-                .json(new ApiResponse_1.default("Papers with attempt status", result));
+                .json(new ApiResponse_1.default("Papers with attempt status", (0, encryption_1.encryptPayload)(result)));
         }
         catch (err) {
             return res

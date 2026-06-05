@@ -14,6 +14,7 @@ const submitChapterAttempt_producer_1 = require("../rabbitmq/producers/submitCha
 const client_1 = require("@prisma/client");
 const chapter_db_1 = require("../repositories/chapter.db");
 const chapterWisePractice_db_1 = require("../repositories/chapterWisePractice.db");
+const encryption_1 = require("../utils/encryption");
 class ChapterWiseController {
     constructor() { }
     groupName = async (req, res) => {
@@ -26,7 +27,7 @@ class ChapterWiseController {
             const finalResponse = await chapter_db_1.chapter.gettingDetailedGroups(subjectName);
             return res
                 .status(200)
-                .json(new ApiResponse_1.default(`Group Of the ${subjectName} are: `, finalResponse));
+                .json(new ApiResponse_1.default(`Group Of the ${subjectName} are: `, (0, encryption_1.encryptPayload)(finalResponse)));
         }
         catch (err) {
             return res
@@ -43,7 +44,7 @@ class ChapterWiseController {
             const chapters = await chapter_db_1.chapter.gettingChapter({ group: groupName });
             return res
                 .status(200)
-                .json(new ApiResponse_1.default(`Chapters for group ${groupName}`, chapters));
+                .json(new ApiResponse_1.default(`Chapters for group ${groupName}`, (0, encryption_1.encryptPayload)(chapters)));
         }
         catch (err) {
             return res
@@ -67,11 +68,11 @@ class ChapterWiseController {
                     .json(new ApiError_1.default(`Chapter "${chapterName}" not found. Verify the chapter name.`, err));
             }
             const stats = await chapterWisePractice_db_1.chapterWisePractice.getChapterInfo(chapterRecord.id, userId);
-            return res.status(200).json(new ApiResponse_1.default("Chapter Stats fetched", {
+            return res.status(200).json(new ApiResponse_1.default("Chapter Stats fetched", (0, encryption_1.encryptPayload)({
                 chapterId: chapterRecord.id,
                 chapterName: chapterRecord.name,
                 ...stats,
-            }));
+            })));
         }
         catch (err) {
             return res
@@ -88,7 +89,7 @@ class ChapterWiseController {
             const history = await chapterWisePractice_db_1.chapterWisePractice.getQuestionAttemptsHistory(questionId, userId);
             return res
                 .status(200)
-                .json(new ApiResponse_1.default("Question history fetched", history));
+                .json(new ApiResponse_1.default("Question history fetched", (0, encryption_1.encryptPayload)(history)));
         }
         catch (err) {
             return res
@@ -125,7 +126,7 @@ class ChapterWiseController {
             await updateChapterAttempt_producer_1.updateChapterAttemptProducer.updateAttemptData(payload);
             return res
                 .status(200)
-                .json(new ApiResponse_1.default("Question progress updated continuously", payload));
+                .json(new ApiResponse_1.default("Question progress updated continuously", (0, encryption_1.encryptPayload)(payload)));
         }
         catch (err) {
             return res
@@ -185,11 +186,11 @@ class ChapterWiseController {
             };
             await chapterWiseCacheService_1.chapterWiseCacheService.upsertAttemptData(userId, questionId, payload);
             await submitChapterAttempt_producer_1.submitChapterAttemptProducer.submitAttemptData(payload);
-            return res.status(200).json(new ApiResponse_1.default("Question submitted and evaluated", {
+            return res.status(200).json(new ApiResponse_1.default("Question submitted and evaluated", (0, encryption_1.encryptPayload)({
                 marksObtained: result.marks,
                 verdict: result.verdict,
                 isCorrect: isActuallyCorrect,
-            }));
+            })));
         }
         catch (err) {
             console.error("[Submit] Evaluation Error:", err);

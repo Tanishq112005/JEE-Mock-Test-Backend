@@ -9,6 +9,7 @@ const client_1 = require("@prisma/client");
 const ApiError_1 = __importDefault(require("../utils/ApiError"));
 const ApiResponse_1 = __importDefault(require("../utils/ApiResponse"));
 const questionService_1 = require("../services/questionService");
+const encryption_1 = require("../utils/encryption");
 class QuestionController {
     constructor() { }
     createSingleQuestion = async (req, res) => {
@@ -76,7 +77,7 @@ class QuestionController {
             const questionsList = await question_db_1.question.gettingQuestion(year, chapterId, paperId, questionId, subject);
             return res
                 .status(200)
-                .json(new ApiResponse_1.default("Questions fetched successfully", questionsList));
+                .json(new ApiResponse_1.default("Questions fetched successfully", (0, encryption_1.encryptPayload)(questionsList)));
         }
         catch (err) {
             return res
@@ -98,7 +99,7 @@ class QuestionController {
             }
             return res
                 .status(200)
-                .json(new ApiResponse_1.default("Paper questions fetched successfully", paperData));
+                .json(new ApiResponse_1.default("Paper questions fetched successfully", (0, encryption_1.encryptPayload)(paperData)));
         }
         catch (err) {
             return res

@@ -10,6 +10,7 @@ const reportService_1 = require("../services/reportService");
 const ApiError_1 = __importDefault(require("../utils/ApiError"));
 const ApiResponse_1 = __importDefault(require("../utils/ApiResponse"));
 const streakCacheService_1 = require("../services/streakCacheService");
+const encryption_1 = require("../utils/encryption");
 class AnalyticsController {
     constructor() { }
     testAnalytics = async (req, res) => {
@@ -27,7 +28,7 @@ class AnalyticsController {
             if (!data) {
                 return res.status(404).json(new ApiError_1.default("Test report not found"));
             }
-            return res.status(200).json(new ApiResponse_1.default("Test data from DB", data));
+            return res.status(200).json(new ApiResponse_1.default("Test data from DB", (0, encryption_1.encryptPayload)(data)));
         }
         catch (err) {
             return res.status(500).json(new ApiError_1.default("Error in getting the test", err));
@@ -37,7 +38,7 @@ class AnalyticsController {
         try {
             const studentId = req.user;
             const finalDashboard = await reportService_1.reportService.fullDashboard(studentId);
-            return res.status(200).json(new ApiResponse_1.default("Full analytics", finalDashboard));
+            return res.status(200).json(new ApiResponse_1.default("Full analytics", (0, encryption_1.encryptPayload)(finalDashboard)));
         }
         catch (err) {
             return res.status(500).json(new ApiError_1.default("Error in getting analytics", err));
@@ -47,7 +48,7 @@ class AnalyticsController {
         try {
             const studentId = req.user;
             const studentReport = await reportService_1.reportService.studentSnapshot(studentId);
-            return res.status(200).json(new ApiResponse_1.default("Student report generated", studentReport));
+            return res.status(200).json(new ApiResponse_1.default("Student report generated", (0, encryption_1.encryptPayload)(studentReport)));
         }
         catch (err) {
             console.log(err);
@@ -58,7 +59,7 @@ class AnalyticsController {
         try {
             const studentId = req.user;
             const streakData = await streakCacheService_1.streakCacheService.getStreakStatus(studentId);
-            return res.status(200).json(new ApiResponse_1.default("Streak data retrieved successfully", streakData));
+            return res.status(200).json(new ApiResponse_1.default("Streak data retrieved successfully", (0, encryption_1.encryptPayload)(streakData)));
         }
         catch (err) {
             console.error(err);

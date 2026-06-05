@@ -7,6 +7,7 @@ exports.bookMarkedController = void 0;
 const bookMarked_db_1 = require("../repositories/bookMarked.db");
 const ApiError_1 = __importDefault(require("../utils/ApiError"));
 const ApiResponse_1 = __importDefault(require("../utils/ApiResponse"));
+const encryption_1 = require("../utils/encryption");
 class BookMarkedController {
     constructor() {
     }
@@ -52,7 +53,7 @@ class BookMarkedController {
         try {
             const studentId = req.user;
             const questionList = await bookMarked_db_1.bookMarked.bookMarkedQuestion(studentId);
-            return res.status(200).json(new ApiResponse_1.default("Question List Is", questionList));
+            return res.status(200).json(new ApiResponse_1.default("Question List Is", (0, encryption_1.encryptPayload)(questionList)));
         }
         catch (err) {
             return res.status(400).json(new ApiError_1.default("Error in Getting the Bookmarked Question", err));
