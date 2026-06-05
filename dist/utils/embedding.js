@@ -13,14 +13,15 @@ const env_1 = require("../config/env");
  */
 async function getEmbedding(text) {
     try {
-        // 1. Setup Timeout (Aborts request after 5 seconds to prevent hanging)
+        // 1. Setup Timeout (Aborts request after 15 seconds to prevent hanging)
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
         // 2. Setup API Key
-        const nomicApiKey = env_1.NOMIC_API_KEY;
-        if (!nomicApiKey) {
+        if (!env_1.NOMIC_API_KEY) {
             throw new Error("Missing NOMIC_API_KEY environment variable.");
         }
+        const nomicApiKeys = env_1.NOMIC_API_KEY.replace(/^"|"$/g, '').split(',').map(k => k.trim());
+        const nomicApiKey = nomicApiKeys[Math.floor(Math.random() * nomicApiKeys.length)];
         // 3. Call Nomic API
         const response = await (0, node_fetch_1.default)("https://api-atlas.nomic.ai/v1/embedding/text", {
             method: "POST",
