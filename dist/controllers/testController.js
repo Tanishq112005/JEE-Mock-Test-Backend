@@ -51,7 +51,7 @@ class TestController {
                 console.log(`⚠️ Redis MISS for testId: ${testStatusId}, returning DB data`);
                 return res
                     .status(200)
-                    .json(new ApiResponse_1.default("Your question + test result", dbSessionData));
+                    .json(new ApiResponse_1.default("Your question + test result", (0, encryption_1.encryptPayload)(dbSessionData)));
             }
             console.log(`✅ Redis HIT for testId: ${testStatusId}, merging with DB questions`);
             // ── Build lookup map from Redis attempts ─────────────────

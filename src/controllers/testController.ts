@@ -75,7 +75,7 @@ class TestController {
         );
         return res
           .status(200)
-          .json(new ApiResponse("Your question + test result", dbSessionData));
+          .json(new ApiResponse("Your question + test result", encryptPayload(dbSessionData)));
       }
 
       console.log(
