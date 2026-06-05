@@ -56,14 +56,14 @@ class ChapterSearchEngine {
             }
         }
         // Batch requests to prevent rate limiting / timeouts
-        // const BATCH_SIZE = 5;
-        // for (let i = 0; i < tasks.length; i += BATCH_SIZE) {
-        //  const chunk = tasks.slice(i, i + BATCH_SIZE);
-        //  await Promise.all(chunk.map(t => this.indexChapter(t.group, t.chapter)));
-        //  await new Promise(resolve => setTimeout(resolve, 500)); // 500ms delay between batches
-        // }
-        //this.isInitialized = true;
-        // console.log(`Index Ready! Loaded ${this.index.length} chapters in ${(Date.now() - startTime) / 1000}s`);
+        const BATCH_SIZE = 5;
+        for (let i = 0; i < tasks.length; i += BATCH_SIZE) {
+            const chunk = tasks.slice(i, i + BATCH_SIZE);
+            await Promise.all(chunk.map(t => this.indexChapter(t.group, t.chapter)));
+            await new Promise(resolve => setTimeout(resolve, 500)); // 500ms delay between batches
+        }
+        this.isInitialized = true;
+        console.log(`Index Ready! Loaded ${this.index.length} chapters in ${(Date.now() - startTime) / 1000}s`);
     }
     async indexChapter(group, chapter) {
         const richText = `
