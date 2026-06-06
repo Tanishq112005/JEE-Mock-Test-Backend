@@ -21,6 +21,7 @@ function createMariaDbAdapter() {
     user: decodeURIComponent(databaseUrl.username),
     password: decodeURIComponent(databaseUrl.password),
     database,
+     connectTimeout: 20000,
     connectionLimit: Number(databaseUrl.searchParams.get("connection_limit") ?? 5),
     ssl: databaseUrl.searchParams.has("sslaccept") ? true : undefined,
   });
