@@ -1,32 +1,40 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.redisClient = exports.redisConfig = void 0;
+exports.questionRedisclient = exports.questionBitMapRedisclient = exports.redisConfig = void 0;
 const env_1 = require("../config/env");
 const redis_1 = require("redis");
 class RedisConfig {
-    client;
+    questionBitMapclient;
+    questionsClient;
     constructor() {
-        const port = parseInt(env_1.REDIS_PORT, 10) || 6379;
-        this.client = (0, redis_1.createClient)({
+        const questionBitMapclientPort = parseInt(env_1.REDIS_PORT, 10) || 6379;
+        this.questionBitMapclient = (0, redis_1.createClient)({
             username: env_1.REDIS_USERNAME,
             password: env_1.REDIS_PASSWORD,
             socket: {
                 host: env_1.REDIS_HOST,
-                port: port,
+                port: questionBitMapclientPort
             },
         });
-        this.client.on("error", (err) => console.log("Redis Client Error:", err));
-        this.client.on("connect", () => console.log("Redis Connected Successfully"));
+        this.questionsClient = (0, redis_1.createClient)({
+            url: env_1.QUESTION_STORE_REDIS_URL
+        });
+        this.questionBitMapclient.on("error", (err) => console.log("Questions Bit Map Redis Client Error:", err));
+        this.questionBitMapclient.on("connect", () => console.log("Questions Bit Map Redis Connected Successfully"));
+        this.questionsClient.on("error", (err) => console.log("Questions Redis Client Error:", err));
+        this.questionsClient.on("connect", () => console.log("Questions Redis Connected"));
         this.connect();
     }
     async connect() {
         try {
-            await this.client.connect();
+            await this.questionBitMapclient.connect();
+            await this.questionsClient.connect();
         }
         catch (error) {
             console.error("Failed to connect to Redis:", error);
         }
     }
+    // functions for the redis auth and all 
     getRedisEmailKey(email) {
         return `OTP:${email}`;
     }
@@ -35,4 +43,5 @@ class RedisConfig {
     }
 }
 exports.redisConfig = new RedisConfig();
-exports.redisClient = exports.redisConfig.client;
+exports.questionBitMapRedisclient = exports.redisConfig.questionBitMapclient;
+exports.questionRedisclient = exports.redisConfig.questionsClient;
