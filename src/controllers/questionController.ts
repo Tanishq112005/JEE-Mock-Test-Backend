@@ -7,6 +7,7 @@ import { questionParameters } from "../types/questions.types";
 import { questionService } from "../services/questionService";
 import { paper } from "../repositories/paper.db";
 import { encryptPayload } from "../utils/encryption";
+import { addingCorrectChapterName } from "../scripts/scriptAddingQuestion";
 export class QuestionController {
   constructor() {}
 
@@ -132,6 +133,27 @@ export class QuestionController {
         .json(new ApiError("Error in fetching paper questions", err));
     }
   };
+
+
+
+  public updatingQuestion = async(req : any , res : any) => {
+    const {paperId , results} = req.body ; 
+    try{
+        if (!paperId) {
+        return res.status(400).json(new ApiError("Paper ID is required"));
+        }
+        await addingCorrectChapterName.processingQuestions(paperId , results) ; 
+
+        res.status(200).json(
+          new ApiResponse("Updated" ) 
+        )
+    } 
+    catch(err : any){
+      return res
+        .status(500)
+        .json(new ApiError("Error in fetching paper questions", err));
+    }
+}
 }
 
 export const questionController = new QuestionController();

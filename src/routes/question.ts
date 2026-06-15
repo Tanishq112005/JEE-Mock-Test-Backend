@@ -19,4 +19,7 @@ router.get("/get", authMiddleware, questionController.getQuestions);
 
 router.get("/paperQuestions/:paperId" , authMiddleware , questionController.getPaperQuestions) ; 
 
+router.post("/update" ,authMiddleware , developerRoleMiddleware , questionController.updatingQuestion) ; 
+
+
 export const questionRoutes = router;

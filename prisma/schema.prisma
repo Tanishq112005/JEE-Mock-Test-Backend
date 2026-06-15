@@ -140,6 +140,14 @@ enum Gender {
   Other
 }
 
+
+enum BannerType {
+   Maintenance
+   Announcement
+}
+
+
+
 // ==========================================
 // 1. USER MANAGEMENT
 // ==========================================
@@ -304,6 +312,9 @@ model questions {
   globalStats         QuestionGlobalStats?
   bookmarkedBy        bookmarkedQuestion[]
   activeInTests       testStatus[]                       @relation("ActiveQuestion")
+
+
+  isProcessingDone  Boolean @default(false) 
 }
 
 model options {
@@ -697,6 +708,19 @@ model userNotifications {
   user          studentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
 }
 
+
+// ==========================================
+// 10. Banner Module
+// ==========================================
+
+model banner {
+  id           Int         @id  @default(1) 
+  isbanner  Boolean     @default(false)
+  reason       String      
+  startTime    DateTime    
+  endTime      DateTime 
+  type         BannerType  
+}
 
 
 

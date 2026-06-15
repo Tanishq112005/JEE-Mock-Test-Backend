@@ -337,7 +337,7 @@ class Question {
         this.formatQuestionRecord(q, true),
       );
 
-      return encryptPayload(processedQuestions);
+      return processedQuestions;
     } catch (err) {
       console.error("Error fetching questions:", err);
       throw err;

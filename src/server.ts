@@ -17,7 +17,7 @@ import { testStatusRoutes } from "./routes/testStatus";
 import { rabbitMQClient } from "./rabbitmq/connection/rabbitmq-connection";
 
 import { searchEngine } from "./utils/similarity"; // 2. Hybrid Search Engine
-import { seedDatabase } from "./scripts/seedChapter";
+
 import { emailRoutes } from "./routes/email";
 import { analyticsRoutes } from "./routes/analytics";
 import { questionBitmapRegistry } from "./services/uniqueCountService";
@@ -28,6 +28,7 @@ import { chapterWiseRoutes } from "./routes/chapterWise";
 import { userRoutes } from "./routes/user";
 import { bookMarkedRoutes } from "./routes/bookMarked";
 import { notificationRoutes } from "./routes/notification";
+import { bannerRoutes } from "./routes/banner";
 
 const app = express();
 const port = PORT;
@@ -73,7 +74,9 @@ app.use("/api/redis", adminRedisRoutes);
 app.use("/api/chapterWise" , chapterWiseRoutes) ; 
 app.use("/api/user" , userRoutes) ; 
 app.use("/api/bookMarked" , bookMarkedRoutes) ;
-app.use("/api/notification" , notificationRoutes)
+app.use("/api/notification" , notificationRoutes) ; 
+app.use("/api/banner" , bannerRoutes) ; 
+
 // --- SEARCH API (For Frontend Autocomplete) ---
 app.post(
   "/api/search/chapter",
