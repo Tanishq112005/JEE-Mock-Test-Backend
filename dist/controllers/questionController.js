@@ -109,10 +109,15 @@ class QuestionController {
         }
     };
     updatingQuestion = async (req, res) => {
-        const { paperId, results } = req.body;
+        const { paperId } = req.body;
+        // Support different payload structures: { results: [...] } or { data: [...] } or { data: { results: [...] } }
+        const results = req.body.results || (req.body.data && req.body.data.results) || req.body.data;
         try {
             if (!paperId) {
                 return res.status(400).json(new ApiError_1.default("Paper ID is required"));
+            }
+            if (!results || !Array.isArray(results)) {
+                return res.status(400).json(new ApiError_1.default("Invalid JSON format. 'results' array is missing or invalid."));
             }
             await scriptAddingQuestion_1.addingCorrectChapterName.processingQuestions(paperId, results);
             res.status(200).json(new ApiResponse_1.default("Updated"));
@@ -120,7 +125,7 @@ class QuestionController {
         catch (err) {
             return res
                 .status(500)
-                .json(new ApiError_1.default("Error in fetching paper questions", err));
+                .json(new ApiError_1.default("Error in updating questions", err));
         }
     };
 }
