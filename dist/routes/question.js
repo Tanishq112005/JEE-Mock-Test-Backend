@@ -11,4 +11,5 @@ router.post("/uploadingPaper", auth_1.authMiddleware, developerRole_1.developerR
 router.delete("/delete/:questionId", auth_1.authMiddleware, developerRole_1.developerRoleMiddleware, questionController_1.questionController.deleteQuestion);
 router.get("/get", auth_1.authMiddleware, questionController_1.questionController.getQuestions);
 router.get("/paperQuestions/:paperId", auth_1.authMiddleware, questionController_1.questionController.getPaperQuestions);
+router.post("/update", auth_1.authMiddleware, developerRole_1.developerRoleMiddleware, questionController_1.questionController.updatingQuestion);
 exports.questionRoutes = router;

@@ -277,7 +277,7 @@ class Question {
                 orderBy: { papers: { year: "desc" } },
             });
             const processedQuestions = questionsRaw.map((q) => this.formatQuestionRecord(q, true));
-            return (0, encryption_1.encryptPayload)(processedQuestions);
+            return processedQuestions;
         }
         catch (err) {
             console.error("Error fetching questions:", err);

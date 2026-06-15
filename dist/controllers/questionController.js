@@ -10,6 +10,7 @@ const ApiError_1 = __importDefault(require("../utils/ApiError"));
 const ApiResponse_1 = __importDefault(require("../utils/ApiResponse"));
 const questionService_1 = require("../services/questionService");
 const encryption_1 = require("../utils/encryption");
+const scriptAddingQuestion_1 = require("../scripts/scriptAddingQuestion");
 class QuestionController {
     constructor() { }
     createSingleQuestion = async (req, res) => {
@@ -100,6 +101,21 @@ class QuestionController {
             return res
                 .status(200)
                 .json(new ApiResponse_1.default("Paper questions fetched successfully", (0, encryption_1.encryptPayload)(paperData)));
+        }
+        catch (err) {
+            return res
+                .status(500)
+                .json(new ApiError_1.default("Error in fetching paper questions", err));
+        }
+    };
+    updatingQuestion = async (req, res) => {
+        const { paperId, results } = req.body;
+        try {
+            if (!paperId) {
+                return res.status(400).json(new ApiError_1.default("Paper ID is required"));
+            }
+            await scriptAddingQuestion_1.addingCorrectChapterName.processingQuestions(paperId, results);
+            res.status(200).json(new ApiResponse_1.default("Updated"));
         }
         catch (err) {
             return res

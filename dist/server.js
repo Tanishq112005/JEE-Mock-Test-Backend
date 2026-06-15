@@ -29,6 +29,7 @@ const chapterWise_1 = require("./routes/chapterWise");
 const user_1 = require("./routes/user");
 const bookMarked_1 = require("./routes/bookMarked");
 const notification_1 = require("./routes/notification");
+const banner_1 = require("./routes/banner");
 const app = (0, express_1.default)();
 const port = env_1.PORT;
 // ==========================================
@@ -69,6 +70,7 @@ app.use("/api/chapterWise", chapterWise_1.chapterWiseRoutes);
 app.use("/api/user", user_1.userRoutes);
 app.use("/api/bookMarked", bookMarked_1.bookMarkedRoutes);
 app.use("/api/notification", notification_1.notificationRoutes);
+app.use("/api/banner", banner_1.bannerRoutes);
 // --- SEARCH API (For Frontend Autocomplete) ---
 app.post("/api/search/chapter", async (req, res) => {
     try {

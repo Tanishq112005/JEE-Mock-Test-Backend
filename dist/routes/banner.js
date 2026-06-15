@@ -1,0 +1,13 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.bannerRoutes = void 0;
+const express_1 = require("express");
+const auth_1 = require("../middlewares/auth");
+const developerRole_1 = require("../middlewares/developerRole");
+const bannerController_1 = require("../controllers/bannerController");
+const tokenBucket_1 = require("../middlewares/RateLimiters/tokenBucket");
+const router = (0, express_1.Router)();
+const bannerLimiter = new tokenBucket_1.TokenBucket('bannerLimiter', 2, 0.25);
+router.get('/get', auth_1.authMiddleware, bannerLimiter.limit, bannerController_1.bannerController.getCurrentStatus);
+router.post('/createOrupdate', auth_1.authMiddleware, developerRole_1.developerRoleMiddleware, bannerController_1.bannerController.createAndUpdate);
+exports.bannerRoutes = router;
