@@ -1,8 +1,5 @@
 import {
-  QUESTION_STORE_REDIS_HOST,
-  QUESTION_STORE_REDIS_PASSWORD,
-  QUESTION_STORE_REDIS_PORT,
-  QUESTION_STORE_REDIS_USERNAME,
+  QUESTION_STORE_REDIS_URL,
   REDIS_HOST,
   REDIS_PASSWORD,
   REDIS_PORT,
@@ -15,25 +12,19 @@ class RedisConfig {
   public questionsClient : RedisClientType ; 
   constructor() {
     const questionBitMapclientPort = parseInt(REDIS_PORT as string, 10) || 6379;
-    const questionsClientPort = parseInt(QUESTION_STORE_REDIS_PORT as string , 10) || 6379 ; 
     
     this.questionBitMapclient = createClient({
       username: REDIS_USERNAME,
       password: REDIS_PASSWORD,
       socket: {
         host: REDIS_HOST,
-        port: questionBitMapclientPort,
+        port: questionBitMapclientPort
       },
     });
-    
+
     this.questionsClient = createClient({
-      username : QUESTION_STORE_REDIS_USERNAME , 
-      password : QUESTION_STORE_REDIS_PASSWORD ,
-      socket : {
-        host : QUESTION_STORE_REDIS_HOST , 
-        port : questionsClientPort 
-      }
-    })
+      url: QUESTION_STORE_REDIS_URL
+    });
 
 
     this.questionBitMapclient.on("error", (err: any) =>
@@ -47,7 +38,7 @@ class RedisConfig {
       console.log("Questions Redis Client Error:" , err)
     ) ;  
 
-    this.questionsClient.on("connnet" , () => 
+    this.questionsClient.on("connect" , () => 
       console.log("Questions Redis Connected")  
     )
 
@@ -77,7 +68,7 @@ class RedisConfig {
 
 
   // functions for the questions loader in the redis 
-  
+
    
    
 }

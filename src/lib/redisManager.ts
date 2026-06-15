@@ -22,6 +22,7 @@ class RedisManager {
           host: connectionData.host,
           port:
             connectionData.port || parseInt(REDIS_PORT as string, 10) || 6379,
+        
         },
       });
 
