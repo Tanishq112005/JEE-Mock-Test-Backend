@@ -1,6 +1,6 @@
 import * as redis from "redis";
 import { RedisClientType } from "redis";
-import { redisClient } from "../lib/redis";
+import { questionBitMapRedisclient } from "../lib/redis";
 import { database } from "../lib/database";
 import { PrismaClient } from "@prisma/client";
 import { BitmapCheckResult, SeenQuestionsResult } from "../types/uniqueQuestion.types";
@@ -335,6 +335,6 @@ class QuestionBitmapRegistry {
 
 // ─── Singleton Export ─────────────────────────────────────────────────────────
 export const questionBitmapRegistry = new QuestionBitmapRegistry(
-  redisClient,
+  questionBitMapRedisclient,
   database
 );
