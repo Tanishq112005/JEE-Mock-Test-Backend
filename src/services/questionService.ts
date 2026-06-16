@@ -67,13 +67,13 @@ class QuestionCreating {
     const idOfquestion = randomUUID();
 
   
-    const searchQuery = `${subject} ${chapterName} ${chapterGroup}`;
-    const searchResults = await searchEngine.findChapter(searchQuery);
+    // const searchQuery = `${subject} ${chapterName} ${chapterGroup}`;
+    // const searchResults = await searchEngine.findChapter(searchQuery);
 
     let finalChapterName = chapterName;
-
-    if (searchResults.length > 0) {
-      finalChapterName = searchResults[0].name;
+   
+   /* if (searchResults.length > 0) {
+   finalChapterName = searchResults[0].name;
       console.log(
         `🔍 Mapped "${chapterName}" -> "${finalChapterName}" (Score: ${searchResults[0].score.toFixed(2)})`,
       );
@@ -81,7 +81,8 @@ class QuestionCreating {
       console.warn(
         `⚠️ Could not map chapter: "${chapterName}". Using raw value.`,
       );
-    }
+    }*/
+
 
  
     const questionResult = await imageUpload.imageConverstion({
@@ -162,6 +163,7 @@ class QuestionCreating {
       explation: expResult.html,
       explationImage: expResult.imagePaths,
       chapter: finalChapterName,
+      chapterGroup: chapterGroup
     };
   }
 

@@ -29,7 +29,7 @@ class AddingCorrectChapterName {
             // 1. Fetch all existing chapters and build an in-memory map
             const allChapters = await this.db.chapters.findMany();
             const chapterMap = new Map();
-            allChapters.forEach(ch => chapterMap.set(ch.name, ch.id));
+            allChapters.forEach(ch => chapterMap.set(ch.name.trim().toLowerCase(), ch.id));
             // 2. Prepare an object to group questions by chapterId for bulk update
             const updatesByChapterId = {};
             for (let subjectIndex = 0; subjectIndex < data.length; subjectIndex++) {
@@ -50,26 +50,35 @@ class AddingCorrectChapterName {
                             gettingWholeQuestions[j].comprehensionContent == questionHTMLCompheresionContent &&
                             gettingWholeQuestions[j].positiveMarks == questionPositiveMarks &&
                             gettingWholeQuestions[j].negativeMarks == questionNegativeMarks) {
-                            let chapterId = chapterMap.get(questionChaterName);
+                            const normalizedChapterName = questionChaterName.trim().toLowerCase();
+                            let chapterId = chapterMap.get(normalizedChapterName);
                             // If chapter is not found in memory map, create it in DB and update the map
                             if (!chapterId) {
-                                await chapter_db_1.chapter.addingChapter({
-                                    name: questionChaterName,
-                                    group: groupName,
-                                    isCbse: true,
-                                    isJeeAdvanced: true,
-                                    isJeeMain: true,
-                                    subject: subjectName, // "Physics", "Chemistry", "Mathematics"
-                                    chapterNumber: 1,
-                                    classNumber: 11
-                                });
-                                // Fetch the newly created chapter to get its ID
+                                try {
+                                    await chapter_db_1.chapter.addingChapter({
+                                        name: questionChaterName,
+                                        group: groupName,
+                                        isCbse: true,
+                                        isJeeAdvanced: true,
+                                        isJeeMain: true,
+                                        subject: subjectName, // "Physics", "Chemistry", "Mathematics"
+                                        chapterNumber: 1,
+                                        classNumber: 11
+                                    });
+                                }
+                                catch (err) {
+                                    // P2002 means the chapter name already exists in the DB (unique constraint)
+                                    if (err.code !== 'P2002') {
+                                        throw err;
+                                    }
+                                }
+                                // Fetch the newly created (or existing) chapter to get its ID
                                 const newChapter = await this.db.chapters.findFirst({
                                     where: { name: questionChaterName }
                                 });
                                 if (newChapter) {
                                     chapterId = newChapter.id;
-                                    chapterMap.set(questionChaterName, chapterId);
+                                    chapterMap.set(normalizedChapterName, chapterId);
                                 }
                             }
                             // If we have a valid chapter ID, stage it for bulk update
@@ -84,15 +93,20 @@ class AddingCorrectChapterName {
                 }
             }
             // 3. Perform bulk updates in a single transaction
-            const updatePromises = Object.entries(updatesByChapterId).map(([chapterId, questionIds]) => {
-                return this.db.questions.updateMany({
-                    where: { id: { in: questionIds } },
-                    data: { chapterId: chapterId }
+            const chapterUpdates = Object.entries(updatesByChapterId);
+            if (chapterUpdates.length > 0) {
+                await this.db.$transaction(async (tx) => {
+                    for (const [chapterId, questionIds] of chapterUpdates) {
+                        await tx.questions.updateMany({
+                            where: { id: { in: questionIds } },
+                            data: { chapterId: chapterId }
+                        });
+                    }
+                }, {
+                    maxWait: 10000, // 10 seconds max wait to acquire transaction
+                    timeout: 60000, // 60 seconds transaction timeout
                 });
-            });
-            if (updatePromises.length > 0) {
-                await this.db.$transaction(updatePromises);
-                console.log(`Successfully performed bulk update for ${updatePromises.length} chapters.`);
+                console.log(`Successfully performed bulk update for ${chapterUpdates.length} chapters.`);
             }
             else {
                 console.log("No questions required updating.");

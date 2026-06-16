@@ -23,7 +23,8 @@ export interface questionParameters {
     explation : string ; 
     explationImage : string[] ; 
     isOutOfSyllabus : boolean ; 
-    isBonus : boolean ; 
+    isBonus : boolean ;
+    chapterGroup : string ; 
 }
 
 
