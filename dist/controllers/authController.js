@@ -277,6 +277,48 @@ class AuthController {
                 .json(new ApiError_1.default("Session expired. Please login again.", err));
         }
     };
+    logout = async (req, res) => {
+        try {
+            const incomingRefreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
+            // 1. If a token exists, find the user and remove it from the database
+            if (incomingRefreshToken) {
+                try {
+                    const decoded = await (0, jwtToken_1.verifiyingRefeshToken)(incomingRefreshToken);
+                    if (decoded && decoded.id) {
+                        const userDetails = await user_db_1.user.userDetailsThroughId(decoded.id);
+                        if (userDetails) {
+                            // Pass null or an empty string depending on your Prisma schema requirements
+                            await user_db_1.user.updateRefershToken(userDetails.email, "");
+                        }
+                    }
+                }
+                catch (tokenError) {
+                    // If the token is already expired or invalid, we can safely ignore the error
+                    // and proceed to clean the client's cookies anyway.
+                    console.log("Token invalid/expired during logout process.");
+                }
+            }
+            // 2. Clear the cookie from the browser
+            // CRITICAL: The options passed to clearCookie must exactly match the options 
+            // used when the cookie was originally set in the login method (except for maxAge).
+            const isProduction = process.env.NODE_ENV === "production";
+            res.clearCookie("refreshToken", {
+                httpOnly: true,
+                secure: isProduction,
+                sameSite: isProduction ? "none" : "lax",
+                path: "/",
+            });
+            // 3. Return a successful response
+            return res
+                .status(200)
+                .json(new ApiResponse_1.default("User logged out successfully"));
+        }
+        catch (err) {
+            return res
+                .status(500)
+                .json(new ApiError_1.default("Error occurred during logout", err));
+        }
+    };
 }
 exports.AuthController = AuthController;
 exports.authController = new AuthController(database_1.database);
