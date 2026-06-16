@@ -60,16 +60,19 @@ class QuestionCreating {
         const explanationEn = payload.question.en.explanation;
         const examName = payload.exam;
         const idOfquestion = (0, crypto_1.randomUUID)();
-        const searchQuery = `${subject} ${chapterName} ${chapterGroup}`;
-        const searchResults = await similarity_1.searchEngine.findChapter(searchQuery);
+        // const searchQuery = `${subject} ${chapterName} ${chapterGroup}`;
+        // const searchResults = await searchEngine.findChapter(searchQuery);
         let finalChapterName = chapterName;
-        if (searchResults.length > 0) {
-            finalChapterName = searchResults[0].name;
-            console.log(`🔍 Mapped "${chapterName}" -> "${finalChapterName}" (Score: ${searchResults[0].score.toFixed(2)})`);
-        }
-        else {
-            console.warn(`⚠️ Could not map chapter: "${chapterName}". Using raw value.`);
-        }
+        /* if (searchResults.length > 0) {
+        finalChapterName = searchResults[0].name;
+           console.log(
+             `🔍 Mapped "${chapterName}" -> "${finalChapterName}" (Score: ${searchResults[0].score.toFixed(2)})`,
+           );
+         } else {
+           console.warn(
+             `⚠️ Could not map chapter: "${chapterName}". Using raw value.`,
+           );
+         }*/
         const questionResult = await imageService_1.imageUpload.imageConverstion({
             id: idOfquestion,
             content: contentEn,
@@ -136,6 +139,7 @@ class QuestionCreating {
             explation: expResult.html,
             explationImage: expResult.imagePaths,
             chapter: finalChapterName,
+            chapterGroup: chapterGroup
         };
     }
     async uploadBulkQuestions(fullJsonData, paperId) {

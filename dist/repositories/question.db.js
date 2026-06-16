@@ -104,8 +104,6 @@ class Question {
             chapter: q.chapters?.name || null,
             exam: examName,
             paperTitle: q.papers?.year ? `${examName} ${q.papers.year}` : null,
-            // isJeeMain: q.chapters?.isJeeMain ?? false,
-            // isJeeAdvanced: q.chapters?.isJeeAdvanced ?? false,
             // Clean up raw image arrays
             image: undefined,
             comprehensionImage: undefined,
@@ -174,7 +172,24 @@ class Question {
                 paperId: paperId,
             };
             await paper_db_1.paper.addingDetails(updationPayload);
-            const chapterInformation = await chapter_db_1.chapter.gettingChapterId(questionData.chapter);
+            // FIXED: Initialized as 'let' instead of uninitialized 'const'
+            let chapterInformation;
+            try {
+                chapterInformation = await chapter_db_1.chapter.gettingChapterId(questionData.chapter);
+            }
+            catch (err) {
+                await chapter_db_1.chapter.addingChapter({
+                    name: questionData.chapter,
+                    chapterNumber: 1,
+                    classNumber: 1,
+                    subject: questionData.subject,
+                    isCbse: true,
+                    isJeeAdvanced: true,
+                    isJeeMain: true,
+                    group: questionData.chapterGroup
+                });
+                chapterInformation = await chapter_db_1.chapter.gettingChapterId(questionData.chapter);
+            }
             const optionA = this.getOptionByIdentifier(questionData.options, "A", 0);
             const optionB = this.getOptionByIdentifier(questionData.options, "B", 1);
             const optionC = this.getOptionByIdentifier(questionData.options, "C", 2);
@@ -397,7 +412,10 @@ class Question {
             });
             return paperDetails;
         }
-        catch (err) { }
+        catch (err) {
+            // FIXED: Added missing error propagation
+            throw err;
+        }
     }
     async gettingQuestionForChapter(chapterId, userId) {
         try {
