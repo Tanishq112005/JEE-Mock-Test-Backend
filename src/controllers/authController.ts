@@ -366,6 +366,57 @@ export class AuthController {
         .json(new ApiError("Session expired. Please login again.", err));
     }
   };
+
+   
+  public logout = async (req: any, res: any) => {
+    try {
+      const incomingRefreshToken =
+        req.cookies?.refreshToken || req.body?.refreshToken;
+
+      // 1. If a token exists, find the user and remove it from the database
+      if (incomingRefreshToken) {
+        try {
+          const decoded = await verifiyingRefeshToken(incomingRefreshToken);
+
+          if (decoded && decoded.id) {
+            const userDetails = await user.userDetailsThroughId(decoded.id);
+
+            if (userDetails) {
+              // Pass null or an empty string depending on your Prisma schema requirements
+              await user.updateRefershToken(userDetails.email, ""); 
+            }
+          }
+        } catch (tokenError) {
+          // If the token is already expired or invalid, we can safely ignore the error
+          // and proceed to clean the client's cookies anyway.
+          console.log("Token invalid/expired during logout process.");
+        }
+      }
+
+      // 2. Clear the cookie from the browser
+      // CRITICAL: The options passed to clearCookie must exactly match the options 
+      // used when the cookie was originally set in the login method (except for maxAge).
+      const isProduction = process.env.NODE_ENV === "production";
+      res.clearCookie("refreshToken", {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: isProduction ? "none" : "lax",
+        path: "/",
+      });
+
+      // 3. Return a successful response
+      return res
+        .status(200)
+        .json(new ApiResponse("User logged out successfully"));
+    } catch (err: any) {
+      return res
+        .status(500)
+        .json(new ApiError("Error occurred during logout", err));
+    }
+  };
+  
+
+
 }
 
 export const authController = new AuthController(database);

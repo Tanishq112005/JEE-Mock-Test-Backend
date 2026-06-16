@@ -50,4 +50,12 @@ router.post(
   authController.verifyForgotPasswordOtp,
 );
 
+
+router.post(
+  "/logout" ,
+  authMiddleware , 
+  authController.logout
+) 
+
+
 export const authRoutes = router;
