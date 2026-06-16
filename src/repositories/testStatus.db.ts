@@ -230,57 +230,81 @@ class TestStatus {
 
           // ── Upsert all questions from frontend ───────────────────
           if (updateDetails.questionStatus?.length > 0) {
-            await Promise.all(
-              updateDetails.questionStatus.map((q: any) => {
-                let formattedAnswer: string[] = [];
+            // Pre-process formatted answers
+            const incomingUpdates = updateDetails.questionStatus.map((q: any) => {
+              let formattedAnswer: string[] = [];
 
-                if (
-                  q.numericAnswer !== null &&
-                  q.numericAnswer !== undefined &&
-                  q.numericAnswer !== ""
-                ) {
-                  formattedAnswer.push(String(q.numericAnswer));
-                } else if (
-                  Array.isArray(q.selectedOptionIds) &&
-                  q.selectedOptionIds.length > 0
-                ) {
-                  formattedAnswer = q.selectedOptionIds.map(String);
-                } else if (
-                  q.userAnswer !== null &&
-                  q.userAnswer !== undefined
-                ) {
-                  formattedAnswer = Array.isArray(q.userAnswer)
-                    ? q.userAnswer.map(String)
-                    : [String(q.userAnswer)];
-                }
+              if (q.numericAnswer !== null && q.numericAnswer !== undefined && q.numericAnswer !== "") {
+                formattedAnswer.push(String(q.numericAnswer));
+              } else if (Array.isArray(q.selectedOptionIds) && q.selectedOptionIds.length > 0) {
+                formattedAnswer = q.selectedOptionIds.map(String);
+              } else if (q.userAnswer !== null && q.userAnswer !== undefined) {
+                formattedAnswer = Array.isArray(q.userAnswer) ? q.userAnswer.map(String) : [String(q.userAnswer)];
+              }
 
-                return tx.testQuestionAttemptStatus.upsert({
-                  where: {
-                    questionId_testStatusId: {
-                      questionId:  q.questionId,
-                      testStatusId: updateDetails.testId,
-                    },
-                  },
-                  create: {
-                    testStatusId:    updateDetails.testId,
-                    questionId:      q.questionId,
-                    studentId,
-                    timeSpent:       q.timeSpent || 0,
-                    userAnswer:      formattedAnswer,
-                    status:          q.status || "notAnswered",
-                    isVisited:       q.isVisited || false,
-                    markedForReview: q.markedForReview || false,
-                  },
-                  update: {
-                    timeSpent:       q.timeSpent || 0,
-                    userAnswer:      formattedAnswer,
-                    status:          q.status || "notAnswered",
-                    isVisited:       q.isVisited || false,
-                    markedForReview: q.markedForReview || false,
-                  },
+              return { ...q, formattedAnswer };
+            });
+
+            const questionIds = incomingUpdates.map(q => q.questionId);
+
+            // 1. Bulk fetch existing attempts
+            const existingAttempts = await tx.testQuestionAttemptStatus.findMany({
+              where: {
+                testStatusId: updateDetails.testId,
+                questionId: { in: questionIds }
+              },
+              select: { questionId: true }
+            });
+
+            const existingSet = new Set(existingAttempts.map(a => a.questionId));
+
+            const toCreate = [];
+            const toUpdate = [];
+
+            for (const q of incomingUpdates) {
+              const dataObj: any = {
+                timeSpent:       q.timeSpent || 0,
+                userAnswer:      q.formattedAnswer,
+                status:          q.status || "notAnswered",
+                isVisited:       q.isVisited || false,
+                markedForReview: q.markedForReview || false,
+              };
+
+              if (existingSet.has(q.questionId)) {
+                toUpdate.push({ questionId: q.questionId, data: dataObj });
+              } else {
+                toCreate.push({
+                  testStatusId:    updateDetails.testId,
+                  questionId:      q.questionId,
+                  studentId,
+                  ...dataObj
                 });
-              }),
-            );
+              }
+            }
+
+            // 2. Bulk create new records
+            if (toCreate.length > 0) {
+              await tx.testQuestionAttemptStatus.createMany({
+                data: toCreate
+              });
+            }
+
+            // 3. Update existing records
+            if (toUpdate.length > 0) {
+              await Promise.all(
+                toUpdate.map(u => 
+                  tx.testQuestionAttemptStatus.update({
+                    where: {
+                      questionId_testStatusId: {
+                        questionId: u.questionId,
+                        testStatusId: updateDetails.testId
+                      }
+                    },
+                    data: u.data
+                  })
+                )
+              );
+            }
           }
         },
         { maxWait: 5000, timeout: 20000 },
@@ -348,48 +372,77 @@ class TestStatus {
           });
 
           // ── 2. Upsert every question with full evaluation data ───
-          await Promise.all(
-            finalVerdict.map((q: any) => {
-              const isCorrect = q.verdict === "correct";
+          if (finalVerdict.length > 0) {
+            const questionIds = finalVerdict.map(q => q.questionId);
 
-              return tx.testQuestionAttemptStatus.upsert({
-                where: {
-                  questionId_testStatusId: {
-                    questionId:   q.questionId,
-                    testStatusId: testId,
-                  },
-                },
-                create: {
+            // 1. Bulk fetch existing attempts
+            const existingAttempts = await tx.testQuestionAttemptStatus.findMany({
+              where: {
+                testStatusId: testId,
+                questionId: { in: questionIds }
+              },
+              select: { questionId: true }
+            });
+
+            const existingSet = new Set(existingAttempts.map(a => a.questionId));
+
+            const toCreate = [];
+            const toUpdate = [];
+
+            for (const q of finalVerdict) {
+              const isCorrect = q.verdict === "correct";
+              const dataObj: any = {
+                timeSpent:       q.timeSpent || 0,
+                userAnswer:      q.userAnswer || [],
+                status:          q.isVisited
+                  ? q.userAnswer?.length > 0 ? "answered" : "visited"
+                  : "notAnswered",
+                isVisited:       q.isVisited || false,
+                markedForReview: q.markedForReview || false,
+                isCorrect:       isCorrect,
+                marksObtained:   q.marks || 0,
+                isAnalyzed:      true,
+              };
+
+              if (existingSet.has(q.questionId)) {
+                toUpdate.push({
+                  questionId: q.questionId,
+                  data: { ...dataObj, updated_at: new Date() }
+                });
+              } else {
+                toCreate.push({
                   testStatusId:    testId,
                   questionId:      q.questionId,
                   studentId,
-                  timeSpent:       q.timeSpent || 0,
-                  userAnswer:      q.userAnswer || [],
-                  status:          q.isVisited
-                    ? q.userAnswer?.length > 0 ? "answered" : "visited"
-                    : "notAnswered",
-                  isVisited:       q.isVisited || false,
-                  markedForReview: q.markedForReview || false,
-                  isCorrect:       isCorrect,
-                  marksObtained:   q.marks || 0,
-                  isAnalyzed:      true,
-                },
-                update: {
-                  timeSpent:       q.timeSpent || 0,
-                  userAnswer:      q.userAnswer || [],
-                  status:          q.isVisited
-                    ? q.userAnswer?.length > 0 ? "answered" : "visited"
-                    : "notAnswered",
-                  isVisited:       q.isVisited || false,
-                  markedForReview: q.markedForReview || false,
-                  isCorrect:       isCorrect,
-                  marksObtained:   q.marks || 0,
-                  isAnalyzed:      true,
-                  updated_at:      new Date(),
-                },
+                  ...dataObj
+                });
+              }
+            }
+
+            // 2. Bulk create new records
+            if (toCreate.length > 0) {
+              await tx.testQuestionAttemptStatus.createMany({
+                data: toCreate
               });
-            }),
-          );
+            }
+
+            // 3. Update existing records
+            if (toUpdate.length > 0) {
+              await Promise.all(
+                toUpdate.map(u => 
+                  tx.testQuestionAttemptStatus.update({
+                    where: {
+                      questionId_testStatusId: {
+                        questionId: u.questionId,
+                        testStatusId: testId
+                      }
+                    },
+                    data: u.data
+                  })
+                )
+              );
+            }
+          }
         },
         { maxWait: 20000, timeout: 60000 },
       );

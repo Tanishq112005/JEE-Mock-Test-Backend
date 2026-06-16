@@ -582,5 +582,33 @@ class Question {
             throw err;
         }
     }
+    // =================================================================
+    // 12. GET MULTIPLE QUESTIONS BY IDS WITH SIGNED URLS (UNENCRYPTED)
+    // =================================================================
+    async getQuestionsByIdsWithSignedUrls(questionIds) {
+        try {
+            const questionsRaw = await this.db.questions.findMany({
+                where: { id: { in: questionIds } },
+                include: {
+                    options: true,
+                    solution: true,
+                    subjects: { select: { name: true } },
+                    chapters: {
+                        select: { name: true, isJeeAdvanced: true, isJeeMain: true, chapterNumber: true },
+                    },
+                    papers: {
+                        select: { mode: true, shift: true, date: true, month: true, year: true, exam: { select: { name: true } } },
+                    },
+                },
+            });
+            if (!questionsRaw || questionsRaw.length === 0)
+                return [];
+            return questionsRaw.map(q => this.formatQuestionRecord(q, false));
+        }
+        catch (err) {
+            console.error(`Error fetching questions by IDs`, err);
+            throw err;
+        }
+    }
 }
 exports.question = new Question(database_1.database);

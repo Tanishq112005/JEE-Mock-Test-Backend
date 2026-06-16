@@ -78,22 +78,24 @@ class BookMarked {
       },
     });
 
-   
-    const questionList = await Promise.all(
-      bookmarkedRecords.map(async (record) => {
-        const questionData = await question.getQuestionByIdWithSignedUrls(record.questionId);
+    if (bookmarkedRecords.length === 0) return [];
 
-        return {
-          ...questionData, 
-         
-          createdAt: record.created_at
-        };
-      })
-    );
+    const questionIds = bookmarkedRecords.map(record => record.questionId);
+    
+    // Fetch all questions in one bulk query
+    const fetchedQuestions = await question.getQuestionsByIdsWithSignedUrls(questionIds);
 
-   
+    // Map the created_at timestamp back from the bookmark record
+    const questionList = fetchedQuestions.map(q => {
+      const record = bookmarkedRecords.find(r => r.questionId === q.id);
+      return {
+        ...q,
+        createdAt: record?.created_at
+      };
+    });
+
     questionList.sort((a, b) => {
-
+      if (!a.createdAt || !b.createdAt) return 0;
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
 
