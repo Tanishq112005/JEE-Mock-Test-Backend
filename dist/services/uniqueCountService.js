@@ -240,4 +240,4 @@ class QuestionBitmapRegistry {
     }
 }
 // ─── Singleton Export ─────────────────────────────────────────────────────────
-exports.questionBitmapRegistry = new QuestionBitmapRegistry(redis_1.redisClient, database_1.database);
+exports.questionBitmapRegistry = new QuestionBitmapRegistry(redis_1.questionBitMapRedisclient, database_1.database);

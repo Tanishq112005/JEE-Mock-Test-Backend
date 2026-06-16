@@ -93,16 +93,21 @@ class TestSyncService {
             orderBy: { created_at: "asc" },
         });
         console.log(`[TestSync] Backfilling ${unanalyzed.length} unanalyzed tests`);
-        for (const test of unanalyzed) {
-            try {
-                await this.syncAfterSubmission(test.id, test.studentId);
-                processed++;
-                console.log(`[TestSync] Backfilled ${test.id} (${processed}/${unanalyzed.length})`);
-            }
-            catch (err) {
-                failed++;
-                console.error(`[TestSync] Failed to backfill ${test.id}:`, err);
-            }
+        const CHUNK_SIZE = 10;
+        for (let i = 0; i < unanalyzed.length; i += CHUNK_SIZE) {
+            const chunk = unanalyzed.slice(i, i + CHUNK_SIZE);
+            const chunkPromises = chunk.map(async (test) => {
+                try {
+                    await this.syncAfterSubmission(test.id, test.studentId);
+                    processed++;
+                    console.log(`[TestSync] Backfilled ${test.id} (${processed}/${unanalyzed.length})`);
+                }
+                catch (err) {
+                    failed++;
+                    console.error(`[TestSync] Failed to backfill ${test.id}:`, err);
+                }
+            });
+            await Promise.all(chunkPromises);
         }
         console.log(`[TestSync] Backfill done — processed: ${processed}, failed: ${failed}`);
         return { processed, failed };

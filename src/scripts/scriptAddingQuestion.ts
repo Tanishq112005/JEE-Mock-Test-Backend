@@ -25,39 +25,18 @@ class AddingCorrectChapterName {
         }
     }
 
-    async gettingChapterName(name: string) {
-        try {
-            const chapterDetails = await this.db.chapters.findFirst({
-                where: {
-                    name: name
-                }
-            });
-
-            return chapterDetails;
-        } catch (err: any) {
-            throw err;
-        }
-    }
-
-    async updatingChapterName(chapterId: string, questionId: string) {
-        try {
-            const updateChapter = await this.db.questions.update({
-                where: {
-                    id: questionId
-                },
-                data: {
-                    chapterId: chapterId
-                }
-            });
-        } catch (err: any) {
-            throw err;
-        }
-    }
-
     async processingQuestions(paperId: string, data: any) {
         try {
             const gettingWholeQuestions = await this.gettingQuestions(paperId);
-           
+            
+            // 1. Fetch all existing chapters and build an in-memory map
+            const allChapters = await this.db.chapters.findMany();
+            const chapterMap = new Map<string, string>();
+            allChapters.forEach(ch => chapterMap.set(ch.name, ch.id));
+
+            // 2. Prepare an object to group questions by chapterId for bulk update
+            const updatesByChapterId: Record<string, string[]> = {};
+
             for (let subjectIndex = 0; subjectIndex < data.length; subjectIndex++) {
                 const subjectData = data[subjectIndex];
                 const subjectName = subjectData.title; // e.g., "Physics", "Chemistry", "Mathematics"
@@ -82,18 +61,11 @@ class AddingCorrectChapterName {
                             gettingWholeQuestions[j].positiveMarks == questionPositiveMarks &&
                             gettingWholeQuestions[j].negativeMarks == questionNegativeMarks
                         ) {
-                            try {
-                                console.log("asking for the chapter name") ; 
-                                
-                                const chapterDetails = await this.gettingChapterName(questionChaterName);
-                                if (!chapterDetails) {
-                                    throw new Error("Chapter not found");
-                                }
-                                const chapterId = chapterDetails.id;
-                                console.log(chapterId); 
-                                await this.updatingChapterName(chapterId, gettingWholeQuestions[j].id);
-                            } catch (err: any) {
-                                // if chapter Name is not found then
+                            
+                            let chapterId = chapterMap.get(questionChaterName);
+
+                            // If chapter is not found in memory map, create it in DB and update the map
+                            if (!chapterId) {
                                 await chapter.addingChapter({
                                     name: questionChaterName,
                                     group: groupName,
@@ -105,16 +77,44 @@ class AddingCorrectChapterName {
                                     classNumber: 11
                                 });
 
-                                const chapterDetails = await this.gettingChapterName(questionChaterName);
-                                if (chapterDetails) {
-                                    const chapterId = chapterDetails.id;
-                                    await this.updatingChapterName(chapterId, gettingWholeQuestions[j].id);
+                                // Fetch the newly created chapter to get its ID
+                                const newChapter = await this.db.chapters.findFirst({
+                                    where: { name: questionChaterName }
+                                });
+
+                                if (newChapter) {
+                                    chapterId = newChapter.id;
+                                    chapterMap.set(questionChaterName, chapterId);
                                 }
+                            }
+
+                            // If we have a valid chapter ID, stage it for bulk update
+                            if (chapterId) {
+                                if (!updatesByChapterId[chapterId]) {
+                                    updatesByChapterId[chapterId] = [];
+                                }
+                                updatesByChapterId[chapterId].push(gettingWholeQuestions[j].id);
                             }
                         }
                     }
                 }
             }
+
+            // 3. Perform bulk updates in a single transaction
+            const updatePromises = Object.entries(updatesByChapterId).map(([chapterId, questionIds]) => {
+                return this.db.questions.updateMany({
+                    where: { id: { in: questionIds } },
+                    data: { chapterId: chapterId }
+                });
+            });
+
+            if (updatePromises.length > 0) {
+                await this.db.$transaction(updatePromises);
+                console.log(`Successfully performed bulk update for ${updatePromises.length} chapters.`);
+            } else {
+                console.log("No questions required updating.");
+            }
+
             console.log("Successfully processed questions for all subjects.");
         } catch (err) {
             console.error(err);
