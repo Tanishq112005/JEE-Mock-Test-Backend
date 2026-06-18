@@ -15,23 +15,27 @@ class RedisManager {
     connectionData: RedisInstanceConfig,
   ): Promise<RedisClientType> {
     try {
-      const instance = createClient({
-        username: connectionData.username,
-        password: connectionData.password,
-        socket: {
+      let clientOptions: any = {};
+      if (connectionData.type === 2) {
+        clientOptions.url = connectionData.url;
+      } else {
+        clientOptions.socket = {
           host: connectionData.host,
-          port:
-            connectionData.port || parseInt(REDIS_PORT as string, 10) || 6379,
-        
-        },
-      });
+          port: connectionData.port,
+        };
+        if (connectionData.username) clientOptions.username = connectionData.username;
+        if (connectionData.password) clientOptions.password = connectionData.password;
+      }
+
+      const instance = createClient(clientOptions);
+      const identifier = connectionData.type === 2 ? connectionData.url : `${connectionData.host}:${connectionData.port}`;
 
       instance.on("error", function (err: any) {
-        console.error(`Redis Error [${connectionData.host}]:`, err);
+        console.error(`Redis Error [${identifier}]:`, err);
       });
 
       instance.on("connect", function () {
-        console.log(`Redis Connected Successfully [${connectionData.host}]`);
+        console.log(`Redis Connected Successfully [${identifier}]`);
       });
 
       await instance.connect();
@@ -46,30 +50,34 @@ class RedisManager {
   // ==========================================
 
   public async addAuthInstances(configs: RedisInstanceConfig[]) {
-    const oldConfigs = this.authRing.getActiveNodes();
+    // Only fetch nodes that were previously added dynamically via API
+    const dynamicOldConfigs = this.authRing.getActiveNodes().filter(c => c.isDynamic);
 
     for (let i = 0; i < configs.length; i++) {
       const client = await this.connect(configs[i]);
       this.authRing.addNode(configs[i], client);
-      console.log(`Added node to AUTH Ring: ${configs[i].host}`);
+      const identifier = configs[i].type === 2 ? configs[i].url : configs[i].host;
+      console.log(`Added node to AUTH Ring: ${identifier}`);
     }
 
-    if (oldConfigs.length > 0) {
-      await this.rebalanceRing(this.authRing, oldConfigs);
+    if (dynamicOldConfigs.length > 0) {
+      await this.rebalanceRing(this.authRing, dynamicOldConfigs);
     }
   }
 
   public async addDashboardInstances(configs: RedisInstanceConfig[]) {
-    const oldConfigs = this.dashboardRing.getActiveNodes();
+    // Only fetch nodes that were previously added dynamically via API
+    const dynamicOldConfigs = this.dashboardRing.getActiveNodes().filter(c => c.isDynamic);
 
     for (let i = 0; i < configs.length; i++) {
       const client = await this.connect(configs[i]);
       this.dashboardRing.addNode(configs[i], client);
-      console.log(`Added node to DASHBOARD Ring: ${configs[i].host}`);
+      const identifier = configs[i].type === 2 ? configs[i].url : configs[i].host;
+      console.log(`Added node to DASHBOARD Ring: ${identifier}`);
     }
 
-    if (oldConfigs.length > 0) {
-      await this.rebalanceRing(this.dashboardRing, oldConfigs);
+    if (dynamicOldConfigs.length > 0) {
+      await this.rebalanceRing(this.dashboardRing, dynamicOldConfigs);
     }
   }
 
@@ -92,18 +100,16 @@ class RedisManager {
           const targetClient = ring.getNodeClient(userId);
 
           if (targetClient && targetClient !== oldClient) {
-            // Must use DUMP and RESTORE for complex data types (bitmaps, etc)
-            const dumpValue = await oldClient.dump(key);
-            const pttl = await oldClient.pTTL(key);
-            if (dumpValue) {
-              await targetClient.restore(key, pttl > 0 ? pttl : 0, dumpValue, { REPLACE: true });
+            const success = await this.migrateKey(oldClient, targetClient, key);
+            if (success) {
               await oldClient.del(key);
               migratedCount++;
             }
           }
         }
       } catch (err: any) {
-        console.error(`Error migrating keys from ${oldConfig.host}:${oldConfig.port}:`, err);
+        const identifier = oldConfig.type === 2 ? oldConfig.url : `${oldConfig.host}:${oldConfig.port}`;
+        console.error(`Error migrating keys from ${identifier}:`, err);
       }
     }
     console.log(`[Rebalance] Successfully migrated ${migratedCount} misplaced keys.`);
@@ -119,12 +125,9 @@ class RedisManager {
         const userId = key.split(":")[0];
         const targetClient = ring.getNodeClient(userId);
 
-        // Target client should now inherently mathematically avoid the dying node because it was removed from the ring
         if (targetClient && targetClient !== dyingClient) {
-          const dumpValue = await dyingClient.dump(key);
-          const pttl = await dyingClient.pTTL(key);
-          if (dumpValue) {
-            await targetClient.restore(key, pttl > 0 ? pttl : 0, dumpValue, { REPLACE: true });
+          const success = await this.migrateKey(dyingClient, targetClient, key);
+          if (success) {
             await dyingClient.del(key);
             migratedCount++;
           }
@@ -134,6 +137,86 @@ class RedisManager {
       console.error(`[Drain] Error draining keys from dying node:`, err);
     }
     console.log(`[Drain] Successfully drained ${migratedCount} keys.`);
+  }
+
+  // ==========================================
+  // MANUAL KEY MIGRATION FALLBACK
+  // ==========================================
+  
+  private async migrateKey(oldClient: RedisClientType, targetClient: RedisClientType, key: string): Promise<boolean> {
+    try {
+      const dumpValue = await oldClient.dump(key);
+      if (!dumpValue) return false;
+      const pttl = await oldClient.pTTL(key);
+      await targetClient.restore(key, pttl > 0 ? pttl : 0, dumpValue, { REPLACE: true });
+      return true;
+    } catch (err: any) {
+      if (err.message && err.message.includes("DUMP payload version or checksum are wrong")) {
+        // Silently fall back to manual copy to avoid flooding the console for every key
+        return await this.manualKeyCopy(oldClient, targetClient, key);
+      }
+      throw err;
+    }
+  }
+
+  private async manualKeyCopy(oldClient: RedisClientType, targetClient: RedisClientType, key: string): Promise<boolean> {
+    const type = await oldClient.type(key);
+    const pttl = await oldClient.pTTL(key);
+
+    try {
+      switch (type) {
+        case "string":
+          const strVal = await oldClient.get(key);
+          if (strVal !== null) {
+            if (pttl > 0) {
+              await targetClient.set(key, strVal, { PX: pttl });
+            } else {
+              await targetClient.set(key, strVal);
+            }
+          }
+          break;
+        case "hash":
+          const hashVal = await oldClient.hGetAll(key);
+          if (Object.keys(hashVal).length > 0) {
+            // In Node Redis v4, hSet handles objects directly
+            await targetClient.hSet(key, hashVal);
+            if (pttl > 0) await targetClient.pExpire(key, pttl);
+          }
+          break;
+        case "list":
+          const listVal = await oldClient.lRange(key, 0, -1);
+          if (listVal.length > 0) {
+            await targetClient.del(key);
+            await targetClient.rPush(key, listVal);
+            if (pttl > 0) await targetClient.pExpire(key, pttl);
+          }
+          break;
+        case "set":
+          const setVal = await oldClient.sMembers(key);
+          if (setVal.length > 0) {
+            await targetClient.del(key);
+            await targetClient.sAdd(key, setVal);
+            if (pttl > 0) await targetClient.pExpire(key, pttl);
+          }
+          break;
+        case "zset":
+          const zsetVal = await oldClient.zRangeWithScores(key, 0, -1);
+          if (zsetVal.length > 0) {
+            await targetClient.del(key);
+            const zaddArgs = zsetVal.map(item => ({ score: item.score, value: item.value }));
+            await targetClient.zAdd(key, zaddArgs);
+            if (pttl > 0) await targetClient.pExpire(key, pttl);
+          }
+          break;
+        default:
+          console.warn(`[Migration] Unsupported key type '${type}' for key ${key}. Skipping manual fallback.`);
+          return false;
+      }
+      return true;
+    } catch (err: any) {
+      console.error(`[Migration] Manual copy failed for key ${key} of type ${type}:`, err);
+      return false;
+    }
   }
 
   // ==========================================
@@ -175,10 +258,9 @@ class RedisManager {
 
   // 2. Auth Ring se specific server hatana
   public async removeAuthInstance(
-    host: string,
-    port: number,
+    configData: Partial<RedisInstanceConfig>
   ): Promise<boolean> {
-    const config = this.authRing.getConfigByHostPort(host, port);
+    const config = this.authRing.getConfigByIdentifier(configData);
     if (!config) return false;
 
     const dyingClient = this.authRing.getClient(config);
@@ -197,10 +279,9 @@ class RedisManager {
 
   // 3. Dashboard Ring se specific server hatana
   public async removeDashboardInstance(
-    host: string,
-    port: number,
+    configData: Partial<RedisInstanceConfig>
   ): Promise<boolean> {
-    const config = this.dashboardRing.getConfigByHostPort(host, port);
+    const config = this.dashboardRing.getConfigByIdentifier(configData);
     if (!config) return false;
 
     const dyingClient = this.dashboardRing.getClient(config);

@@ -23,7 +23,8 @@ export class RedisController {
       console.log(
         `[Admin Control] Adding ${configs.length} new node(s) to Auth Ring...`,
       );
-      await redisManager.addAuthInstances(configs);
+      const dynamicConfigs = configs.map((c: any) => ({ ...c, isDynamic: true }));
+      await redisManager.addAuthInstances(dynamicConfigs);
 
       return res
         .status(200)
@@ -59,7 +60,8 @@ export class RedisController {
       console.log(
         `[Admin Control] Adding ${configs.length} new node(s) to Dashboard Ring...`,
       );
-      await redisManager.addDashboardInstances(configs);
+      const dynamicConfigs = configs.map((c: any) => ({ ...c, isDynamic: true }));
+      await redisManager.addDashboardInstances(dynamicConfigs);
 
       return res
         .status(200)
@@ -120,24 +122,27 @@ export class RedisController {
   // 5. Remove Node from Auth Ring
   public removeAuthNode = async (req: any, res: any) => {
     try {
-      const { host, port } = req.body;
-      if (!host || !port) {
-        return res
-          .status(400)
-          .json(new ApiError("Host and port are required.", 400));
+      const { type, url, host, port } = req.body;
+      if (!type || (type !== 1 && type !== 2)) {
+        return res.status(400).json(new ApiError("Valid type (1 or 2) is required.", 400));
+      }
+      if (type === 1 && (!host || !port)) {
+        return res.status(400).json(new ApiError("Host and port are required for type 1.", 400));
+      }
+      if (type === 2 && !url) {
+        return res.status(400).json(new ApiError("URL is required for type 2.", 400));
       }
 
-      const isRemoved = await redisManager.removeAuthInstance(
-        host,
-        Number(port),
-      );
+      const configData: Partial<RedisInstanceConfig> = { type, url, host, port: port ? Number(port) : undefined };
+      const isRemoved = await redisManager.removeAuthInstance(configData);
+      const identifier = type === 2 ? url : `${host}:${port}`;
 
       if (isRemoved) {
         return res
           .status(200)
           .json(
             new ApiResponse(
-              `Successfully removed ${host}:${port} from Auth Ring.`,
+              `Successfully removed ${identifier} from Auth Ring.`,
             ),
           );
       } else {
@@ -156,24 +161,27 @@ export class RedisController {
   // 6. Remove Node from Dashboard Ring
   public removeDashboardNode = async (req: any, res: any) => {
     try {
-      const { host, port } = req.body;
-      if (!host || !port) {
-        return res
-          .status(400)
-          .json(new ApiError("Host and port are required.", 400));
+      const { type, url, host, port } = req.body;
+      if (!type || (type !== 1 && type !== 2)) {
+        return res.status(400).json(new ApiError("Valid type (1 or 2) is required.", 400));
+      }
+      if (type === 1 && (!host || !port)) {
+        return res.status(400).json(new ApiError("Host and port are required for type 1.", 400));
+      }
+      if (type === 2 && !url) {
+        return res.status(400).json(new ApiError("URL is required for type 2.", 400));
       }
 
-      const isRemoved = await redisManager.removeDashboardInstance(
-        host,
-        Number(port),
-      );
+      const configData: Partial<RedisInstanceConfig> = { type, url, host, port: port ? Number(port) : undefined };
+      const isRemoved = await redisManager.removeDashboardInstance(configData);
+      const identifier = type === 2 ? url : `${host}:${port}`;
 
       if (isRemoved) {
         return res
           .status(200)
           .json(
             new ApiResponse(
-              `Successfully removed ${host}:${port} from Dashboard Ring.`,
+              `Successfully removed ${identifier} from Dashboard Ring.`,
             ),
           );
       } else {

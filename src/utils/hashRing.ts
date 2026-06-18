@@ -22,7 +22,8 @@ export class HashRingService {
     this.instanceMap.set(config, client);
 
     for (let i = 0; i < this.VIRTUAL_NODES; i++) {
-      const nodeKey = config.host + ":" + config.port + "-VNODE-" + i;
+      const identifier = config.type === 2 ? config.url : `${config.host}:${config.port}`;
+      const nodeKey = identifier + "-VNODE-" + i;
       const hash = this.generateHash(nodeKey);
 
       this.hashRing.push(hash);
@@ -40,7 +41,8 @@ export class HashRingService {
     this.instanceMap.delete(config);
 
     for (let i = 0; i < this.VIRTUAL_NODES; i++) {
-      const nodeKey = config.host + ":" + config.port + "-VNODE-" + i;
+      const identifier = config.type === 2 ? config.url : `${config.host}:${config.port}`;
+      const nodeKey = identifier + "-VNODE-" + i;
       const hash = this.generateHash(nodeKey);
 
       const index = this.hashRing.indexOf(hash);
@@ -102,44 +104,17 @@ export class HashRingService {
     return Array.from(this.instanceMap.keys());
   }
 
-  // NAYA: Host aur Port ke basis par Node delete karna aur Disconnect karna
-  public async removeNodeByHostPort(
-    host: string,
-    port: number,
-  ): Promise<boolean> {
-    let targetConfig: RedisInstanceConfig | null = null;
-    let targetClient: RedisClientType | null = null;
-
-    // 1. Array mein target server ko dhoondho
-    for (let [config, client] of this.instanceMap.entries()) {
-      if (config.host === host && config.port === port) {
-        targetConfig = config;
-        targetClient = client;
-        break;
-      }
-    }
-
-    if (targetConfig && targetClient) {
-      console.log(`Disconnecting Redis Node: ${host}:${port}`);
-      // 2. Pehle Redis connection close karo
-      await targetClient.disconnect();
-      // 3. Phir usko Hash Ring se hata do
-      this.removeNode(targetConfig);
-      return true;
-    }
-
-    return false; // Agar server nahi mila
-  }
-
   // NAYA: Internal Getters for Key Migration / Rebalancing
   public getClient(config: RedisInstanceConfig): RedisClientType | undefined {
     return this.instanceMap.get(config);
   }
 
-  public getConfigByHostPort(host: string, port: number): RedisInstanceConfig | undefined {
+  public getConfigByIdentifier(configData: Partial<RedisInstanceConfig>): RedisInstanceConfig | undefined {
     for (let config of this.instanceMap.keys()) {
-      if (config.host === host && config.port === port) {
-        return config;
+      if (configData.type === 2) {
+        if (config.type === 2 && config.url === configData.url) return config;
+      } else {
+        if (config.type === 1 && config.host === configData.host && config.port === configData.port) return config;
       }
     }
     return undefined;
