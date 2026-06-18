@@ -10,4 +10,6 @@ const router = (0, express_1.Router)();
 const bannerLimiter = new tokenBucket_1.TokenBucket('bannerLimiter', 2, 0.25);
 router.get('/get', auth_1.authMiddleware, bannerLimiter.limit, bannerController_1.bannerController.getCurrentStatus);
 router.post('/createOrupdate', auth_1.authMiddleware, developerRole_1.developerRoleMiddleware, bannerController_1.bannerController.createAndUpdate);
+router.delete('/delete', auth_1.authMiddleware, developerRole_1.developerRoleMiddleware, bannerController_1.bannerController.deletingTheBanner);
+router.get('/getAllBannerData', auth_1.authMiddleware, developerRole_1.developerRoleMiddleware, bannerController_1.bannerController.gettingAllBannerData);
 exports.bannerRoutes = router;

@@ -23,8 +23,6 @@ const email_1 = require("./routes/email");
 const analytics_1 = require("./routes/analytics");
 const uniqueCountService_1 = require("./services/uniqueCountService");
 const redis_1 = require("./routes/redis");
-const redisManager_1 = __importDefault(require("./lib/redisManager"));
-const env_2 = require("./config/env");
 const chapterWise_1 = require("./routes/chapterWise");
 const user_1 = require("./routes/user");
 const bookMarked_1 = require("./routes/bookMarked");
@@ -106,17 +104,17 @@ const startServer = async () => {
         // B. Initialize AI Search Engine
         // This pre-loads the "Syllabus Data" and calculates embeddings
         // so the question upload service works instantly.
-        console.log("Initializing Hybrid Search Engine...");
-        await similarity_1.searchEngine.initialize();
-        console.log("Initializing Standard Redis Clusters from .env...");
-        if (env_2.REDIS_HOST) {
-            await redisManager_1.default.addDashboardInstances([
-                { type: 1, host: env_2.REDIS_HOST, port: Number(env_2.REDIS_PORT), username: env_2.REDIS_USERNAME, password: env_2.REDIS_PASSWORD, email: '' }
-            ]);
-            await redisManager_1.default.addAuthInstances([
-                { type: 1, host: env_2.REDIS_HOST, port: Number(env_2.REDIS_PORT), username: env_2.REDIS_USERNAME, password: env_2.REDIS_PASSWORD, email: '' }
-            ]);
-        }
+        // console.log("Initializing Hybrid Search Engine...");
+        //   await searchEngine.initialize();
+        // console.log("Initializing Standard Redis Clusters from .env...");
+        //  if (REDIS_HOST) {
+        //     await redisManager.addDashboardInstances([
+        //       { type: 1, host: REDIS_HOST as string, port: Number(REDIS_PORT), username: REDIS_USERNAME as string, password: REDIS_PASSWORD as string, email: '' } as any
+        //     ]);
+        //      await redisManager.addAuthInstances([
+        //       { type: 1, host: REDIS_HOST as string, port: Number(REDIS_PORT), username: REDIS_USERNAME as string, password: REDIS_PASSWORD as string, email: '' } as any
+        //    ]);
+        // }
         await uniqueCountService_1.questionBitmapRegistry.load();
         // D. Start HTTP Server
         app.listen(port, () => {
