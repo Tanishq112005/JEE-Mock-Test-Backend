@@ -1,7 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const redis_1 = require("redis");
-const env_1 = require("../config/env");
 const hashRing_1 = require("../utils/hashRing");
 class RedisManager {
     // Dual Hash Rings
@@ -11,19 +10,27 @@ class RedisManager {
     // Common Connection Logic
     async connect(connectionData) {
         try {
-            const instance = (0, redis_1.createClient)({
-                username: connectionData.username,
-                password: connectionData.password,
-                socket: {
+            let clientOptions = {};
+            if (connectionData.type === 2) {
+                clientOptions.url = connectionData.url;
+            }
+            else {
+                clientOptions.socket = {
                     host: connectionData.host,
-                    port: connectionData.port || parseInt(env_1.REDIS_PORT, 10) || 6379,
-                },
-            });
+                    port: connectionData.port,
+                };
+                if (connectionData.username)
+                    clientOptions.username = connectionData.username;
+                if (connectionData.password)
+                    clientOptions.password = connectionData.password;
+            }
+            const instance = (0, redis_1.createClient)(clientOptions);
+            const identifier = connectionData.type === 2 ? connectionData.url : `${connectionData.host}:${connectionData.port}`;
             instance.on("error", function (err) {
-                console.error(`Redis Error [${connectionData.host}]:`, err);
+                console.error(`Redis Error [${identifier}]:`, err);
             });
             instance.on("connect", function () {
-                console.log(`Redis Connected Successfully [${connectionData.host}]`);
+                console.log(`Redis Connected Successfully [${identifier}]`);
             });
             await instance.connect();
             return instance;
@@ -36,25 +43,29 @@ class RedisManager {
     // DYNAMIC ADDITION METHODS (To be called from API/Startup)
     // ==========================================
     async addAuthInstances(configs) {
-        const oldConfigs = this.authRing.getActiveNodes();
+        // Only fetch nodes that were previously added dynamically via API
+        const dynamicOldConfigs = this.authRing.getActiveNodes().filter(c => c.isDynamic);
         for (let i = 0; i < configs.length; i++) {
             const client = await this.connect(configs[i]);
             this.authRing.addNode(configs[i], client);
-            console.log(`Added node to AUTH Ring: ${configs[i].host}`);
+            const identifier = configs[i].type === 2 ? configs[i].url : configs[i].host;
+            console.log(`Added node to AUTH Ring: ${identifier}`);
         }
-        if (oldConfigs.length > 0) {
-            await this.rebalanceRing(this.authRing, oldConfigs);
+        if (dynamicOldConfigs.length > 0) {
+            await this.rebalanceRing(this.authRing, dynamicOldConfigs);
         }
     }
     async addDashboardInstances(configs) {
-        const oldConfigs = this.dashboardRing.getActiveNodes();
+        // Only fetch nodes that were previously added dynamically via API
+        const dynamicOldConfigs = this.dashboardRing.getActiveNodes().filter(c => c.isDynamic);
         for (let i = 0; i < configs.length; i++) {
             const client = await this.connect(configs[i]);
             this.dashboardRing.addNode(configs[i], client);
-            console.log(`Added node to DASHBOARD Ring: ${configs[i].host}`);
+            const identifier = configs[i].type === 2 ? configs[i].url : configs[i].host;
+            console.log(`Added node to DASHBOARD Ring: ${identifier}`);
         }
-        if (oldConfigs.length > 0) {
-            await this.rebalanceRing(this.dashboardRing, oldConfigs);
+        if (dynamicOldConfigs.length > 0) {
+            await this.rebalanceRing(this.dashboardRing, dynamicOldConfigs);
         }
     }
     // ==========================================
@@ -73,11 +84,8 @@ class RedisManager {
                     const userId = key.split(":")[0];
                     const targetClient = ring.getNodeClient(userId);
                     if (targetClient && targetClient !== oldClient) {
-                        // Must use DUMP and RESTORE for complex data types (bitmaps, etc)
-                        const dumpValue = await oldClient.dump(key);
-                        const pttl = await oldClient.pTTL(key);
-                        if (dumpValue) {
-                            await targetClient.restore(key, pttl > 0 ? pttl : 0, dumpValue, { REPLACE: true });
+                        const success = await this.migrateKey(oldClient, targetClient, key);
+                        if (success) {
                             await oldClient.del(key);
                             migratedCount++;
                         }
@@ -85,7 +93,8 @@ class RedisManager {
                 }
             }
             catch (err) {
-                console.error(`Error migrating keys from ${oldConfig.host}:${oldConfig.port}:`, err);
+                const identifier = oldConfig.type === 2 ? oldConfig.url : `${oldConfig.host}:${oldConfig.port}`;
+                console.error(`Error migrating keys from ${identifier}:`, err);
             }
         }
         console.log(`[Rebalance] Successfully migrated ${migratedCount} misplaced keys.`);
@@ -98,12 +107,9 @@ class RedisManager {
             for (const key of keys) {
                 const userId = key.split(":")[0];
                 const targetClient = ring.getNodeClient(userId);
-                // Target client should now inherently mathematically avoid the dying node because it was removed from the ring
                 if (targetClient && targetClient !== dyingClient) {
-                    const dumpValue = await dyingClient.dump(key);
-                    const pttl = await dyingClient.pTTL(key);
-                    if (dumpValue) {
-                        await targetClient.restore(key, pttl > 0 ? pttl : 0, dumpValue, { REPLACE: true });
+                    const success = await this.migrateKey(dyingClient, targetClient, key);
+                    if (success) {
                         await dyingClient.del(key);
                         migratedCount++;
                     }
@@ -114,6 +120,90 @@ class RedisManager {
             console.error(`[Drain] Error draining keys from dying node:`, err);
         }
         console.log(`[Drain] Successfully drained ${migratedCount} keys.`);
+    }
+    // ==========================================
+    // MANUAL KEY MIGRATION FALLBACK
+    // ==========================================
+    async migrateKey(oldClient, targetClient, key) {
+        try {
+            const dumpValue = await oldClient.dump(key);
+            if (!dumpValue)
+                return false;
+            const pttl = await oldClient.pTTL(key);
+            await targetClient.restore(key, pttl > 0 ? pttl : 0, dumpValue, { REPLACE: true });
+            return true;
+        }
+        catch (err) {
+            if (err.message && err.message.includes("DUMP payload version or checksum are wrong")) {
+                // Silently fall back to manual copy to avoid flooding the console for every key
+                return await this.manualKeyCopy(oldClient, targetClient, key);
+            }
+            throw err;
+        }
+    }
+    async manualKeyCopy(oldClient, targetClient, key) {
+        const type = await oldClient.type(key);
+        const pttl = await oldClient.pTTL(key);
+        try {
+            switch (type) {
+                case "string":
+                    const strVal = await oldClient.get(key);
+                    if (strVal !== null) {
+                        if (pttl > 0) {
+                            await targetClient.set(key, strVal, { PX: pttl });
+                        }
+                        else {
+                            await targetClient.set(key, strVal);
+                        }
+                    }
+                    break;
+                case "hash":
+                    const hashVal = await oldClient.hGetAll(key);
+                    if (Object.keys(hashVal).length > 0) {
+                        // In Node Redis v4, hSet handles objects directly
+                        await targetClient.hSet(key, hashVal);
+                        if (pttl > 0)
+                            await targetClient.pExpire(key, pttl);
+                    }
+                    break;
+                case "list":
+                    const listVal = await oldClient.lRange(key, 0, -1);
+                    if (listVal.length > 0) {
+                        await targetClient.del(key);
+                        await targetClient.rPush(key, listVal);
+                        if (pttl > 0)
+                            await targetClient.pExpire(key, pttl);
+                    }
+                    break;
+                case "set":
+                    const setVal = await oldClient.sMembers(key);
+                    if (setVal.length > 0) {
+                        await targetClient.del(key);
+                        await targetClient.sAdd(key, setVal);
+                        if (pttl > 0)
+                            await targetClient.pExpire(key, pttl);
+                    }
+                    break;
+                case "zset":
+                    const zsetVal = await oldClient.zRangeWithScores(key, 0, -1);
+                    if (zsetVal.length > 0) {
+                        await targetClient.del(key);
+                        const zaddArgs = zsetVal.map(item => ({ score: item.score, value: item.value }));
+                        await targetClient.zAdd(key, zaddArgs);
+                        if (pttl > 0)
+                            await targetClient.pExpire(key, pttl);
+                    }
+                    break;
+                default:
+                    console.warn(`[Migration] Unsupported key type '${type}' for key ${key}. Skipping manual fallback.`);
+                    return false;
+            }
+            return true;
+        }
+        catch (err) {
+            console.error(`[Migration] Manual copy failed for key ${key} of type ${type}:`, err);
+            return false;
+        }
     }
     // ==========================================
     // USAGE METHODS FOR CONTROLLERS
@@ -148,8 +238,8 @@ class RedisManager {
         };
     }
     // 2. Auth Ring se specific server hatana
-    async removeAuthInstance(host, port) {
-        const config = this.authRing.getConfigByHostPort(host, port);
+    async removeAuthInstance(configData) {
+        const config = this.authRing.getConfigByIdentifier(configData);
         if (!config)
             return false;
         const dyingClient = this.authRing.getClient(config);
@@ -164,8 +254,8 @@ class RedisManager {
         return true;
     }
     // 3. Dashboard Ring se specific server hatana
-    async removeDashboardInstance(host, port) {
-        const config = this.dashboardRing.getConfigByHostPort(host, port);
+    async removeDashboardInstance(configData) {
+        const config = this.dashboardRing.getConfigByIdentifier(configData);
         if (!config)
             return false;
         const dyingClient = this.dashboardRing.getClient(config);

@@ -51,7 +51,8 @@ class HashRingService {
     addNode(config, client) {
         this.instanceMap.set(config, client);
         for (let i = 0; i < this.VIRTUAL_NODES; i++) {
-            const nodeKey = config.host + ":" + config.port + "-VNODE-" + i;
+            const identifier = config.type === 2 ? config.url : `${config.host}:${config.port}`;
+            const nodeKey = identifier + "-VNODE-" + i;
             const hash = this.generateHash(nodeKey);
             this.hashRing.push(hash);
             this.ringMap.set(hash, config);
@@ -65,7 +66,8 @@ class HashRingService {
     removeNode(config) {
         this.instanceMap.delete(config);
         for (let i = 0; i < this.VIRTUAL_NODES; i++) {
-            const nodeKey = config.host + ":" + config.port + "-VNODE-" + i;
+            const identifier = config.type === 2 ? config.url : `${config.host}:${config.port}`;
+            const nodeKey = identifier + "-VNODE-" + i;
             const hash = this.generateHash(nodeKey);
             const index = this.hashRing.indexOf(hash);
             if (index > -1) {
@@ -118,36 +120,19 @@ class HashRingService {
     getActiveNodes() {
         return Array.from(this.instanceMap.keys());
     }
-    // NAYA: Host aur Port ke basis par Node delete karna aur Disconnect karna
-    async removeNodeByHostPort(host, port) {
-        let targetConfig = null;
-        let targetClient = null;
-        // 1. Array mein target server ko dhoondho
-        for (let [config, client] of this.instanceMap.entries()) {
-            if (config.host === host && config.port === port) {
-                targetConfig = config;
-                targetClient = client;
-                break;
-            }
-        }
-        if (targetConfig && targetClient) {
-            console.log(`Disconnecting Redis Node: ${host}:${port}`);
-            // 2. Pehle Redis connection close karo
-            await targetClient.disconnect();
-            // 3. Phir usko Hash Ring se hata do
-            this.removeNode(targetConfig);
-            return true;
-        }
-        return false; // Agar server nahi mila
-    }
     // NAYA: Internal Getters for Key Migration / Rebalancing
     getClient(config) {
         return this.instanceMap.get(config);
     }
-    getConfigByHostPort(host, port) {
+    getConfigByIdentifier(configData) {
         for (let config of this.instanceMap.keys()) {
-            if (config.host === host && config.port === port) {
-                return config;
+            if (configData.type === 2) {
+                if (config.type === 2 && config.url === configData.url)
+                    return config;
+            }
+            else {
+                if (config.type === 1 && config.host === configData.host && config.port === configData.port)
+                    return config;
             }
         }
         return undefined;

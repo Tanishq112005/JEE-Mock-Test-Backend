@@ -111,10 +111,10 @@ const startServer = async () => {
         console.log("Initializing Standard Redis Clusters from .env...");
         if (env_2.REDIS_HOST) {
             await redisManager_1.default.addDashboardInstances([
-                { host: env_2.REDIS_HOST, port: Number(env_2.REDIS_PORT), username: env_2.REDIS_USERNAME, password: env_2.REDIS_PASSWORD, email: '' }
+                { type: 1, host: env_2.REDIS_HOST, port: Number(env_2.REDIS_PORT), username: env_2.REDIS_USERNAME, password: env_2.REDIS_PASSWORD, email: '' }
             ]);
             await redisManager_1.default.addAuthInstances([
-                { host: env_2.REDIS_HOST, port: Number(env_2.REDIS_PORT), username: env_2.REDIS_USERNAME, password: env_2.REDIS_PASSWORD, email: '' }
+                { type: 1, host: env_2.REDIS_HOST, port: Number(env_2.REDIS_PORT), username: env_2.REDIS_USERNAME, password: env_2.REDIS_PASSWORD, email: '' }
             ]);
         }
         await uniqueCountService_1.questionBitmapRegistry.load();
