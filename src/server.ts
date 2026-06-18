@@ -118,18 +118,18 @@ const startServer = async () => {
     // B. Initialize AI Search Engine
     // This pre-loads the "Syllabus Data" and calculates embeddings
     // so the question upload service works instantly.
-    console.log("Initializing Hybrid Search Engine...");
-    await searchEngine.initialize();
+   // console.log("Initializing Hybrid Search Engine...");
+   //   await searchEngine.initialize();
 
-    console.log("Initializing Standard Redis Clusters from .env...");
-    if (REDIS_HOST) {
-        await redisManager.addDashboardInstances([
-          { type: 1, host: REDIS_HOST as string, port: Number(REDIS_PORT), username: REDIS_USERNAME as string, password: REDIS_PASSWORD as string, email: '' } as any
-        ]);
-        await redisManager.addAuthInstances([
-          { type: 1, host: REDIS_HOST as string, port: Number(REDIS_PORT), username: REDIS_USERNAME as string, password: REDIS_PASSWORD as string, email: '' } as any
-        ]);
-    }
+   // console.log("Initializing Standard Redis Clusters from .env...");
+   //  if (REDIS_HOST) {
+   //     await redisManager.addDashboardInstances([
+   //       { type: 1, host: REDIS_HOST as string, port: Number(REDIS_PORT), username: REDIS_USERNAME as string, password: REDIS_PASSWORD as string, email: '' } as any
+   //     ]);
+  //      await redisManager.addAuthInstances([
+   //       { type: 1, host: REDIS_HOST as string, port: Number(REDIS_PORT), username: REDIS_USERNAME as string, password: REDIS_PASSWORD as string, email: '' } as any
+    //    ]);
+    // }
 
     await questionBitmapRegistry.load();
    

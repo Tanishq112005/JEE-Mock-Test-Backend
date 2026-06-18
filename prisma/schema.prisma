@@ -715,8 +715,8 @@ model userNotifications {
 // ==========================================
 
 model banner {
-  id           Int         @id  @default(1) 
-  isbanner  Boolean     @default(false)
+  id           String         @id  @default(uuid()) 
+  isbanner     Boolean     @default(false)
   reason       String      
   startTime    DateTime    
   endTime      DateTime 

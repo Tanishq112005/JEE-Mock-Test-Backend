@@ -28,7 +28,7 @@ class BannerController {
 
     public createAndUpdate  = async (req : any , res : any) => {
          try {
-            const {type , isBanner , startTime , endTime , reason } = req.body ; 
+            const {id , type , isBanner , startTime , endTime , reason } = req.body ; 
             if(!Object.values(BannerType).includes(type)){
                 res.status(500).json(
                     new ApiError(
@@ -42,6 +42,7 @@ class BannerController {
             const parsedEndTime = parseIST(endTime);
 
             await bannerDB.creatingAndUpdatingBanner({
+                id : id , 
                 type : type , 
                 isBanner : isBanner , 
                 startTime : parsedStartTime , 
@@ -72,18 +73,11 @@ class BannerController {
          try {
             const data = await bannerDB.currentBannerStatus() ; 
             
-            let formattedData = null;
-            if (data) {
-                formattedData = {
-                    ...data,
-                    startTime: formatIST(data.startTime),
-                    endTime: formatIST(data.endTime)
-                };
-            }
+            
 
             res.status(200).json({
                 status: "Current Status of the Banner",
-                data: formattedData
+                data: data[0]
             }); 
          }
          catch(err : any){
@@ -95,6 +89,52 @@ class BannerController {
             )
          }
     }
+
+
+
+    public gettingAllBannerData = async (req : any , res : any) => {
+        try {
+           const dataOfBanner = await bannerDB.gettingAllBannerInDb() ; 
+           return res.status(200).json(
+            new ApiResponse(
+                "All Banner Data In DB" , 
+                dataOfBanner 
+            )
+           )
+        }
+
+        catch(err : any){
+            res.status(500).json(
+                new ApiError(
+                    "Error In Getting All The Banner Data" , 
+                    err 
+                )
+            )
+        }
+    }
+
+
+    public deletingTheBanner = async (req : any , res : any) => {
+        try {
+            const {id} = req.body ; 
+            await bannerDB.deletingBanner(id) ; 
+
+            return res.status(200).json(
+                new ApiResponse(
+                        `Banner with id ${id} is successfully deleted !` 
+                )
+            )
+        }
+        catch(err : any){
+            return res.status(500).json(
+                new ApiError(
+                    "Error In Deleting The Banner" , 
+                    err 
+                )
+            )
+        }
+    }
+
 
 
     
