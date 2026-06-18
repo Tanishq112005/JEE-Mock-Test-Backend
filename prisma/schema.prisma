@@ -105,6 +105,7 @@ enum Session {
   Session_2
   Session_3
   Session_4
+  Session
   Advanced
   Not_Assign
 }

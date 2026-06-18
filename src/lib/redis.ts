@@ -21,11 +21,12 @@ class RedisConfig {
         port: questionBitMapclientPort
       },
     });
-
+   
+    
     this.questionsClient = createClient({
       url: QUESTION_STORE_REDIS_URL
     });
-
+   
 
     this.questionBitMapclient.on("error", (err: any) =>
       console.log("Questions Bit Map Redis Client Error:", err),
@@ -33,7 +34,7 @@ class RedisConfig {
     this.questionBitMapclient.on("connect", () =>
       console.log("Questions Bit Map Redis Connected Successfully"),
     );
-
+    
     this.questionsClient.on("error"  , (err : any) => 
       console.log("Questions Redis Client Error:" , err)
     ) ;  
@@ -41,7 +42,7 @@ class RedisConfig {
     this.questionsClient.on("connect" , () => 
       console.log("Questions Redis Connected")  
     )
-
+    
     this.connect();
     
   }
@@ -49,7 +50,7 @@ class RedisConfig {
   private async connect() {
     try {
       await this.questionBitMapclient.connect();
-      await this.questionsClient.connect() ; 
+      await this.questionsClient.connect() ;
     } catch (error) {
       console.error("Failed to connect to Redis:", error);
     }
