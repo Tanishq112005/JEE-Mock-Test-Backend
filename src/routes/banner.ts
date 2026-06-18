@@ -10,7 +10,7 @@ const bannerLimiter = new TokenBucket('bannerLimiter' , 2 , 0.25);
 
 router.get('/get' , authMiddleware ,bannerLimiter.limit ,  bannerController.getCurrentStatus) ; 
 router.post('/createOrupdate' , authMiddleware , developerRoleMiddleware , bannerController.createAndUpdate) ; 
-router.delete('/delete' , authMiddleware , developerRoleMiddleware , bannerController.deletingTheBanner) ; 
+router.post('/delete' , authMiddleware , developerRoleMiddleware , bannerController.deletingTheBanner) ; 
 router.get('/getAllBannerData' , authMiddleware , developerRoleMiddleware , bannerController.gettingAllBannerData) ; 
 
 
