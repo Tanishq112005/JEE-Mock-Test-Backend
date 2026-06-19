@@ -69,6 +69,7 @@
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
     "format": "^0.2.2",
+    "google-auth-library": "^10.7.0",
     "googleapis": "^167.0.0",
     "https": "^1.0.0",
     "ioredis": "^5.8.2",

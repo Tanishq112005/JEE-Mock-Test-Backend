@@ -50,6 +50,7 @@ router.post(
   authController.verifyForgotPasswordOtp,
 );
 
+router.post("/google", loginLimiter.limit, authController.googleLogin);
 
 router.post(
   "/logout" ,

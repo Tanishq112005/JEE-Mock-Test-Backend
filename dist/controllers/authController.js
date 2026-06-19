@@ -6,6 +6,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.authController = exports.AuthController = void 0;
 const database_1 = require("../lib/database");
 const env_1 = require("../config/env");
+const google_auth_library_1 = require("google-auth-library");
+const crypto_1 = __importDefault(require("crypto"));
 const client_1 = require("@prisma/client");
 const email_producer_1 = require("../rabbitmq/producers/email-producer");
 const user_db_1 = require("../repositories/user.db");
@@ -275,6 +277,80 @@ class AuthController {
             return res
                 .status(401)
                 .json(new ApiError_1.default("Session expired. Please login again.", err));
+        }
+    };
+    googleLogin = async (req, res) => {
+        const { idToken } = req.body;
+        if (!idToken) {
+            return res.status(400).json(new ApiError_1.default("idToken is required"));
+        }
+        try {
+            const client = new google_auth_library_1.OAuth2Client(env_1.GOOGLE_CLIENT_ID);
+            const ticket = await client.verifyIdToken({
+                idToken,
+                audience: env_1.GOOGLE_CLIENT_ID,
+            });
+            const payload = ticket.getPayload();
+            if (!payload) {
+                return res.status(400).json(new ApiError_1.default("Invalid Google token payload"));
+            }
+            const { email, name, email_verified } = payload;
+            if (!email || !email_verified) {
+                return res.status(400).json(new ApiError_1.default("Google email not verified or missing"));
+            }
+            let informationOfUser = await user_db_1.user.checkingUserPresent(email);
+            if (!informationOfUser) {
+                // User does not exist, create a new one with random dummy password
+                const randomPassword = crypto_1.default.randomBytes(16).toString("hex");
+                const hashedPassword = await (0, password_1.hashPassword)(randomPassword);
+                const signinPayload = {
+                    name: name || "User",
+                    email: email,
+                    password: hashedPassword,
+                    type: "Student",
+                };
+                await user_db_1.user.creatingUser(signinPayload);
+                // creatingUser sets is_verified to false by default, so we immediately set it to true
+                await user_db_1.user.changingIsVerifiedStatus(email);
+                informationOfUser = await user_db_1.user.checkingUserPresent(email);
+                if (informationOfUser) {
+                    await user_db_1.user.creatingStudent(informationOfUser.id);
+                }
+            }
+            else if (!informationOfUser.is_verified) {
+                // User exists but is not verified (started manual signup but didn't finish)
+                await user_db_1.user.changingIsVerifiedStatus(email);
+                await user_db_1.user.creatingStudent(informationOfUser.id);
+                informationOfUser.is_verified = true;
+            }
+            if (!informationOfUser) {
+                return res.status(500).json(new ApiError_1.default("Failed to fetch or create user"));
+            }
+            // Generate JWTs
+            const jwtPayload = {
+                id: informationOfUser.id,
+                email: informationOfUser.email,
+                name: informationOfUser.name,
+                type: informationOfUser.type,
+            };
+            const accessToken = (0, jwtToken_1.generateAccessToken)(jwtPayload);
+            const refreshToken = (0, jwtToken_1.generateRefershToken)({ id: informationOfUser.id }, "1d");
+            await user_db_1.user.updateRefershToken(email, refreshToken);
+            const isProduction = process.env.NODE_ENV === "production";
+            res.cookie("refreshToken", refreshToken, {
+                httpOnly: true,
+                secure: isProduction,
+                sameSite: isProduction ? "none" : "lax",
+                maxAge: 30 * 24 * 60 * 60 * 1000,
+                path: "/",
+            });
+            return res.status(200).json(new ApiResponse_1.default("Logged in successfully with Google", {
+                accessToken,
+            }));
+        }
+        catch (err) {
+            console.error("Google Auth Error:", err);
+            return res.status(500).json(new ApiError_1.default("Error verifying Google Token", err));
         }
     };
     logout = async (req, res) => {

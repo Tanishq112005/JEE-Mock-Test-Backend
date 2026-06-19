@@ -22,5 +22,6 @@ router.post("/passwordEmailVerification", otpGenLimiter.limit, authController_1.
 router.post("/passwordChange", auth_1.authMiddleware, authController_1.authController.forgotPasswordChange);
 router.get("/refershToken", authController_1.authController.refershToken);
 router.post("/verifyPasswordOTP", otpVerifyLimiter.limit, authController_1.authController.verifyForgotPasswordOtp);
+router.post("/google", loginLimiter.limit, authController_1.authController.googleLogin);
 router.post("/logout", auth_1.authMiddleware, authController_1.authController.logout);
 exports.authRoutes = router;

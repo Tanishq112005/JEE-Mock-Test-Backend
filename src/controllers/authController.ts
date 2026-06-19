@@ -1,5 +1,7 @@
 import { database } from "../lib/database";
-import { OTP_EXPIRE_TIME } from "../config/env";
+import { OTP_EXPIRE_TIME, GOOGLE_CLIENT_ID } from "../config/env";
+import { OAuth2Client } from "google-auth-library";
+import crypto from "crypto";
 import { NotificationTypes, PrismaClient } from "@prisma/client";
 import { emailProducer } from "../rabbitmq/producers/email-producer";
 import { user } from "../repositories/user.db";
@@ -368,6 +370,100 @@ export class AuthController {
   };
 
    
+  public googleLogin = async (req: any, res: any) => {
+    const { idToken } = req.body;
+    
+    if (!idToken) {
+      return res.status(400).json(new ApiError("idToken is required"));
+    }
+
+    try {
+      const client = new OAuth2Client(GOOGLE_CLIENT_ID);
+      const ticket = await client.verifyIdToken({
+        idToken,
+        audience: GOOGLE_CLIENT_ID,
+      });
+      const payload = ticket.getPayload();
+
+      if (!payload) {
+        return res.status(400).json(new ApiError("Invalid Google token payload"));
+      }
+
+      const { email, name, email_verified } = payload;
+
+      if (!email || !email_verified) {
+        return res.status(400).json(new ApiError("Google email not verified or missing"));
+      }
+
+      let informationOfUser = await user.checkingUserPresent(email);
+
+      if (!informationOfUser) {
+        // User does not exist, create a new one with random dummy password
+        const randomPassword = crypto.randomBytes(16).toString("hex");
+        const hashedPassword = await hashPassword(randomPassword);
+
+        const signinPayload: userSignInputDetails = {
+          name: name || "User",
+          email: email,
+          password: hashedPassword,
+          type: "Student",
+        };
+
+        await user.creatingUser(signinPayload);
+        // creatingUser sets is_verified to false by default, so we immediately set it to true
+        await user.changingIsVerifiedStatus(email);
+        informationOfUser = await user.checkingUserPresent(email);
+        
+        if (informationOfUser) {
+           await user.creatingStudent(informationOfUser.id);
+        }
+      } else if (!informationOfUser.is_verified) {
+        // User exists but is not verified (started manual signup but didn't finish)
+        await user.changingIsVerifiedStatus(email);
+        await user.creatingStudent(informationOfUser.id);
+        informationOfUser.is_verified = true;
+      }
+
+      if (!informationOfUser) {
+        return res.status(500).json(new ApiError("Failed to fetch or create user"));
+      }
+
+      // Generate JWTs
+      const jwtPayload: jwtPayloadAccessToken = {
+        id: informationOfUser.id,
+        email: informationOfUser.email,
+        name: informationOfUser.name,
+        type: informationOfUser.type,
+      };
+
+      const accessToken = generateAccessToken(jwtPayload);
+      const refreshToken = generateRefershToken(
+        { id: informationOfUser.id },
+        "1d"
+      );
+
+      await user.updateRefershToken(email, refreshToken);
+
+      const isProduction = process.env.NODE_ENV === "production";
+      res.cookie("refreshToken", refreshToken, {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: isProduction ? "none" : "lax",
+        maxAge: 30 * 24 * 60 * 60 * 1000,
+        path: "/",
+      });
+
+      return res.status(200).json(
+        new ApiResponse("Logged in successfully with Google", {
+          accessToken,
+        })
+      );
+    } catch (err: any) {
+      console.error("Google Auth Error:", err);
+      return res.status(500).json(new ApiError("Error verifying Google Token", err));
+    }
+  };
+
   public logout = async (req: any, res: any) => {
     try {
       const incomingRefreshToken =
