@@ -39,6 +39,16 @@ class Exam {
 
     async gettingExam() : Promise<string[]> {
         try {
+          const { redisConfig, questionRedisclient, REDIS_CACHE_EXPIRATION } = await import("../lib/redis");
+          const redisKey = redisConfig.getRedisExamList();
+          const cachedExams = await questionRedisclient.get(redisKey);
+
+          if (cachedExams) {
+            console.log(`[Cache Hit] Exam list coming from Redis.`);
+            return JSON.parse(cachedExams);
+          }
+
+          console.log(`[Cache Miss] Exam list coming from Database.`);
           const examInDb = await this.db.exam.findMany(
             {
                 select : {
@@ -52,6 +62,8 @@ class Exam {
             examList.push(examInDb[i].name) ; 
           }
 
+          await questionRedisclient.setEx(redisKey, REDIS_CACHE_EXPIRATION, JSON.stringify(examList));
+
           return examList ; 
         }
         catch(err){
@@ -60,9 +72,18 @@ class Exam {
     }
     
 
-
     async gettingIdOfExam(examName : string) : Promise<any> {
         try {
+           const { redisConfig, questionRedisclient, REDIS_CACHE_EXPIRATION } = await import("../lib/redis");
+           const redisKey = redisConfig.getRedisExamId(examName);
+           const cachedExamId = await questionRedisclient.get(redisKey);
+
+           if (cachedExamId) {
+             console.log(`[Cache Hit] Exam ID for "${examName}" coming from Redis.`);
+             return JSON.parse(cachedExamId);
+           }
+
+           console.log(`[Cache Miss] Exam ID for "${examName}" coming from Database.`);
            let condition ; 
            if(examName === ExamName.JEE_ADVANCED){
             condition = ExamName.JEE_ADVANCED 
@@ -77,7 +98,12 @@ class Exam {
             }
            })
 
-           return examDetails?.id ; 
+           const examId = examDetails?.id ; 
+           if (examId) {
+             await questionRedisclient.setEx(redisKey, REDIS_CACHE_EXPIRATION, JSON.stringify(examId));
+           }
+
+           return examId ; 
         }
         catch(err){
             throw err ; 

@@ -80,6 +80,10 @@ class RedisConfig {
     return `ChapterDataUsingChapterId:${id}` ; 
   }
 
+  getRedisQuestionsUsingChapterId(chapterId: string) {
+    return `QuestionsUsingChapterId:${chapterId}`;
+  }
+
   getRedisGroupName(subjectName: string) {
     return `GroupName:${subjectName}`;
   }
@@ -91,8 +95,18 @@ class RedisConfig {
   getRedisPaperData(paperId: string) {
     return `PaperData:${paperId}`;
   }
+
+  getRedisPapersList(year: number, examName?: string) {
+    return `papers:list:${year}:${examName || 'all'}`;
+  }
    
-   
+  getRedisExamList() {
+    return `ExamList`;
+  }
+
+  getRedisExamId(examName: string) {
+    return `ExamId:${examName}`;
+  }
 }
 
 export const redisConfig = new RedisConfig();

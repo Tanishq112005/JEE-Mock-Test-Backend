@@ -35,13 +35,15 @@ class ChapterWisePractice {
   ) {
     const { redisConfig, questionRedisclient, REDIS_CACHE_EXPIRATION } = await import("../lib/redis");
 
-    const redisKey = redisConfig.getRedisChapterDataUsingChapterId(chapterId);
+    const redisKey = redisConfig.getRedisQuestionsUsingChapterId(chapterId);
     let questionList: any[] = [];
     const cachedQuestions = await questionRedisclient.get(redisKey);
 
     if (cachedQuestions) {
+      console.log(`[Cache Hit] Questions for chapter "${chapterId}" coming from Redis.`);
       questionList = JSON.parse(cachedQuestions);
     } else {
+      console.log(`[Cache Miss] Questions for chapter "${chapterId}" coming from Database.`);
       questionList = await question.getQuestionsWithSignedUrls(chapterId);
       await questionRedisclient.setEx(redisKey, REDIS_CACHE_EXPIRATION, JSON.stringify(questionList));
     }

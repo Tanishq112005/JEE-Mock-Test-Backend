@@ -30,6 +30,7 @@ class ChapterWiseController {
       const redisKey = redisConfig.getRedisGroupName(subjectName as string);
       const cachedGroups = await questionRedisclient.get(redisKey);
       if (cachedGroups) {
+        console.log(`[Cache Hit] Group data for "${subjectName}" coming from Redis.`);
         return res
           .status(200)
           .json(
@@ -37,6 +38,7 @@ class ChapterWiseController {
           );
       }
 
+      console.log(`[Cache Miss] Group data for "${subjectName}" coming from Database.`);
       const finalResponse = await chapter.gettingDetailedGroups(
         subjectName as string,
       );
@@ -65,11 +67,13 @@ class ChapterWiseController {
       const redisKey = redisConfig.getRedisChaptersByGroup(groupName as string);
       const cachedChapters = await questionRedisclient.get(redisKey);
       if (cachedChapters) {
+        console.log(`[Cache Hit] Chapters for group "${groupName}" coming from Redis.`);
         return res
           .status(200)
           .json(new ApiResponse(`Chapters for group ${groupName}`, encryptPayload(JSON.parse(cachedChapters))));
       }
 
+      console.log(`[Cache Miss] Chapters for group "${groupName}" coming from Database.`);
       const chapters = await chapter.gettingChapter({ group: groupName as string });
       await questionRedisclient.setEx(redisKey, REDIS_CACHE_EXPIRATION, JSON.stringify(chapters));
 
@@ -96,8 +100,10 @@ class ChapterWiseController {
       const cachedChapter = await questionRedisclient.get(redisKey);
 
       if (cachedChapter) {
+        console.log(`[Cache Hit] Chapter info for "${chapterName}" coming from Redis.`);
         chapterRecord = JSON.parse(cachedChapter);
       } else {
+        console.log(`[Cache Miss] Chapter info for "${chapterName}" coming from Database.`);
         try {
           chapterRecord = await chapter.gettingChapterId(chapterName);
           await questionRedisclient.setEx(redisKey, REDIS_CACHE_EXPIRATION, JSON.stringify(chapterRecord));
@@ -117,8 +123,10 @@ class ChapterWiseController {
         new ApiResponse("Chapter Stats fetched", encryptPayload({
           chapterId: chapterRecord.id,
           chapterName: chapterRecord.name,
+          isJeeMain: chapterRecord.isJeeMain,
+          isJeeAdvanced: chapterRecord.isJeeAdvanced,
+          isCbse: chapterRecord.isCbse,
           ...stats,
-          
         })),
       );
     } catch (err) {

@@ -61,4 +61,12 @@ router.delete(
   redisController.removeDashboardNode,
 );
 
+// Route to flush specific key or all data from static Redis
+router.post(
+  "/cluster/flush",
+  authMiddleware,
+  developerRoleMiddleware,
+  redisController.flushData,
+);
+
 export const adminRedisRoutes = router;

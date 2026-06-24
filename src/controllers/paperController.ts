@@ -89,17 +89,34 @@ export class PaperController {
         return res.status(400).json(new ApiError("Invalid Exam Name provided"));
       }
 
-    
+      const { redisConfig, questionRedisclient, REDIS_CACHE_EXPIRATION } = await import("../lib/redis");
+      const redisKey = redisConfig.getRedisPapersList(year, examName);
+      const cachedPapers = await questionRedisclient.get(redisKey);
+
+      if (cachedPapers) {
+        console.log(`[Cache Hit] Papers list for year ${year} and exam ${examName || 'all'} coming from Redis.`);
+        return res.status(200).json(
+          new ApiResponse("Papers Details Successfully Fetched", encryptPayload(JSON.parse(cachedPapers)))
+        );
+      }
+
+      console.log(`[Cache Miss] Papers list for year ${year} and exam ${examName || 'all'} coming from Database.`);
       const papersList = await paper.gettingPaperInformation(year, examName);
 
-      
       if (papersList instanceof ApiError) {
         return res.status(400).json(papersList);
       }
 
+      await questionRedisclient.setEx(redisKey, REDIS_CACHE_EXPIRATION, JSON.stringify(papersList));
+
       return res
         .status(200)
-        .json(new ApiResponse("Papers fetched successfully", encryptPayload(papersList)));
+        .json(
+          new ApiResponse(
+            "Papers Details Successfully Fetched",
+            encryptPayload(papersList)
+          )
+        );
     } catch (err: any) {
       return res
         .status(500)

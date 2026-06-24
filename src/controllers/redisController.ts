@@ -196,6 +196,31 @@ export class RedisController {
         .json(new ApiError("Failed to remove Dashboard node.", err));
     }
   };
+  // 7. Flush specific key or flush all data
+  public flushData = async (req: any, res: any) => {
+    try {
+      const { key } = req.body;
+      const { questionRedisclient } = await import("../lib/redis");
+
+      if (key) {
+        // Delete a specific key
+        const deletedCount = await questionRedisclient.del(key);
+        if (deletedCount > 0) {
+          return res.status(200).json(new ApiResponse(`Successfully deleted key: ${key}`));
+        } else {
+          return res.status(404).json(new ApiError(`Key not found: ${key}`, 404));
+        }
+      } else {
+        // Flush the entire database
+        await questionRedisclient.flushAll();
+        console.log("[Admin Control] Flushed all data from Redis.");
+        return res.status(200).json(new ApiResponse("Successfully flushed all data from Redis."));
+      }
+    } catch (err: any) {
+      console.error("Error flushing Redis data:", err);
+      return res.status(500).json(new ApiError("Failed to flush Redis data.", err));
+    }
+  };
 }
 
 export const redisController = new RedisController();

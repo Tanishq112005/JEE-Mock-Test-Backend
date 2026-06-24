@@ -136,6 +136,8 @@ class Question {
       // Flatten Relationships (Naming Changes)
       subject: q.subjects?.name || null,
       chapter: q.chapters?.name || null,
+      isJeeMain: q.chapters?.isJeeMain ?? false,
+      isJeeAdvanced: q.chapters?.isJeeAdvanced ?? false,
       exam: examName,
       paperTitle: q.papers?.year ? `${examName} ${q.papers.year}` : null,
 
@@ -472,8 +474,10 @@ class Question {
       let basePayload: any;
 
       if (cachedPaper) {
+        console.log(`[Cache Hit] Paper data for "${paperId}" coming from Redis.`);
         basePayload = JSON.parse(cachedPaper);
       } else {
+        console.log(`[Cache Miss] Paper data for "${paperId}" coming from Database.`);
         const paperRaw = await this.db.papers.findUnique({
           where: { id: paperId },
           include: {
