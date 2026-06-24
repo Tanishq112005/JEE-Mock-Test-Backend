@@ -124,9 +124,16 @@ class Chapter {
     gettingChapterId = async (chapterName) => {
         // Case-insensitive lookup so "kinematics" matches "Kinematics" etc
         const keyOfRedisOfChapter = redis_1.redisConfig.getRedisChapterDataUsingChapterName(chapterName);
-        let chapterData = await this.redisClient.get(keyOfRedisOfChapter);
+        let cachedData = await this.redisClient.get(keyOfRedisOfChapter);
+        if (cachedData) {
+            console.log(`[Cache Hit] Chapter data for "${chapterName}" coming from Redis.`);
+            return JSON.parse(cachedData);
+        }
+        console.log(`[Cache Miss] Chapter data for "${chapterName}" coming from Database.`);
+        let chapterData = await this.db.chapters.findFirst({
+            where: { name: { equals: chapterName } },
+        });
         if (!chapterData) {
-            console.log("Chapter is not found in the redis");
             chapterData = await this.db.chapters.findFirst({
                 where: { name: { equals: chapterName } },
             });
@@ -134,22 +141,26 @@ class Chapter {
         if (!chapterData) {
             throw new ApiError_1.default(`Chapter "${chapterName}" not found. Check the exact chapter name stored in the database.`);
         }
-        await this.redisClient.set(keyOfRedisOfChapter, chapterData);
+        await this.redisClient.set(keyOfRedisOfChapter, JSON.stringify(chapterData));
         return chapterData;
     };
     gettingChapterDetails = async (chapterId) => {
         try {
             const key = redis_1.redisConfig.getRedisChapterDataUsingChapterId(chapterId);
-            let chapterData = this.redisClient.get(key);
-            if (!chapterData) {
-                console.log("Chapter Data Is Not Found");
-                chapterData = await this.db.chapters.findFirst({
-                    where: {
-                        id: chapterId
-                    }
-                });
+            let cachedData = await this.redisClient.get(key);
+            if (cachedData) {
+                console.log(`[Cache Hit] Chapter details for "${chapterId}" coming from Redis.`);
+                return JSON.parse(cachedData);
             }
-            await this.redisClient.set(key, chapterData);
+            console.log(`[Cache Miss] Chapter details for "${chapterId}" coming from Database.`);
+            const chapterData = await this.db.chapters.findFirst({
+                where: {
+                    id: chapterId
+                }
+            });
+            if (chapterData) {
+                await this.redisClient.set(key, JSON.stringify(chapterData));
+            }
             return chapterData;
         }
         catch (err) {

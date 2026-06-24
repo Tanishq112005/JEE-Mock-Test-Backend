@@ -24,4 +24,6 @@ router.get("/cluster/nodes", auth_1.authMiddleware, developerRole_1.developerRol
 router.delete("/cluster/auth/remove", auth_1.authMiddleware, developerRole_1.developerRoleMiddleware, redisController_1.redisController.removeAuthNode);
 // Route to REMOVE node from Dashboard Ring
 router.delete("/cluster/dashboard/remove", auth_1.authMiddleware, developerRole_1.developerRoleMiddleware, redisController_1.redisController.removeDashboardNode);
+// Route to flush specific key or all data from static Redis
+router.post("/cluster/flush", auth_1.authMiddleware, developerRole_1.developerRoleMiddleware, redisController_1.redisController.flushData);
 exports.adminRedisRoutes = router;

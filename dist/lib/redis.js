@@ -49,6 +49,9 @@ class RedisConfig {
     getRedisChapterDataUsingChapterId(id) {
         return `ChapterDataUsingChapterId:${id}`;
     }
+    getRedisQuestionsUsingChapterId(chapterId) {
+        return `QuestionsUsingChapterId:${chapterId}`;
+    }
     getRedisGroupName(subjectName) {
         return `GroupName:${subjectName}`;
     }
@@ -57,6 +60,15 @@ class RedisConfig {
     }
     getRedisPaperData(paperId) {
         return `PaperData:${paperId}`;
+    }
+    getRedisPapersList(year, examName) {
+        return `papers:list:${year}:${examName || 'all'}`;
+    }
+    getRedisExamList() {
+        return `ExamList`;
+    }
+    getRedisExamId(examName) {
+        return `ExamId:${examName}`;
     }
 }
 exports.redisConfig = new RedisConfig();

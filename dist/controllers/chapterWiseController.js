@@ -28,10 +28,12 @@ class ChapterWiseController {
             const redisKey = redis_1.redisConfig.getRedisGroupName(subjectName);
             const cachedGroups = await redis_1.questionRedisclient.get(redisKey);
             if (cachedGroups) {
+                console.log(`[Cache Hit] Group data for "${subjectName}" coming from Redis.`);
                 return res
                     .status(200)
                     .json(new ApiResponse_1.default(`Group Of the ${subjectName} are: `, (0, encryption_1.encryptPayload)(JSON.parse(cachedGroups))));
             }
+            console.log(`[Cache Miss] Group data for "${subjectName}" coming from Database.`);
             const finalResponse = await chapter_db_1.chapter.gettingDetailedGroups(subjectName);
             await redis_1.questionRedisclient.setEx(redisKey, redis_1.REDIS_CACHE_EXPIRATION, JSON.stringify(finalResponse));
             return res
@@ -53,10 +55,12 @@ class ChapterWiseController {
             const redisKey = redis_1.redisConfig.getRedisChaptersByGroup(groupName);
             const cachedChapters = await redis_1.questionRedisclient.get(redisKey);
             if (cachedChapters) {
+                console.log(`[Cache Hit] Chapters for group "${groupName}" coming from Redis.`);
                 return res
                     .status(200)
                     .json(new ApiResponse_1.default(`Chapters for group ${groupName}`, (0, encryption_1.encryptPayload)(JSON.parse(cachedChapters))));
             }
+            console.log(`[Cache Miss] Chapters for group "${groupName}" coming from Database.`);
             const chapters = await chapter_db_1.chapter.gettingChapter({ group: groupName });
             await redis_1.questionRedisclient.setEx(redisKey, redis_1.REDIS_CACHE_EXPIRATION, JSON.stringify(chapters));
             return res
@@ -79,9 +83,11 @@ class ChapterWiseController {
             const redisKey = redis_1.redisConfig.getRedisChapterDataUsingChapterName(chapterName);
             const cachedChapter = await redis_1.questionRedisclient.get(redisKey);
             if (cachedChapter) {
+                console.log(`[Cache Hit] Chapter info for "${chapterName}" coming from Redis.`);
                 chapterRecord = JSON.parse(cachedChapter);
             }
             else {
+                console.log(`[Cache Miss] Chapter info for "${chapterName}" coming from Database.`);
                 try {
                     chapterRecord = await chapter_db_1.chapter.gettingChapterId(chapterName);
                     await redis_1.questionRedisclient.setEx(redisKey, redis_1.REDIS_CACHE_EXPIRATION, JSON.stringify(chapterRecord));
@@ -96,6 +102,9 @@ class ChapterWiseController {
             return res.status(200).json(new ApiResponse_1.default("Chapter Stats fetched", (0, encryption_1.encryptPayload)({
                 chapterId: chapterRecord.id,
                 chapterName: chapterRecord.name,
+                isJeeMain: chapterRecord.isJeeMain,
+                isJeeAdvanced: chapterRecord.isJeeAdvanced,
+                isCbse: chapterRecord.isCbse,
                 ...stats,
             })));
         }
