@@ -29,11 +29,24 @@ class ChapterWisePractice {
       },
     });
   }
-   public async getChapterQuestionsWithStats(
+  public async getChapterQuestionsWithStats(
     chapterId: string,
     studentId: string,
   ) {
-    const questionList = await question.getGlobalQuestionsWithSignedUrls({ chapterId }, studentId, false);
+    const { redisConfig, questionRedisclient, REDIS_CACHE_EXPIRATION } = await import("../lib/redis");
+
+    const redisKey = redisConfig.getRedisChapterDataUsingChapterId(chapterId);
+    let questionList: any[] = [];
+    const cachedQuestions = await questionRedisclient.get(redisKey);
+
+    if (cachedQuestions) {
+      questionList = JSON.parse(cachedQuestions);
+    } else {
+      questionList = await question.getQuestionsWithSignedUrls(chapterId);
+      await questionRedisclient.setEx(redisKey, REDIS_CACHE_EXPIRATION, JSON.stringify(questionList));
+    }
+
+    const bookmarkedSet = await question.getBookmarkedQuestionIds(studentId, chapterId);
 
     questionList.sort((a: any, b: any) => {
       const yearA = a.papers?.year ?? 0;
@@ -59,6 +72,7 @@ class ChapterWisePractice {
       else totalAdvancedQuestions++;
 
       const isAttemptedSuccessfully = attemptedSet.has(q.id);
+      const isBookmarked = bookmarkedSet.has(q.id);
 
       if (isAttemptedSuccessfully) {
         if (isMains) uniqueSolvedMain++;
@@ -69,6 +83,7 @@ class ChapterWisePractice {
 
       return {
         ...cleanQuestion,
+        isBookmarked,
         attemptStatus: isAttemptedSuccessfully
           ? "Successfully attempted"
           : "Not successfully done",

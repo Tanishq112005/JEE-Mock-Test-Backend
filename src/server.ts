@@ -134,7 +134,8 @@ const startServer = async () => {
     await questionBitmapRegistry.load();
    
     // D. Start HTTP Server
-    app.listen(port, () => {
+    
+    app.listen(port , () => {
       console.log(`   API Server is running on port ${port}`);
       console.log(`   - Search Engine: Ready`);
       console.log(`   - Streak Cron:   Active (00:05 AM)`);

@@ -6,12 +6,15 @@ import {
   gettingPayload,
 } from "../types/chapter.types";
 import ApiError from "../utils/ApiError";
+import { questionRedisclient, redisConfig } from "../lib/redis";
+import { RedisClientType } from "redis";
 
 class Chapter {
   private db: PrismaClient;
-
-  constructor(database: PrismaClient) {
+  private redisClient : RedisClientType ; 
+  constructor(database: PrismaClient , redisClient : RedisClientType) {
     this.db = database;
+    this.redisClient = redisClient ; 
   }
 
   // ---------------- ADD CHAPTER ----------------
@@ -135,28 +138,42 @@ class Chapter {
   };
 
   public gettingChapterId = async (chapterName: string): Promise<chapters> => {
-    // Case-insensitive lookup so "kinematics" matches "Kinematics" etc.
-    const chapterRecord = await this.db.chapters.findFirst({
+    // Case-insensitive lookup so "kinematics" matches "Kinematics" etc
+    
+    const keyOfRedisOfChapter = redisConfig.getRedisChapterDataUsingChapterName(chapterName) ; 
+    let chapterData: any =  await this.redisClient.get(keyOfRedisOfChapter) ; 
+    if(!chapterData){
+      console.log("Chapter is not found in the redis") ; 
+
+      chapterData = await this.db.chapters.findFirst({
       where: { name: { equals: chapterName } },
     });
-
-    if (!chapterRecord) {
+  }
+    if (!chapterData) {
       throw new ApiError(`Chapter "${chapterName}" not found. Check the exact chapter name stored in the database.`);
     }
+    
+    await this.redisClient.set(keyOfRedisOfChapter , chapterData ) ; 
 
-    return chapterRecord;
+    return chapterData;
   };
 
 
   public gettingChapterDetails = async(chapterId : string ) => {
     try {
-       const chapterDetails = await this.db.chapters.findFirst({
+       const key = redisConfig.getRedisChapterDataUsingChapterId(chapterId) ; 
+       let chapterData : any = this.redisClient.get(key) ; 
+       if(!chapterData){
+        console.log("Chapter Data Is Not Found") ;
+       chapterData = await this.db.chapters.findFirst({
         where : {
           id : chapterId
         }
        })
-
-       return chapterDetails ; 
+      }
+      
+      await this.redisClient.set(key , chapterData) ; 
+       return chapterData; 
     } 
     catch(err : any){
       throw err ; 
@@ -164,4 +181,4 @@ class Chapter {
   }
 }
 
-export const chapter = new Chapter(database);
+export const chapter = new Chapter(database , questionRedisclient);

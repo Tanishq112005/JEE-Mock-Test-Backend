@@ -4,8 +4,11 @@ import {
   REDIS_PASSWORD,
   REDIS_PORT,
   REDIS_USERNAME,
+  REDIS_CACHE_EXPIRATION_SECONDS
 } from "../config/env";
 import { createClient, RedisClientType } from "redis";
+
+export const REDIS_CACHE_EXPIRATION = REDIS_CACHE_EXPIRATION_SECONDS ? parseInt(REDIS_CACHE_EXPIRATION_SECONDS, 10) : 86400 * 7;
 
 class RedisConfig {
   public questionBitMapclient: RedisClientType;
@@ -69,7 +72,25 @@ class RedisConfig {
 
 
   // functions for the questions loader in the redis 
+  getRedisChapterDataUsingChapterName(chapterName : string){
+    return `ChapterDataUsingChapterName:${chapterName}`;
+  }
 
+  getRedisChapterDataUsingChapterId(id : string){
+    return `ChapterDataUsingChapterId:${id}` ; 
+  }
+
+  getRedisGroupName(subjectName: string) {
+    return `GroupName:${subjectName}`;
+  }
+
+  getRedisChaptersByGroup(groupName: string) {
+    return `ChaptersByGroup:${groupName}`;
+  }
+
+  getRedisPaperData(paperId: string) {
+    return `PaperData:${paperId}`;
+  }
    
    
 }

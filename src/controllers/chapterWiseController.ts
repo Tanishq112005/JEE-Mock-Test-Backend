@@ -13,6 +13,7 @@ import { AttemptStatus, SubjectName } from "@prisma/client";
 import { chapter } from "../repositories/chapter.db";
 import { chapterWisePractice } from "../repositories/chapterWisePractice.db";
 import { encryptPayload } from "../utils/encryption";
+import { redisConfig, questionRedisclient, REDIS_CACHE_EXPIRATION } from "../lib/redis";
 class ChapterWiseController {
   constructor() {}
 
@@ -26,9 +27,22 @@ class ChapterWiseController {
         return res.status(400).json(new ApiError("Invalid subject name"));
       }
 
+      const redisKey = redisConfig.getRedisGroupName(subjectName as string);
+      const cachedGroups = await questionRedisclient.get(redisKey);
+      if (cachedGroups) {
+        return res
+          .status(200)
+          .json(
+            new ApiResponse(`Group Of the ${subjectName} are: `, encryptPayload(JSON.parse(cachedGroups))),
+          );
+      }
+
       const finalResponse = await chapter.gettingDetailedGroups(
         subjectName as string,
       );
+
+      await questionRedisclient.setEx(redisKey, REDIS_CACHE_EXPIRATION, JSON.stringify(finalResponse));
+
       return res
         .status(200)
         .json(
@@ -48,7 +62,17 @@ class ChapterWiseController {
         return res.status(400).json(new ApiError("groupName is required"));
       }
 
+      const redisKey = redisConfig.getRedisChaptersByGroup(groupName as string);
+      const cachedChapters = await questionRedisclient.get(redisKey);
+      if (cachedChapters) {
+        return res
+          .status(200)
+          .json(new ApiResponse(`Chapters for group ${groupName}`, encryptPayload(JSON.parse(cachedChapters))));
+      }
+
       const chapters = await chapter.gettingChapter({ group: groupName as string });
+      await questionRedisclient.setEx(redisKey, REDIS_CACHE_EXPIRATION, JSON.stringify(chapters));
+
       return res
         .status(200)
         .json(new ApiResponse(`Chapters for group ${groupName}`, encryptPayload(chapters)));
@@ -68,12 +92,20 @@ class ChapterWiseController {
         return res.status(400).json(new ApiError("ChapterName is required"));
 
       let chapterRecord: any;
-      try {
-        chapterRecord = await chapter.gettingChapterId(chapterName);
-      } catch (err: any) {
-        return res
-          .status(404)
-          .json(new ApiError(`Chapter "${chapterName}" not found. Verify the chapter name.`, err));
+      const redisKey = redisConfig.getRedisChapterDataUsingChapterName(chapterName as string);
+      const cachedChapter = await questionRedisclient.get(redisKey);
+
+      if (cachedChapter) {
+        chapterRecord = JSON.parse(cachedChapter);
+      } else {
+        try {
+          chapterRecord = await chapter.gettingChapterId(chapterName);
+          await questionRedisclient.setEx(redisKey, REDIS_CACHE_EXPIRATION, JSON.stringify(chapterRecord));
+        } catch (err: any) {
+          return res
+            .status(404)
+            .json(new ApiError(`Chapter "${chapterName}" not found. Verify the chapter name.`, err));
+        }
       }
 
       const stats = await chapterWisePractice.getChapterInfo(
