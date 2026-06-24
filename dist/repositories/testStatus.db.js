@@ -265,11 +265,7 @@ class TestStatus {
                             questions: true,
                         },
                     },
-                    papers: {
-                        include: {
-                            markingSchemes: true,
-                        },
-                    },
+                    papers: true,
                 },
             });
             return testContext;

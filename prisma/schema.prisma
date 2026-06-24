@@ -260,21 +260,9 @@ model papers {
   exam           exam                 @relation(fields: [examId], references: [id], onDelete: Cascade)
   questions      questions[]
   testSession    testStatus[]
-  markingSchemes paperMarkingScheme[]
   globalStats    PaperGlobalStats?
 }
 
-model paperMarkingScheme {
-  id            String       @id @default(uuid())
-  paperId       String
-  questionType  questionType
-  positiveMarks Int
-  negativeMarks Int
-  isPartial     Boolean      @default(false)
-  paper         papers       @relation(fields: [paperId], references: [id], onDelete: Cascade)
-
-  @@unique([paperId, questionType])
-}
 
 // ==========================================
 // 4. QUESTIONS BANK 

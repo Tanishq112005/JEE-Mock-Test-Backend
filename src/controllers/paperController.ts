@@ -124,48 +124,6 @@ export class PaperController {
     }
   };
 
-
-   public addingMarkingScheme = async (req : Request , res : Response) => {
-    try {
-      const {payload}  = req.body  
-
-      await paper.addpaperMarkingScheme(payload) ; 
-
-      return res.status(200).json(
-        new ApiResponse(
-          "Paper marking Scheme Is Uploaded"
-        )
-      )
-    }
-    catch(err : any){
-      return res.status(400).json(
-        new ApiError(
-          "Error In Adding The Marking Scheme"
-        )
-      )
-    }
-   }
-   
-
-   public gettingMarkingScheme = async (req : Request , res : Response) => {
-    try {
-      const {paperId} = req.params ; 
-      const data = await paper.paperMarkingScheme(paperId) ;
-      return res.status(200).json(
-        new ApiResponse(
-          "Your Marking Scheme Of The Paper" , 
-          encryptPayload(data)
-        ) 
-      )
-    }
-    catch(err : any){
-      return res.status(400).json(
-        new ApiError(
-          "Error in getting the Marking Scheme"
-        )
-      )
-    }
-   }
 } 
 
 export const paperController = new PaperController();

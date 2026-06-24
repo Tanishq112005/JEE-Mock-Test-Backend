@@ -50,7 +50,6 @@ class TestSyncService {
                     papers: {
                         include: {
                             exam: true,
-                            markingSchemes: true, // paperMarkingScheme[] — fallback marks
                         },
                     },
                 },

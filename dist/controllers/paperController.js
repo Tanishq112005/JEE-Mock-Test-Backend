@@ -121,26 +121,6 @@ class PaperController {
                 .json(new ApiError_1.default("Error in fetching papers", err));
         }
     };
-    addingMarkingScheme = async (req, res) => {
-        try {
-            const { payload } = req.body;
-            await paper_db_1.paper.addpaperMarkingScheme(payload);
-            return res.status(200).json(new ApiResponse_1.default("Paper marking Scheme Is Uploaded"));
-        }
-        catch (err) {
-            return res.status(400).json(new ApiError_1.default("Error In Adding The Marking Scheme"));
-        }
-    };
-    gettingMarkingScheme = async (req, res) => {
-        try {
-            const { paperId } = req.params;
-            const data = await paper_db_1.paper.paperMarkingScheme(paperId);
-            return res.status(200).json(new ApiResponse_1.default("Your Marking Scheme Of The Paper", (0, encryption_1.encryptPayload)(data)));
-        }
-        catch (err) {
-            return res.status(400).json(new ApiError_1.default("Error in getting the Marking Scheme"));
-        }
-    };
 }
 exports.PaperController = PaperController;
 exports.paperController = new PaperController();

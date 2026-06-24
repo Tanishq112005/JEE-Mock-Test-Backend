@@ -70,7 +70,6 @@ class PracticeQuestionEvaluationService {
           papers: {
             include: {
               exam:           true,
-              markingSchemes: true,
             },
           },
         },
@@ -78,7 +77,6 @@ class PracticeQuestionEvaluationService {
 
       if (!questionData) throw new Error(`Question not found: ${input.questionId}`);
 
-      
       const evaluator      = new AnswerVerifyService();
       const correctAnswer = this.toStringArray(questionData.correctAnswer);
 

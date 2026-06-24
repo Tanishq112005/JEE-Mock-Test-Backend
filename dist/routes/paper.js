@@ -9,6 +9,4 @@ const router = (0, express_1.Router)();
 router.post("/create", auth_1.authMiddleware, developerRole_1.developerRoleMiddleware, paperController_1.paperController.createPaper);
 router.delete("/delete/:paperId", auth_1.authMiddleware, developerRole_1.developerRoleMiddleware, paperController_1.paperController.deletePaper);
 router.get("/get", auth_1.authMiddleware, paperController_1.paperController.getAllPapers);
-router.post("/addMarkingScheme", auth_1.authMiddleware, developerRole_1.developerRoleMiddleware, paperController_1.paperController.addingMarkingScheme);
-router.get("/getMarkingScheme", auth_1.authMiddleware, paperController_1.paperController.gettingMarkingScheme);
 exports.paperRoutes = router;

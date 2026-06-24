@@ -4,7 +4,6 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.paper = void 0;
-const client_1 = require("@prisma/client");
 const database_1 = require("../lib/database");
 const exam_db_1 = require("./exam.db");
 const ApiError_1 = __importDefault(require("../utils/ApiError"));
@@ -109,110 +108,6 @@ class Paper {
                 },
             }));
             await this.db.$transaction(transactions);
-        }
-        catch (err) {
-            throw err;
-        }
-    }
-    async addpaperMarkingScheme(payload) {
-        try {
-            const transactions = [];
-            // 1. Integer
-            if (payload.integerPositiveMarks !== undefined &&
-                payload.integerNegativeMarks !== undefined) {
-                transactions.push(this.db.paperMarkingScheme.create({
-                    data: {
-                        paperId: payload.paperId,
-                        questionType: client_1.questionType.Integer,
-                        positiveMarks: payload.integerPositiveMarks,
-                        negativeMarks: payload.integerNegativeMarks,
-                        isPartial: payload.integerPartial ?? false,
-                    },
-                }));
-            }
-            // 2. Single Correct
-            if (payload.singleCorrectPositiveMarks !== undefined &&
-                payload.singleCorrectNegativeMarks !== undefined) {
-                transactions.push(this.db.paperMarkingScheme.create({
-                    data: {
-                        paperId: payload.paperId,
-                        questionType: client_1.questionType.SingleCorrect,
-                        positiveMarks: payload.singleCorrectPositiveMarks,
-                        negativeMarks: payload.singleCorrectNegativeMarks,
-                        isPartial: payload.singleCorrectPartial ?? false,
-                    },
-                }));
-            }
-            // 3. Multi Correct
-            if (payload.multiCorrectPositiveMarks !== undefined &&
-                payload.multiCorrectNegativeMarks !== undefined) {
-                transactions.push(this.db.paperMarkingScheme.create({
-                    data: {
-                        paperId: payload.paperId,
-                        questionType: client_1.questionType.MultiCorrect,
-                        positiveMarks: payload.multiCorrectPositiveMarks,
-                        negativeMarks: payload.multiCorrectNegativeMarks,
-                        isPartial: payload.multiCorrectPartial ?? false,
-                    },
-                }));
-            }
-            // 4. Comprehension Single Correct
-            if (payload.comprehensionSingleCorrectPositiveMarks !== undefined &&
-                payload.comprehensionSingleCorrectNegativeMarks !== undefined) {
-                transactions.push(this.db.paperMarkingScheme.create({
-                    data: {
-                        paperId: payload.paperId,
-                        questionType: client_1.questionType.ComprehensionSingleCorrect,
-                        positiveMarks: payload.comprehensionSingleCorrectPositiveMarks,
-                        negativeMarks: payload.comprehensionSingleCorrectNegativeMarks,
-                        isPartial: payload.comprehensionSingleCorrectPartial ?? false,
-                    },
-                }));
-            }
-            // 5. Comprehension Multi Correct
-            if (payload.comprehensionMultiCorrectPositiveMarks !== undefined &&
-                payload.comprehensionMultiCorrectNegativeMarks !== undefined) {
-                transactions.push(this.db.paperMarkingScheme.create({
-                    data: {
-                        paperId: payload.paperId,
-                        questionType: client_1.questionType.ComprehensionMultiCorrect,
-                        positiveMarks: payload.comprehensionMultiCorrectPositiveMarks,
-                        negativeMarks: payload.comprehensionMultiCorrectNegativeMarks,
-                        isPartial: payload.comprehensionMultiCorrectPartial ?? false,
-                    },
-                }));
-            }
-            // 6. Comprehension Integer
-            // Note: Used 'comprehensionIntgerPositiveMarks' to match the typo in your interface exactly.
-            if (payload.comprehensionIntgerPositiveMarks !== undefined &&
-                payload.comprehensionIntegerNegativeMarks !== undefined) {
-                transactions.push(this.db.paperMarkingScheme.create({
-                    data: {
-                        paperId: payload.paperId,
-                        questionType: client_1.questionType.ComprehensionInteger,
-                        positiveMarks: payload.comprehensionIntgerPositiveMarks,
-                        negativeMarks: payload.comprehensionIntegerNegativeMarks,
-                        isPartial: payload.comprehensionIntegerPartial ?? false,
-                    },
-                }));
-            }
-            // Execute all accumulated queries in a single transaction
-            if (transactions.length > 0) {
-                await this.db.$transaction(transactions);
-            }
-        }
-        catch (err) {
-            throw err;
-        }
-    }
-    async paperMarkingScheme(paperId) {
-        try {
-            const paperScheme = await this.db.paperMarkingScheme.findMany({
-                where: {
-                    paperId: paperId,
-                },
-            });
-            return paperScheme;
         }
         catch (err) {
             throw err;

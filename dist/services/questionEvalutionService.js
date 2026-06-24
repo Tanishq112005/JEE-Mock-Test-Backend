@@ -29,7 +29,6 @@ class PracticeQuestionEvaluationService {
                     papers: {
                         include: {
                             exam: true,
-                            markingSchemes: true,
                         },
                     },
                 },
