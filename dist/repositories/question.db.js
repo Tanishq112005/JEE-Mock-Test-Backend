@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.question = void 0;
 const client_1 = require("@prisma/client");
@@ -248,6 +281,45 @@ class Question {
         }
     }
     // =================================================================
+    // Helper for Bookmarks
+    // =================================================================
+    async getBookmarkedQuestionIds(studentId, chapterId) {
+        try {
+            const bookmarks = await this.db.bookmarkedQuestion.findMany({
+                where: {
+                    studentId: studentId,
+                    question: {
+                        chapterId: chapterId,
+                    },
+                },
+                select: { questionId: true },
+            });
+            return new Set(bookmarks.map(b => b.questionId));
+        }
+        catch (err) {
+            console.error("Error fetching bookmarked questions:", err);
+            return new Set();
+        }
+    }
+    async getBookmarkedQuestionIdsByPaper(studentId, paperId) {
+        try {
+            const bookmarks = await this.db.bookmarkedQuestion.findMany({
+                where: {
+                    studentId: studentId,
+                    question: {
+                        paperId: paperId,
+                    },
+                },
+                select: { questionId: true },
+            });
+            return new Set(bookmarks.map(b => b.questionId));
+        }
+        catch (err) {
+            console.error("Error fetching bookmarked questions by paper:", err);
+            return new Set();
+        }
+    }
+    // =================================================================
     // 7. GET QUESTIONS (RETURNS ENCRYPTED)
     // =================================================================
     async gettingQuestion(year, chapterId, paperId, questionId, subject) {
@@ -349,45 +421,70 @@ class Question {
     // =================================================================
     async getRawQuestionsForPaper(paperId, userId) {
         try {
-            const paperRaw = await this.db.papers.findUnique({
-                where: { id: paperId },
-                include: {
-                    exam: { select: { name: true } },
-                    questions: {
-                        include: {
-                            options: true,
-                            solution: true,
-                            subjects: { select: { name: true } },
-                            chapters: {
-                                select: { name: true, isJeeAdvanced: true, isJeeMain: true },
+            const { redisConfig, questionRedisclient, REDIS_CACHE_EXPIRATION } = await Promise.resolve().then(() => __importStar(require("../lib/redis")));
+            const redisKey = redisConfig.getRedisPaperData(paperId);
+            const cachedPaper = await questionRedisclient.get(redisKey);
+            let basePayload;
+            if (cachedPaper) {
+                basePayload = JSON.parse(cachedPaper);
+            }
+            else {
+                const paperRaw = await this.db.papers.findUnique({
+                    where: { id: paperId },
+                    include: {
+                        exam: { select: { name: true } },
+                        questions: {
+                            include: {
+                                options: true,
+                                solution: true,
+                                subjects: { select: { name: true } },
+                                chapters: {
+                                    select: { name: true, isJeeAdvanced: true, isJeeMain: true },
+                                },
                             },
-                            ...(userId ? { bookmarkedBy: { where: { studentId: userId } } } : {})
+                            orderBy: { id: "asc" },
                         },
-                        orderBy: { id: "asc" },
                     },
-                },
-            });
-            if (!paperRaw)
-                return null;
-            const processedQuestions = paperRaw.questions.map((q) => {
-                const formatted = this.formatQuestionRecord(q, true);
-                if (userId) {
-                    formatted.isBookmarked = q.bookmarkedBy && q.bookmarkedBy.length > 0;
-                }
-                return formatted;
-            });
-            const physicsRaw = processedQuestions.filter((q) => q.subject === client_1.SubjectName.Physics || q.subject === "Physics");
-            const chemistryRaw = processedQuestions.filter((q) => q.subject === client_1.SubjectName.Chemistry || q.subject === "Chemistry");
-            const mathematicsRaw = processedQuestions.filter((q) => q.subject === client_1.SubjectName.Mathematics || q.subject === "Mathematics");
-            return {
-                paperDetails: {
-                    ...paperRaw,
-                    questions: undefined,
-                },
-                Physics: this.groupAndSortBySection(physicsRaw),
-                Chemistry: this.groupAndSortBySection(chemistryRaw),
-                Mathematics: this.groupAndSortBySection(mathematicsRaw),
-            };
+                });
+                if (!paperRaw)
+                    return null;
+                const processedQuestions = paperRaw.questions.map((q) => {
+                    return this.formatQuestionRecord(q, true);
+                });
+                const physicsRaw = processedQuestions.filter((q) => q.subject === client_1.SubjectName.Physics || q.subject === "Physics");
+                const chemistryRaw = processedQuestions.filter((q) => q.subject === client_1.SubjectName.Chemistry || q.subject === "Chemistry");
+                const mathematicsRaw = processedQuestions.filter((q) => q.subject === client_1.SubjectName.Mathematics || q.subject === "Mathematics");
+                basePayload = {
+                    paperDetails: {
+                        ...paperRaw,
+                        questions: undefined,
+                    },
+                    Physics: this.groupAndSortBySection(physicsRaw),
+                    Chemistry: this.groupAndSortBySection(chemistryRaw),
+                    Mathematics: this.groupAndSortBySection(mathematicsRaw),
+                };
+                await questionRedisclient.setEx(redisKey, REDIS_CACHE_EXPIRATION, JSON.stringify(basePayload));
+            }
+            if (userId) {
+                const bookmarkedSet = await this.getBookmarkedQuestionIdsByPaper(userId, paperId);
+                const applyBookmarks = (sectionObj) => {
+                    const mapQuestions = (questions) => {
+                        return questions.map((q) => ({
+                            ...q,
+                            isBookmarked: bookmarkedSet.has(q.id),
+                        }));
+                    };
+                    return {
+                        MultiCorrect: mapQuestions(sectionObj.MultiCorrect || []),
+                        SingleCorrect: mapQuestions(sectionObj.SingleCorrect || []),
+                        Integer: mapQuestions(sectionObj.Integer || []),
+                    };
+                };
+                basePayload.Physics = applyBookmarks(basePayload.Physics);
+                basePayload.Chemistry = applyBookmarks(basePayload.Chemistry);
+                basePayload.Mathematics = applyBookmarks(basePayload.Mathematics);
+            }
+            return basePayload;
         }
         catch (error) {
             console.error("Error fetching raw paper questions:", error);

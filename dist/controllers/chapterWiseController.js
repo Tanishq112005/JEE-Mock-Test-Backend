@@ -15,6 +15,7 @@ const client_1 = require("@prisma/client");
 const chapter_db_1 = require("../repositories/chapter.db");
 const chapterWisePractice_db_1 = require("../repositories/chapterWisePractice.db");
 const encryption_1 = require("../utils/encryption");
+const redis_1 = require("../lib/redis");
 class ChapterWiseController {
     constructor() { }
     groupName = async (req, res) => {
@@ -24,7 +25,15 @@ class ChapterWiseController {
                 !Object.values(client_1.SubjectName).includes(subjectName)) {
                 return res.status(400).json(new ApiError_1.default("Invalid subject name"));
             }
+            const redisKey = redis_1.redisConfig.getRedisGroupName(subjectName);
+            const cachedGroups = await redis_1.questionRedisclient.get(redisKey);
+            if (cachedGroups) {
+                return res
+                    .status(200)
+                    .json(new ApiResponse_1.default(`Group Of the ${subjectName} are: `, (0, encryption_1.encryptPayload)(JSON.parse(cachedGroups))));
+            }
             const finalResponse = await chapter_db_1.chapter.gettingDetailedGroups(subjectName);
+            await redis_1.questionRedisclient.setEx(redisKey, redis_1.REDIS_CACHE_EXPIRATION, JSON.stringify(finalResponse));
             return res
                 .status(200)
                 .json(new ApiResponse_1.default(`Group Of the ${subjectName} are: `, (0, encryption_1.encryptPayload)(finalResponse)));
@@ -41,7 +50,15 @@ class ChapterWiseController {
             if (!groupName) {
                 return res.status(400).json(new ApiError_1.default("groupName is required"));
             }
+            const redisKey = redis_1.redisConfig.getRedisChaptersByGroup(groupName);
+            const cachedChapters = await redis_1.questionRedisclient.get(redisKey);
+            if (cachedChapters) {
+                return res
+                    .status(200)
+                    .json(new ApiResponse_1.default(`Chapters for group ${groupName}`, (0, encryption_1.encryptPayload)(JSON.parse(cachedChapters))));
+            }
             const chapters = await chapter_db_1.chapter.gettingChapter({ group: groupName });
+            await redis_1.questionRedisclient.setEx(redisKey, redis_1.REDIS_CACHE_EXPIRATION, JSON.stringify(chapters));
             return res
                 .status(200)
                 .json(new ApiResponse_1.default(`Chapters for group ${groupName}`, (0, encryption_1.encryptPayload)(chapters)));
@@ -59,13 +76,21 @@ class ChapterWiseController {
             if (!chapterName)
                 return res.status(400).json(new ApiError_1.default("ChapterName is required"));
             let chapterRecord;
-            try {
-                chapterRecord = await chapter_db_1.chapter.gettingChapterId(chapterName);
+            const redisKey = redis_1.redisConfig.getRedisChapterDataUsingChapterName(chapterName);
+            const cachedChapter = await redis_1.questionRedisclient.get(redisKey);
+            if (cachedChapter) {
+                chapterRecord = JSON.parse(cachedChapter);
             }
-            catch (err) {
-                return res
-                    .status(404)
-                    .json(new ApiError_1.default(`Chapter "${chapterName}" not found. Verify the chapter name.`, err));
+            else {
+                try {
+                    chapterRecord = await chapter_db_1.chapter.gettingChapterId(chapterName);
+                    await redis_1.questionRedisclient.setEx(redisKey, redis_1.REDIS_CACHE_EXPIRATION, JSON.stringify(chapterRecord));
+                }
+                catch (err) {
+                    return res
+                        .status(404)
+                        .json(new ApiError_1.default(`Chapter "${chapterName}" not found. Verify the chapter name.`, err));
+                }
             }
             const stats = await chapterWisePractice_db_1.chapterWisePractice.getChapterInfo(chapterRecord.id, userId);
             return res.status(200).json(new ApiResponse_1.default("Chapter Stats fetched", (0, encryption_1.encryptPayload)({

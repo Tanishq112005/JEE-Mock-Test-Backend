@@ -58,7 +58,18 @@ class ChapterWisePractice {
         });
     }
     async getChapterQuestionsWithStats(chapterId, studentId) {
-        const questionList = await question_db_1.question.getGlobalQuestionsWithSignedUrls({ chapterId }, studentId, false);
+        const { redisConfig, questionRedisclient, REDIS_CACHE_EXPIRATION } = await Promise.resolve().then(() => __importStar(require("../lib/redis")));
+        const redisKey = redisConfig.getRedisChapterDataUsingChapterId(chapterId);
+        let questionList = [];
+        const cachedQuestions = await questionRedisclient.get(redisKey);
+        if (cachedQuestions) {
+            questionList = JSON.parse(cachedQuestions);
+        }
+        else {
+            questionList = await question_db_1.question.getQuestionsWithSignedUrls(chapterId);
+            await questionRedisclient.setEx(redisKey, REDIS_CACHE_EXPIRATION, JSON.stringify(questionList));
+        }
+        const bookmarkedSet = await question_db_1.question.getBookmarkedQuestionIds(studentId, chapterId);
         questionList.sort((a, b) => {
             const yearA = a.papers?.year ?? 0;
             const yearB = b.papers?.year ?? 0;
@@ -77,6 +88,7 @@ class ChapterWisePractice {
             else
                 totalAdvancedQuestions++;
             const isAttemptedSuccessfully = attemptedSet.has(q.id);
+            const isBookmarked = bookmarkedSet.has(q.id);
             if (isAttemptedSuccessfully) {
                 if (isMains)
                     uniqueSolvedMain++;
@@ -86,6 +98,7 @@ class ChapterWisePractice {
             const { ...cleanQuestion } = q;
             return {
                 ...cleanQuestion,
+                isBookmarked,
                 attemptStatus: isAttemptedSuccessfully
                     ? "Successfully attempted"
                     : "Not successfully done",

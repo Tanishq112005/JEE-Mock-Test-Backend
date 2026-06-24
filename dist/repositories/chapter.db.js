@@ -6,10 +6,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.chapter = void 0;
 const database_1 = require("../lib/database");
 const ApiError_1 = __importDefault(require("../utils/ApiError"));
+const redis_1 = require("../lib/redis");
 class Chapter {
     db;
-    constructor(database) {
+    redisClient;
+    constructor(database, redisClient) {
         this.db = database;
+        this.redisClient = redisClient;
     }
     // ---------------- ADD CHAPTER ----------------
     addingChapter = async (payload) => {
@@ -119,27 +122,39 @@ class Chapter {
         }
     };
     gettingChapterId = async (chapterName) => {
-        // Case-insensitive lookup so "kinematics" matches "Kinematics" etc.
-        const chapterRecord = await this.db.chapters.findFirst({
-            where: { name: { equals: chapterName } },
-        });
-        if (!chapterRecord) {
+        // Case-insensitive lookup so "kinematics" matches "Kinematics" etc
+        const keyOfRedisOfChapter = redis_1.redisConfig.getRedisChapterDataUsingChapterName(chapterName);
+        let chapterData = await this.redisClient.get(keyOfRedisOfChapter);
+        if (!chapterData) {
+            console.log("Chapter is not found in the redis");
+            chapterData = await this.db.chapters.findFirst({
+                where: { name: { equals: chapterName } },
+            });
+        }
+        if (!chapterData) {
             throw new ApiError_1.default(`Chapter "${chapterName}" not found. Check the exact chapter name stored in the database.`);
         }
-        return chapterRecord;
+        await this.redisClient.set(keyOfRedisOfChapter, chapterData);
+        return chapterData;
     };
     gettingChapterDetails = async (chapterId) => {
         try {
-            const chapterDetails = await this.db.chapters.findFirst({
-                where: {
-                    id: chapterId
-                }
-            });
-            return chapterDetails;
+            const key = redis_1.redisConfig.getRedisChapterDataUsingChapterId(chapterId);
+            let chapterData = this.redisClient.get(key);
+            if (!chapterData) {
+                console.log("Chapter Data Is Not Found");
+                chapterData = await this.db.chapters.findFirst({
+                    where: {
+                        id: chapterId
+                    }
+                });
+            }
+            await this.redisClient.set(key, chapterData);
+            return chapterData;
         }
         catch (err) {
             throw err;
         }
     };
 }
-exports.chapter = new Chapter(database_1.database);
+exports.chapter = new Chapter(database_1.database, redis_1.questionRedisclient);
