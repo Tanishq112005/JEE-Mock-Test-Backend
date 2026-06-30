@@ -21,18 +21,37 @@ class PracticeQuestionEvaluationService {
     // ══════════════════════════════════════════
     async evaluate(input) {
         try {
-            const questionData = await this.db.questions.findUnique({
-                where: { id: input.questionId },
-                include: {
-                    subjects: true,
-                    chapters: true,
-                    papers: {
+            let questionData = null;
+            let retries = 3;
+            let lastError = null;
+            while (retries > 0 && !questionData) {
+                try {
+                    questionData = await this.db.questions.findUnique({
+                        where: { id: input.questionId },
                         include: {
-                            exam: true,
+                            subjects: true,
+                            chapters: true,
+                            papers: {
+                                include: {
+                                    exam: true,
+                                },
+                            },
                         },
-                    },
-                },
-            });
+                    });
+                    break; // Success
+                }
+                catch (error) {
+                    lastError = error;
+                    retries--;
+                    if (retries === 0)
+                        break;
+                    // Wait briefly before retrying
+                    await new Promise(res => setTimeout(res, 500));
+                }
+            }
+            if (!questionData && lastError) {
+                throw new Error(`Failed to fetch question after retries. Last error: ${lastError.message}`);
+            }
             if (!questionData)
                 throw new Error(`Question not found: ${input.questionId}`);
             const evaluator = new answerVerifyService_1.AnswerVerifyService();
