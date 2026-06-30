@@ -1,46 +1,32 @@
-import { PrismaMariaDb } from "@prisma/adapter-mariadb";
 import { PrismaClient } from "@prisma/client";
 import { DATABASE_URL, DATABASE_URL_PRODUCTION } from "../config/env";
 
-
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
-
-function createMariaDbAdapter() {
-  const connectionUrl = DATABASE_URL_PRODUCTION ;
-
-  if (!connectionUrl) {
-    throw new Error('Missing required environment variable: "DATABASE_URL_PRODUCTION" or "DATABASE_URL"');
-  }
-
-  const databaseUrl = new URL(connectionUrl);
-  const database = databaseUrl.pathname.replace(/^\//, "");
-
-  return new PrismaMariaDb({
-    host: databaseUrl.hostname,
-    port: databaseUrl.port ? Number(databaseUrl.port) : 3306,
-    user: decodeURIComponent(databaseUrl.username),
-    password: decodeURIComponent(databaseUrl.password),
-    database,
-     connectTimeout: 20000,
-    connectionLimit: Number(databaseUrl.searchParams.get("connection_limit") ?? 5),
-    ssl: databaseUrl.searchParams.has("sslaccept") ? true : undefined,
-  });
-}
 
 class Database {
   private static instance: PrismaClient | null = null;
 
   public static getClient(): PrismaClient {
-   
     if (this.instance) {
       return this.instance;
     }
 
-    this.instance = new PrismaClient({ adapter: createMariaDbAdapter() });
+    const connectionUrl = DATABASE_URL_PRODUCTION || DATABASE_URL;
+
+    if (!connectionUrl) {
+      throw new Error('Missing required environment variable: "DATABASE_URL_PRODUCTION" or "DATABASE_URL"');
+    }
+
+    // Use Prisma's native, highly-optimized connection pool instead of the MariaDB adapter
+    // This stops the connection pool from constantly dropping and recreating TCP connections,
+    // which was consuming ~38 RUs per second in TiDB Serverless due to connection initialization queries.
+    this.instance = new PrismaClient({
+      datasourceUrl: connectionUrl
+    });
+    
     return this.instance;
   }
 }
-
 
 export const database = globalForPrisma.prisma || Database.getClient();
 
