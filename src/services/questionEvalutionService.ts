@@ -62,42 +62,44 @@ class PracticeQuestionEvaluationService {
     input: PracticeAttemptInput,
   ) {
     try {
-      let questionData: any = null;
-      let retries = 3;
-      let lastError = null;
-
-      while (retries > 0 && !questionData) {
-        try {
-          questionData = await this.db.questions.findUnique({
-            where:   { id: input.questionId },
+      // Fetch question data without JSON columns to avoid TiDB adapter crash
+      const questionData = await this.db.questions.findUnique({
+        where: { id: input.questionId },
+        select: {
+          id: true,
+          type: true,
+          positiveMarks: true,
+          negativeMarks: true,
+          subjectId: true,
+          chapterId: true,
+          subjects: true,
+          chapters: true,
+          papers: {
             include: {
-              subjects: true,
-              chapters: true,
-              papers: {
-                include: {
-                  exam: true,
-                },
-              },
+              exam: true,
             },
-          });
-          break; // Success
-        } catch (error: any) {
-          lastError = error;
-          retries--;
-          if (retries === 0) break;
-          // Wait briefly before retrying
-          await new Promise(res => setTimeout(res, 500));
-        }
-      }
-
-      if (!questionData && lastError) {
-        throw new Error(`Failed to fetch question after retries. Last error: ${lastError.message}`);
-      }
+          },
+        },
+      });
 
       if (!questionData) throw new Error(`Question not found: ${input.questionId}`);
 
+      // Fetch correctAnswer using a raw query to bypass Prisma JSON serialization bug
+      const rawAns: any = await this.db.$queryRawUnsafe(
+        `SELECT CAST(correctAnswer AS CHAR) as correctAnswer FROM questions WHERE id = '${input.questionId}'`
+      );
+      
+      let parsedCorrectAnswer: string[] = [];
+      if (rawAns && rawAns.length > 0 && rawAns[0].correctAnswer) {
+        try {
+          parsedCorrectAnswer = JSON.parse(rawAns[0].correctAnswer);
+        } catch (e) {
+          console.error("Error parsing correctAnswer:", e);
+        }
+      }
+
       const evaluator      = new AnswerVerifyService();
-      const correctAnswer = this.toStringArray(questionData.correctAnswer);
+      const correctAnswer = this.toStringArray(parsedCorrectAnswer);
 
       const { verdict: rawVerdict, marks } = evaluator.questionResult(
         input.userAnswer,
