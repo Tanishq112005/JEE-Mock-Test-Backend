@@ -21,7 +21,7 @@ function createMariaDbAdapter() {
         connectTimeout: 20000,
         // Limit maximum concurrent connections
         connectionLimit: Number(databaseUrl.searchParams.get("connection_limit") ?? 5),
-        idleTimeout: 30000, // Gracefully close idle connections before TiDB forcibly drops them
+        idleTimeout: 30, // seconds
         ssl: databaseUrl.searchParams.has("sslaccept") ? true : undefined,
     });
 }
