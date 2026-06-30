@@ -1,21 +1,14 @@
 import { database as prisma } from "../lib/database";
 
-async function main() {
+async function checkQueries() {
   try {
-    const queries: any = await prisma.$queryRawUnsafe(`
-      SELECT 
-        DIGEST_TEXT, 
-        EXEC_COUNT, 
-        SUM_ERRORS, 
-        FIRST_SEEN, 
-        LAST_SEEN 
-      FROM 
-        information_schema.STATEMENTS_SUMMARY 
-      ORDER BY 
-        LAST_SEEN DESC 
-      LIMIT 10;
+    const res: any = await prisma.$queryRawUnsafe(`
+      SELECT digest_text, exec_count, sum_latency, avg_latency 
+      FROM information_schema.statements_summary 
+      ORDER BY exec_count DESC 
+      LIMIT 20;
     `);
-    console.log("Recent queries:", queries);
+    console.log("Top Queries by Exec Count:", res);
   } catch (err: any) {
     console.error("Error:", err);
   } finally {
@@ -23,4 +16,4 @@ async function main() {
   }
 }
 
-main();
+checkQueries();
