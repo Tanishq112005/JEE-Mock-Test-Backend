@@ -16,7 +16,7 @@ class Database {
         }
         // In Prisma 5.x and later, environment variables are loaded automatically from .env
         // We just instantiate PrismaClient directly. If we need to override the URL dynamically:
-        process.env.DATABASE_URL = connectionUrl;
+        process.env.DATABASE_URL_PRODUCTION = connectionUrl;
         this.instance = new client_1.PrismaClient();
         return this.instance;
     }
