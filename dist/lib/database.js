@@ -10,9 +10,22 @@ function createTiDbAdapter() {
     if (!connectionUrl) {
         throw new Error('Missing required environment variable: "DATABASE_URL_PRODUCTION" or "DATABASE_URL"');
     }
-    // Connect via HTTPS (Serverless Data API) instead of TCP.
-    // This completely eliminates idle connections and persistent pools!
-    return new prisma_adapter_1.PrismaTiDBCloud({ url: connectionUrl });
+    // This fetch interceptor prevents Prisma Engine from crashing on JSON columns.
+    // The TiDB Serverless API returns JSON columns with type="JSON", which causes
+    // the JS driver to parse them into objects. The Prisma Engine expects a string.
+    // By replacing "JSON" with "VARCHAR" in the response, we force the driver to 
+    // return a string, which Prisma Engine can safely accept and then parse itself!
+    const customFetch = async (url, options) => {
+        const res = await fetch(url, options);
+        let text = await res.text();
+        text = text.replace(/"type":"JSON"/g, '"type":"VARCHAR"');
+        return new Response(text, {
+            status: res.status,
+            statusText: res.statusText,
+            headers: res.headers,
+        });
+    };
+    return new prisma_adapter_1.PrismaTiDBCloud({ url: connectionUrl, fetch: customFetch });
 }
 class Database {
     static instance = null;

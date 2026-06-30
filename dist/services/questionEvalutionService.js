@@ -21,16 +21,10 @@ class PracticeQuestionEvaluationService {
     // ══════════════════════════════════════════
     async evaluate(input) {
         try {
-            // Fetch question data without JSON columns to avoid TiDB adapter crash
+            // Fetch question data (JSON bug is fixed globally via database interceptor)
             const questionData = await this.db.questions.findUnique({
                 where: { id: input.questionId },
-                select: {
-                    id: true,
-                    type: true,
-                    positiveMarks: true,
-                    negativeMarks: true,
-                    subjectId: true,
-                    chapterId: true,
+                include: {
                     subjects: true,
                     chapters: true,
                     papers: {
@@ -42,19 +36,8 @@ class PracticeQuestionEvaluationService {
             });
             if (!questionData)
                 throw new Error(`Question not found: ${input.questionId}`);
-            // Fetch correctAnswer using a raw query to bypass Prisma JSON serialization bug
-            const rawAns = await this.db.$queryRawUnsafe(`SELECT CAST(correctAnswer AS CHAR) as correctAnswer FROM questions WHERE id = '${input.questionId}'`);
-            let parsedCorrectAnswer = [];
-            if (rawAns && rawAns.length > 0 && rawAns[0].correctAnswer) {
-                try {
-                    parsedCorrectAnswer = JSON.parse(rawAns[0].correctAnswer);
-                }
-                catch (e) {
-                    console.error("Error parsing correctAnswer:", e);
-                }
-            }
             const evaluator = new answerVerifyService_1.AnswerVerifyService();
-            const correctAnswer = this.toStringArray(parsedCorrectAnswer);
+            const correctAnswer = this.toStringArray(questionData.correctAnswer);
             const { verdict: rawVerdict, marks } = evaluator.questionResult(input.userAnswer, correctAnswer, questionData.type, questionData.positiveMarks, questionData.negativeMarks);
             const verdict = rawVerdict;
             return {
