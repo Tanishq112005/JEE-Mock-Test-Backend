@@ -1,29 +1,18 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.database = void 0;
-const adapter_mariadb_1 = require("@prisma/adapter-mariadb");
+const prisma_adapter_1 = require("@tidbcloud/prisma-adapter");
 const client_1 = require("@prisma/client");
 const env_1 = require("../config/env");
 const globalForPrisma = globalThis;
-function createMariaDbAdapter() {
+function createTiDbAdapter() {
     const connectionUrl = env_1.DATABASE_URL_PRODUCTION || env_1.DATABASE_URL;
     if (!connectionUrl) {
         throw new Error('Missing required environment variable: "DATABASE_URL_PRODUCTION" or "DATABASE_URL"');
     }
-    const databaseUrl = new URL(connectionUrl);
-    const database = databaseUrl.pathname.replace(/^\//, "");
-    return new adapter_mariadb_1.PrismaMariaDb({
-        host: databaseUrl.hostname,
-        port: databaseUrl.port ? Number(databaseUrl.port) : 3306,
-        user: decodeURIComponent(databaseUrl.username),
-        password: decodeURIComponent(databaseUrl.password),
-        database,
-        connectTimeout: 20000,
-        // Limit maximum concurrent connections
-        connectionLimit: Number(databaseUrl.searchParams.get("connection_limit") ?? 5),
-        idleTimeout: 30, // seconds
-        ssl: databaseUrl.searchParams.has("sslaccept") ? true : undefined,
-    });
+    // Connect via HTTPS (Serverless Data API) instead of TCP.
+    // This completely eliminates idle connections and persistent pools!
+    return new prisma_adapter_1.PrismaTiDBCloud({ url: connectionUrl });
 }
 class Database {
     static instance = null;
@@ -31,7 +20,7 @@ class Database {
         if (this.instance) {
             return this.instance;
         }
-        this.instance = new client_1.PrismaClient({ adapter: createMariaDbAdapter() });
+        this.instance = new client_1.PrismaClient({ adapter: createTiDbAdapter() });
         return this.instance;
     }
 }
