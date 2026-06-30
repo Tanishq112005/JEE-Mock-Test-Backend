@@ -27,7 +27,7 @@ enum Day {
 enum NotificationTypes {
   TechnicalGlitch
   Update
-  Review 
+  Review
   VerificationEmail
   ForgotPassword
 }
@@ -47,13 +47,10 @@ enum Month {
   December
 }
 
-
 enum SendingPerson {
-  User 
-  Developer  
+  User
+  Developer
 }
-
-
 
 enum UserType {
   Student
@@ -141,13 +138,10 @@ enum Gender {
   Other
 }
 
-
 enum BannerType {
-   Maintenance
-   Announcement
+  Maintenance
+  Announcement
 }
-
-
 
 // ==========================================
 // 1. USER MANAGEMENT
@@ -257,12 +251,11 @@ model papers {
   totalDuration  Int?     @default(0)
   totalQuestions Int?     @default(0)
 
-  exam           exam                 @relation(fields: [examId], references: [id], onDelete: Cascade)
-  questions      questions[]
-  testSession    testStatus[]
-  globalStats    PaperGlobalStats?
+  exam        exam              @relation(fields: [examId], references: [id], onDelete: Cascade)
+  questions   questions[]
+  testSession testStatus[]
+  globalStats PaperGlobalStats?
 }
-
 
 // ==========================================
 // 4. QUESTIONS BANK 
@@ -302,8 +295,7 @@ model questions {
   bookmarkedBy        bookmarkedQuestion[]
   activeInTests       testStatus[]                       @relation("ActiveQuestion")
 
-
-  isProcessingDone  Boolean @default(false) 
+  isProcessingDone Boolean @default(false)
 }
 
 model options {
@@ -355,6 +347,7 @@ model testStatus {
   summary            TestAttemptSummary?
 
   @@unique([paperId, created_at])
+  @@index([status, updated_at])
 }
 
 model testQuestionAttemptStatus {
@@ -672,45 +665,36 @@ model bookmarkedQuestion {
   @@unique([studentId, questionId])
 }
 
-
-
 model Email {
   id    String @id @default(uuid())
   email String @unique
 }
 
-
-
 // ==========================================
 // 9. USERS'S NOTIFICATIONS 
 // ==========================================
 model userNotifications {
-  id            String         @id @default(uuid())
+  id            String            @id @default(uuid())
   content       String
   subject       String
   studentId     String
-  created_at    DateTime       @default(now())
+  created_at    DateTime          @default(now())
   sendingMedium Json
   from          SendingPerson
   to            SendingPerson
   type          NotificationTypes
-  user          studentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  user          studentProfile    @relation(fields: [studentId], references: [id], onDelete: Cascade)
 }
-
 
 // ==========================================
 // 10. Banner Module
 // ==========================================
 
 model banner {
-  id           String         @id  @default(uuid()) 
-  isbanner     Boolean     @default(false)
-  reason       String      
-  startTime    DateTime    
-  endTime      DateTime 
-  type         BannerType  
+  id        String     @id @default(uuid())
+  isbanner  Boolean    @default(false)
+  reason    String
+  startTime DateTime
+  endTime   DateTime
+  type      BannerType
 }
-
-
-
-
