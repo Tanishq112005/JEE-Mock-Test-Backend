@@ -16,9 +16,11 @@ class RedisConfig {
                 host: env_1.REDIS_HOST,
                 port: questionBitMapclientPort
             },
+            pingInterval: 1000 * 60 * 4, // 4 minutes
         });
         this.questionsClient = (0, redis_1.createClient)({
-            url: env_1.QUESTION_STORE_REDIS_URL
+            url: env_1.QUESTION_STORE_REDIS_URL,
+            pingInterval: 1000 * 60 * 4, // 4 minutes
         });
         this.questionBitMapclient.on("error", (err) => console.log("Questions Bit Map Redis Client Error:", err));
         this.questionBitMapclient.on("connect", () => console.log("Questions Bit Map Redis Connected Successfully"));

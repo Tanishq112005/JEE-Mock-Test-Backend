@@ -28,6 +28,7 @@ const user_1 = require("./routes/user");
 const bookMarked_1 = require("./routes/bookMarked");
 const notification_1 = require("./routes/notification");
 const banner_1 = require("./routes/banner");
+const email_db_1 = require("./repositories/email.db");
 const app = (0, express_1.default)();
 const port = env_1.PORT;
 // ==========================================
@@ -117,6 +118,7 @@ const startServer = async () => {
         // }
         await uniqueCountService_1.questionBitmapRegistry.load();
         // D. Start HTTP Server
+        await email_db_1.emailRepositories.sendingEmail();
         app.listen(port, () => {
             console.log(`   API Server is running on port ${port}`);
             console.log(`   - Search Engine: Ready`);

@@ -10,7 +10,9 @@ class RedisManager {
     // Common Connection Logic
     async connect(connectionData) {
         try {
-            let clientOptions = {};
+            let clientOptions = {
+                pingInterval: 1000 * 60 * 4 // 4 minutes
+            };
             if (connectionData.type === 2) {
                 clientOptions.url = connectionData.url;
             }

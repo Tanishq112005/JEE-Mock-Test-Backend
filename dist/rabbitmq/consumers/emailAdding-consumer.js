@@ -28,7 +28,7 @@ class EmailAddingConsumer {
                     return;
                 try {
                     const data = JSON.parse(msg.content.toString());
-                    console.log(`Processing Student Test Analytics Update for User: ${data.userId}`);
+                    console.log(`Processing Email addition for: ${data}`);
                     // --- ACTUAL WORKER LOGIC ---
                     await email_db_1.emailRepositories.adding(data);
                     // ---------------------------
