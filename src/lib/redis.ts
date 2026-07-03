@@ -23,11 +23,13 @@ class RedisConfig {
         host: REDIS_HOST,
         port: questionBitMapclientPort
       },
+      pingInterval: 1000 * 60 * 4, // 4 minutes
     });
    
     
     this.questionsClient = createClient({
-      url: QUESTION_STORE_REDIS_URL
+      url: QUESTION_STORE_REDIS_URL,
+      pingInterval: 1000 * 60 * 4, // 4 minutes
     });
    
 

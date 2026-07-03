@@ -7,7 +7,7 @@ import { questionParameters } from "../types/questions.types";
 import { questionService } from "../services/questionService";
 import { paper } from "../repositories/paper.db";
 import { encryptPayload } from "../utils/encryption";
-import { addingCorrectChapterName } from "../scripts/scriptAddingQuestion";
+
 export class QuestionController {
   constructor() {}
 
@@ -134,7 +134,7 @@ export class QuestionController {
     }
   };
 
-
+ /*
 
   public updatingQuestion = async(req : any , res : any) => {
     const { paperId } = req.body;
@@ -162,6 +162,8 @@ export class QuestionController {
         .json(new ApiError("Error in updating questions", err));
     }
 }
+    */
 }
+
 
 export const questionController = new QuestionController();

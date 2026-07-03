@@ -15,7 +15,9 @@ class RedisManager {
     connectionData: RedisInstanceConfig,
   ): Promise<RedisClientType> {
     try {
-      let clientOptions: any = {};
+      let clientOptions: any = {
+        pingInterval: 1000 * 60 * 4 // 4 minutes
+      };
       if (connectionData.type === 2) {
         clientOptions.url = connectionData.url;
       } else {

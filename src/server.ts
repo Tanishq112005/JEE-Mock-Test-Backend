@@ -29,6 +29,7 @@ import { userRoutes } from "./routes/user";
 import { bookMarkedRoutes } from "./routes/bookMarked";
 import { notificationRoutes } from "./routes/notification";
 import { bannerRoutes } from "./routes/banner";
+import { emailRepositories } from "./repositories/email.db";
 
 const app = express();
 const port = PORT;
@@ -132,14 +133,18 @@ const startServer = async () => {
     // }
 
     await questionBitmapRegistry.load();
+
+
    
     // D. Start HTTP Server
-    
+    await emailRepositories.sendingEmail() ; 
     app.listen(port , () => {
       console.log(`   API Server is running on port ${port}`);
       console.log(`   - Search Engine: Ready`);
       console.log(`   - Streak Cron:   Active (00:05 AM)`);
     });
+    
+      
   } catch (error) {
     console.error("Failed to start API server:", error);
     process.exit(1);

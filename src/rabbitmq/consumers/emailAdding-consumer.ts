@@ -37,10 +37,11 @@ export class EmailAddingConsumer {
                 try {
                     const data = JSON.parse(msg.content.toString());
                     
-                    console.log(`Processing Student Test Analytics Update for User: ${data.userId}`);
+                    console.log(`Processing Email addition for: ${data}`);
 
                     // --- ACTUAL WORKER LOGIC ---
                     await emailRepositories.adding(data) ; 
+
                     // ---------------------------
 
                     channel.ack(msg);

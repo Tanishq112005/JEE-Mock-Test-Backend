@@ -30,6 +30,7 @@ enum NotificationTypes {
   Review
   VerificationEmail
   ForgotPassword
+  Announcement
 }
 
 enum Month {
@@ -668,6 +669,7 @@ model bookmarkedQuestion {
 model Email {
   id    String @id @default(uuid())
   email String @unique
+  isEmailSended Boolean @default(false)
 }
 
 // ==========================================
@@ -675,8 +677,8 @@ model Email {
 // ==========================================
 model userNotifications {
   id            String            @id @default(uuid())
-  content       String
-  subject       String
+  content       String            @db.Text
+  subject       String 
   studentId     String
   created_at    DateTime          @default(now())
   sendingMedium Json
