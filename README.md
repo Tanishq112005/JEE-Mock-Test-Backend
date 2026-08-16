@@ -6,13 +6,6 @@
 
 ---
 
-## 🔒 Repository Notice
-**This repository is private** to protect proprietary question-bank infrastructure, exam-engine logic, and analytics pipelines. The codebase powers a live mock-test platform with an active beta user base.
-
-**Recruiters and collaborators:** I am happy to grant private repo access or walk you through the codebase on a call. Reach me at [tanishqjain1109@gmail.com](mailto:tanishqjain1109@gmail.com).
-
----
-
 ## 📊 Platform Stats
 | Metric | Value |
 |--------|-------|
@@ -47,29 +40,6 @@
 - **Review and Submission**: Auto-save of responses to prevent data loss mid-test. Detailed post-submission breakdown of answers.
 - **Detailed Analytics Section**: Chapterwise score visualization, accuracy trend charts, weak-area breakdowns, and per-session performance history.
 - **Solution Breakdown**: Full, step-by-step solutions available for every question attempted.
-
----
-
-## 📸 Features Overview & UI Screenshots
-
-### NTA Exam Interface Replica
-![NTA Exam Interface Replica (Light)](./images/Screenshot%202026-06-28%20151552.png)
-![NTA Exam Interface Replica (Dark)](./images/Screenshot%202026-06-28%20152126.png)
-
-### Custom Chapterwise Test Interface
-![Custom Chapterwise Test Interface](./images/Screenshot%202026-06-28%20151143.png)
-
-### Topic-wise and Chapterwise PYQ Practice
-![PYQ List Interface](./images/Screenshot%202026-06-28%20151157.png)
-
-### Performance Analytics Dashboard
-![Performance Analytics Dashboard](./images/Screenshot%202026-06-28%20151058.png)
-
-### Solution Breakdown View
-![Solution Breakdown View](./images/Screenshot%202026-06-28%20151206.png)
-
-### DashBoard
-![Dashboard](./images/Screenshot%202026-06-28%20151041.png)
 
 ---
 
