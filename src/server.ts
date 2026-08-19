@@ -32,7 +32,7 @@ import { bannerRoutes } from "./routes/banner";
 import { emailRepositories } from "./repositories/email.db";
 
 const app = express();
-const port = PORT;
+const port = PORT || 7860;
 
 // ==========================================
 // 1. MIDDLEWARES
@@ -138,7 +138,7 @@ const startServer = async () => {
    
     // D. Start HTTP Server
     await emailRepositories.sendingEmail() ; 
-    app.listen(port , () => {
+    app.listen(Number(port) , "0.0.0.0", () => {
       console.log(`   API Server is running on port ${port}`);
       console.log(`   - Search Engine: Ready`);
       console.log(`   - Streak Cron:   Active (00:05 AM)`);
