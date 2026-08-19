@@ -29,6 +29,9 @@ class RedisConfig {
     
     this.questionsClient = createClient({
       url: QUESTION_STORE_REDIS_URL,
+      socket: {
+        family: 4
+      },
       pingInterval: 1000 * 60 * 4, // 4 minutes
     });
    
