@@ -1,21 +1,24 @@
-FROM node:20 AS base  
+FROM node:22-bullseye-slim
 
 WORKDIR /app
 
+# Install OpenSSL for Prisma
+RUN apt-get update && apt-get install -y openssl
+
+# Copy package files
 COPY package*.json ./
 
-RUN npm  install 
+# Install dependencies
+RUN npm install
 
+# Copy all files
 COPY . .
 
-RUN DATABASE_URL="mysql://root:password@localhost:3306/dummy" npx prisma generate
+# Build the project (generates Prisma client and compiles TS to JS)
 RUN npm run build
 
-EXPOSE 3005
+# Expose port
+EXPOSE 7860
 
-FROM base AS dev
-CMD ["npm", "run", "start:dev"]
-
-
-FROM base AS prod 
-CMD ["npm" , "run" , "start:prod"] 
+# Start the API server
+CMD ["npm", "run", "start:prod"]

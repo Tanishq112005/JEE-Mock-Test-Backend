@@ -3,8 +3,7 @@ title: JEE Mock Test Backend
 emoji: 🚀
 colorFrom: blue
 colorTo: indigo
-sdk: gradio
-app_file: app.py
+sdk: docker
 pinned: false
 ---
 
