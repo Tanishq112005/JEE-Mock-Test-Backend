@@ -30,7 +30,7 @@ const notification_1 = require("./routes/notification");
 const banner_1 = require("./routes/banner");
 const email_db_1 = require("./repositories/email.db");
 const app = (0, express_1.default)();
-const port = env_1.PORT;
+const port = env_1.PORT || 7860;
 // ==========================================
 // 1. MIDDLEWARES
 // ==========================================
@@ -119,7 +119,7 @@ const startServer = async () => {
         await uniqueCountService_1.questionBitmapRegistry.load();
         // D. Start HTTP Server
         await email_db_1.emailRepositories.sendingEmail();
-        app.listen(port, () => {
+        app.listen(Number(port), "0.0.0.0", () => {
             console.log(`   API Server is running on port ${port}`);
             console.log(`   - Search Engine: Ready`);
             console.log(`   - Streak Cron:   Active (00:05 AM)`);
