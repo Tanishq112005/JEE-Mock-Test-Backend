@@ -8,7 +8,7 @@
   "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "tsc",
+    "build": "npx prisma generate && tsc",
     "prisma": "npx prisma generate",
     "start:prod": "node dist/server.js",
     "start:prod:worker:email": "node dist/worker/emailWorker.js",
