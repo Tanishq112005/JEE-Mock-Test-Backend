@@ -1,3 +1,13 @@
+---
+title: JEE Mock Test Backend
+emoji: 🚀
+colorFrom: blue
+colorTo: indigo
+sdk: gradio
+app_file: app.py
+pinned: false
+---
+
 # JEEArchive - Mock Test Platform Backend
 
 **A full-featured JEE mock test platform with a pixel-accurate NTA exam replica, a custom chapterwise test interface, topic-wise PYQ practice, full-length mocks, and detailed performance analytics with question-level solution breakdowns.**
