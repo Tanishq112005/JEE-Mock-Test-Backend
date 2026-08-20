@@ -19,12 +19,7 @@ class RedisConfig {
             pingInterval: 1000 * 60 * 4, // 4 minutes
         });
         this.questionsClient = (0, redis_1.createClient)({
-            username: env_1.QUESTION_STORE_REDIS_USERNAME,
-            password: env_1.QUESTION_STORE_REDIS_PASSWORD,
-            socket: {
-                host: env_1.QUESTION_STORE_REDIS_HOST,
-                port: parseInt(env_1.QUESTION_STORE_REDIS_PORT || '14877')
-            },
+            url: env_1.QUESTION_STORE_REDIS_URL,
             pingInterval: 1000 * 60 * 4, // 4 minutes
         });
         this.questionBitMapclient.on("error", (err) => console.log("Questions Bit Map Redis Client Error:", err));

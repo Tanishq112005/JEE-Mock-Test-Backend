@@ -4,11 +4,7 @@ import {
   REDIS_PASSWORD,
   REDIS_PORT,
   REDIS_USERNAME,
-  REDIS_CACHE_EXPIRATION_SECONDS,
-  QUESTION_STORE_REDIS_USERNAME,
-  QUESTION_STORE_REDIS_PASSWORD,
-  QUESTION_STORE_REDIS_HOST,
-  QUESTION_STORE_REDIS_PORT
+  REDIS_CACHE_EXPIRATION_SECONDS
 } from "../config/env";
 import { createClient, RedisClientType } from "redis";
 
@@ -32,12 +28,7 @@ class RedisConfig {
    
     
     this.questionsClient = createClient({
-      username: QUESTION_STORE_REDIS_USERNAME,
-      password: QUESTION_STORE_REDIS_PASSWORD,
-      socket: {
-        host: QUESTION_STORE_REDIS_HOST,
-        port: parseInt(QUESTION_STORE_REDIS_PORT || '14877')
-      },
+      url: QUESTION_STORE_REDIS_URL,
       pingInterval: 1000 * 60 * 4, // 4 minutes
     });
    
