@@ -8,8 +8,7 @@ RUN npm  install
 
 COPY . .
 
-RUN DATABASE_URL="mysql://root:password@localhost:3306/dummy" npx prisma generate
-RUN npm run build
+RUN DATABASE_URL="mysql://root:password@localhost:3306/dummy" DATABASE_URL_PRODUCTION="mysql://root:password@localhost:3306/dummy" npm run build
 
 EXPOSE 3005
 
