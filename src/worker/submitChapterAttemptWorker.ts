@@ -14,7 +14,7 @@ const startSubmitChapterWorker = async () => {
     // Initialise the Dashboard Redis ring so cacheService works in this worker process
     if (REDIS_HOST) {
       await redisManager.addDashboardInstances([
-        { host: REDIS_HOST as string, port: Number(REDIS_PORT), username: REDIS_USERNAME as string, password: REDIS_PASSWORD as string, email: '' } as any
+        { type: 2, url: REDIS_HOST as string, email: '' } as any
       ]);
     }
 

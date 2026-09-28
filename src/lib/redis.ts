@@ -17,13 +17,8 @@ class RedisConfig {
     const questionBitMapclientPort = parseInt(REDIS_PORT as string, 10) || 6379;
     
     this.questionBitMapclient = createClient({
-      username: REDIS_USERNAME,
-      password: REDIS_PASSWORD,
-      socket: {
-        host: REDIS_HOST,
-        port: questionBitMapclientPort
-      },
-      pingInterval: 1000 * 60 * 4, // 4 minutes
+       url :  REDIS_HOST , 
+       pingInterval : 1000*60*4 
     });
    
     

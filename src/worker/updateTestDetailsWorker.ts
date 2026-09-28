@@ -14,10 +14,10 @@ const startUpdateWorker = async () => {
 
         if (REDIS_HOST) {
             await redisManager.addDashboardInstances([
-                { host: REDIS_HOST as string, port: Number(REDIS_PORT), username: REDIS_USERNAME as string, password: REDIS_PASSWORD as string, email: '' } as any
+                { type: 2, url: REDIS_HOST as string, email: '' } as any
             ]);
             await redisManager.addAuthInstances([
-                { host: REDIS_HOST as string, port: Number(REDIS_PORT), username: REDIS_USERNAME as string, password: REDIS_PASSWORD as string, email: '' } as any
+                { type: 2, url: REDIS_HOST as string, email: '' } as any
             ]);
         }
 
