@@ -16,10 +16,10 @@ const testEvaluationWorker = async () => {
         // 2. Initialize Redis Rings
         if (env_2.REDIS_HOST) {
             await redisManager_1.default.addDashboardInstances([
-                { host: env_2.REDIS_HOST, port: Number(env_2.REDIS_PORT), username: env_2.REDIS_USERNAME, password: env_2.REDIS_PASSWORD, email: '' }
+                { type: 2, url: env_2.REDIS_HOST, email: '' }
             ]);
             await redisManager_1.default.addAuthInstances([
-                { host: env_2.REDIS_HOST, port: Number(env_2.REDIS_PORT), username: env_2.REDIS_USERNAME, password: env_2.REDIS_PASSWORD, email: '' }
+                { type: 2, url: env_2.REDIS_HOST, email: '' }
             ]);
         }
         // 3. Start the Consumer

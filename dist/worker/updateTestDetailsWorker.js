@@ -15,10 +15,10 @@ const startUpdateWorker = async () => {
         await rabbitmq_connection_1.rabbitMQClient.connect();
         if (env_2.REDIS_HOST) {
             await redisManager_1.default.addDashboardInstances([
-                { host: env_2.REDIS_HOST, port: Number(env_2.REDIS_PORT), username: env_2.REDIS_USERNAME, password: env_2.REDIS_PASSWORD, email: '' }
+                { type: 2, url: env_2.REDIS_HOST, email: '' }
             ]);
             await redisManager_1.default.addAuthInstances([
-                { host: env_2.REDIS_HOST, port: Number(env_2.REDIS_PORT), username: env_2.REDIS_USERNAME, password: env_2.REDIS_PASSWORD, email: '' }
+                { type: 2, url: env_2.REDIS_HOST, email: '' }
             ]);
         }
         const updateConsumer = new updateTestDetails_consumer_1.UpdateTestDetailsConsumer(rabbitmq_connection_1.rabbitMQClient);

@@ -16,7 +16,7 @@ const startSubmitChapterWorker = async () => {
         // Initialise the Dashboard Redis ring so cacheService works in this worker process
         if (env_1.REDIS_HOST) {
             await redisManager_1.default.addDashboardInstances([
-                { host: env_1.REDIS_HOST, port: Number(env_1.REDIS_PORT), username: env_1.REDIS_USERNAME, password: env_1.REDIS_PASSWORD, email: '' }
+                { type: 2, url: env_1.REDIS_HOST, email: '' }
             ]);
         }
         // Load the bitmap registry so questionBitmapRegistry.markAttempted() works
