@@ -1,4 +1,5 @@
 import { cacheService } from "../lib/caching";
+import redisManager from "../lib/redisManager";
 
 export interface CachedAttemptData {
   studentId?: string;
@@ -18,10 +19,10 @@ export interface CachedAttemptData {
   chapterId?: string | null;
   examName?: string | null;
   exam?: string | null;
-  timestamp?: number; // Added to track exact order
+  timestamp?: number;
 }
 
-const TTL_SECONDS = 60 * 60 * 24; // 24 hours
+const TTL_SECONDS = 60 * 60 * 24;
 
 class ChapterWiseCacheService {
   private getCacheKey(userId: string, questionId: string) {
@@ -29,7 +30,7 @@ class ChapterWiseCacheService {
   }
 
   private getActiveQuestionsSetKey(userId: string) {
-    return `${userId}:chapterWise:activeQuestions`;
+    return `${userId}:chapterWise:activeQuestionsSet`;
   }
 
   public async upsertAttemptData(
@@ -40,13 +41,9 @@ class ChapterWiseCacheService {
     const key = this.getCacheKey(userId, questionId);
     const setKey = this.getActiveQuestionsSetKey(userId);
 
-    let activeQuestions: string[] = (await cacheService.getCache(setKey)) || [];
-    if (!activeQuestions.includes(questionId)) {
-      activeQuestions.push(questionId);
-      await cacheService.setCache(setKey, activeQuestions);
-    }
+    const client = redisManager.getDashboardRedis(userId);
+    await client.sAdd(setKey, questionId);
 
-    // 👉 THE FIX: Fetch as array and push the new attempt
     let attemptsArray: CachedAttemptData[] = (await cacheService.getCache(key)) || [];
     
     attemptsArray.push({ ...data, timestamp: Date.now() });
@@ -56,7 +53,6 @@ class ChapterWiseCacheService {
 
   public async getAttemptData(userId: string, questionId: string): Promise<CachedAttemptData[]> {
     const key = this.getCacheKey(userId, questionId);
-    // 👉 THE FIX: Always return an array
     return (await cacheService.getCache(key)) || [];
   }
 
@@ -64,16 +60,17 @@ class ChapterWiseCacheService {
     const key = this.getCacheKey(userId, questionId);
     const setKey = this.getActiveQuestionsSetKey(userId);
 
-    let activeQuestions: string[] = (await cacheService.getCache(setKey)) || [];
-    activeQuestions = activeQuestions.filter((id) => id !== questionId);
-    await cacheService.setCache(setKey, activeQuestions);
+    const client = redisManager.getDashboardRedis(userId);
+    await client.sRem(setKey, questionId);
 
     await cacheService.deleteCache(key);
   }
 
   public async getAllActiveAttempts(userId: string) {
     const setKey = this.getActiveQuestionsSetKey(userId);
-    const activeQuestions: string[] = (await cacheService.getCache(setKey)) || [];
+    
+    const client = redisManager.getDashboardRedis(userId);
+    const activeQuestions: string[] = (await client.sMembers(setKey)) || [];
 
     const attempts: Record<string, CachedAttemptData[]> = {};
     for (const questionId of activeQuestions) {
