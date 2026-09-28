@@ -78,7 +78,7 @@ class AnalyticsController {
             const studentReport = await reportService.studentSnapshot(studentId);
 
             return res.status(200).json(
-                new ApiResponse("Student report generated", studentReport)
+                new ApiResponse("Student report generated", encryptPayload(studentReport))
             );
 
         } catch (err: any) {
